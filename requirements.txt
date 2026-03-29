@@ -1,0 +1,5 @@
+discord
+asyncio
+asyncpg
+redis
+dotenv
