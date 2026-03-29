@@ -9,14 +9,12 @@ services:
       - postgres
     environment:
       REDIS_HOST: redis
-      REDIS_PORT: 8060
+      REDIS_PORT: 6379
       POSTGRES_HOST: postgres
       POSTGRES_DB: appdb
       POSTGRES_USER: appuser
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "8060:8060"
 
   redis:
     image: redis:7-alpine
@@ -35,8 +33,6 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5363:5363"
 
 volumes:
   postgres_data:
