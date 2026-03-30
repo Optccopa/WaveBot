@@ -1,6 +1,11 @@
 import discord, traceback
 from discord.ext import commands
 
+def is_owner():
+    async def predicate(interaction):
+        return await interaction.client.is_owner(interaction.user)
+    return discord.app_commands.check(predicate)
+
 class ErrorHandler(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
