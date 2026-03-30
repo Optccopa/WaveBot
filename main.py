@@ -9,8 +9,12 @@ load_dotenv()
 
 class Bot(commands.AutoShardedBot):
     def __init__(self):
-        intents = discord.Intents.default()
-        intents.all = True
+        intents = discord.Intents(
+            guilds=True,
+            messages=True,
+            message_content=True,
+            members=True
+        )
 
         super().__init__(
             command_prefix="!",
