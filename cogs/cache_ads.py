@@ -12,7 +12,6 @@ class AdLooper(commands.Cog):
     async def on_ready(self):
         if not self.ad_loop.is_running():
             self.ad_loop.start()
-            await self.index_ads()  # run immediately
 
     @tasks.loop(seconds=1800)  # 30 minutes
     async def ad_loop(self):
