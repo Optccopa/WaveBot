@@ -9,12 +9,6 @@ load_dotenv()
 
 class Bot(commands.AutoShardedBot):
     def __init__(self):
-        intents = discord.Intents(
-            guilds=True,
-            messages=True,
-            message_content=True,
-            members=True
-        )
 
         super().__init__(
             command_prefix="!",
@@ -39,7 +33,7 @@ class Bot(commands.AutoShardedBot):
         self.db_pool = await asyncpg.create_pool(
             host="postgres",
             user="appuser",
-            password=os.getenv("DATABASE_PASSWORD"),
+            password="SuperSecretPass1235",
             database="appdb"
         )
 
