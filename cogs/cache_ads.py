@@ -12,28 +12,36 @@ class AdLooper(commands.Cog):
     async def on_ready(self):
         if not self.ad_loop.is_running():
             self.ad_loop.start()
-            self.index_ads # does when bot starts so it doesnt wait 30 mins till it has ads
+            await self.index_ads()  # run immediately
 
-    @tasks.loop(seconds=1800) # 30 minutes
+    @tasks.loop(seconds=1800)  # 30 minutes
     async def ad_loop(self):
-        self.index_ads
+        await self.index_ads()
 
     async def index_ads(self):
         for guild in self.bot.guilds:
             config = await self.bot.config.get(guild.id)
             if not config:
-                return
+                continue
+
             ad_channel = guild.get_channel(config.get("partner_channel"))
+            if not ad_channel:
+                print(f"Ad channel not found for {guild.name}")
+                continue
+
+            ad_message = None
 
             async for message in ad_channel.history(limit=10):
                 if LINK_REGEX.search(message.content):
                     ad_message = message.content
                     break
+
             if ad_message:
                 await self.redis.set(f"ads:{guild.id}", ad_message)
-                print(ad_message)
+                print(f"Cached ad for {guild.name}")
             else:
-                print(f"Log channel not found for {guild.name}")
+                print(f"No ad found for {guild.name}")
+
     @ad_loop.before_loop
     async def before_ad_loop(self):
         await self.bot.wait_until_ready()
