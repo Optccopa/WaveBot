@@ -86,10 +86,10 @@ class ErrorHandler(commands.Cog):
             color = None
             if value:
                 text = "".join(value)[-3500:]  # keep under embed limit
-                color = discord.Color.green()
+                color = discord.Color.red()
             else:
                 text = "No errors recorded."
-                color = discord.Color.red()
+                color = discord.Color.green()
 
             embed = discord.Embed(
                 title=f"Last {key.capitalize()} Error",
