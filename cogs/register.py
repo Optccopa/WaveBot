@@ -57,7 +57,7 @@ class Setup(commands.Cog):
         )
 
     @config.command(name="view", description="View server configuration")
-    @app_commands.check()
+    @app_commands.checks.has_permissions(manage_guild=True)
     async def viewconfig(self, interaction: discord.Interaction):
         config = await self.bot.config.get(interaction.guild.id)
 
