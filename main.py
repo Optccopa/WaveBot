@@ -56,6 +56,7 @@ class Bot(commands.AutoShardedBot):
                     ad_channel BIGINT,
                     member_role BIGINT,
                     partner_ping_role BIGINT,
+                    log_channel BIGINT,
                     premium BOOLEAN DEFAULT FALSE
                 );
             """)
