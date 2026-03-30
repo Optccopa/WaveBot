@@ -18,7 +18,12 @@ class Bot(commands.AutoShardedBot):
 
         super().__init__(
             command_prefix="!",
-            intents=intents
+            intents=discord.Intents(
+                guilds=True,
+                messages=True,
+                message_content=True,
+                members=True
+            )
         )
 
         self.db_pool = None
