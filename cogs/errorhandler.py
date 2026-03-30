@@ -2,7 +2,7 @@ import discord, traceback
 from discord.ext import commands
 
 def is_owner():
-    async def predicate(interaction):
+    async def predicate(interaction) -> bool:
         return await interaction.client.is_owner(interaction.user)
     return discord.app_commands.check(predicate)
 
@@ -84,7 +84,7 @@ class ErrorHandler(commands.Cog):
         traceback.print_exc()
 
     @discord.app_commands.command(name="error", description="Pull the most recent bot error from errorhandlers")
-    @discord.app_commands.checks.is_owner()
+    @is_owner()
     async def lasterror(self, interaction: discord.Interaction):
         embeds = []
 
