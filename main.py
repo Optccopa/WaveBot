@@ -60,6 +60,10 @@ class Bot(commands.AutoShardedBot):
                     premium BOOLEAN DEFAULT FALSE
                 );
             """)
+            await conn.execute("""
+                ALTER TABLE guild_config
+                ADD COLUMN IF NOT EXISTS log_channel BIGINT;
+                """)
 
         # init config manager
         self.config = ConfigManager(self.db_pool, self.redis)
