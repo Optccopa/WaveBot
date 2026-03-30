@@ -8,12 +8,10 @@ class ConfigManager:
     async def get(self, guild_id: int):
         key = f"config:{guild_id}"
 
-        # 1. Try Redis
         cached = await self.redis.get(key)
         if cached:
             return json.loads(cached)
 
-        # 2. Fallback to Postgres
         async with self.db.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT * FROM guild_config WHERE guild_id = $1",
@@ -25,13 +23,11 @@ class ConfigManager:
 
         data = dict(row)
 
-        # 3. Store in Redis
         await self.redis.set(key, json.dumps(data))
 
         return data
 
     async def set(self, guild_id: int, **fields):
-        # Build dynamic query
         columns = ", ".join(f"{k} = ${i+2}" for i, k in enumerate(fields))
         values = list(fields.values())
 
@@ -47,7 +43,6 @@ class ConfigManager:
                 *values
             )
 
-        # Update Redis
         key = f"config:{guild_id}"
         config = await self.get(guild_id) or {}
         config.update(fields)
