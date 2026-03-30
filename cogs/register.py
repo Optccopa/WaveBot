@@ -18,11 +18,12 @@ class Setup(commands.Cog):
         interaction: discord.Interaction,
         partner_channel: discord.TextChannel | None = None,
         ad_channel: discord.TextChannel | None = None,
+        log_channel: discord.TextChannel | None = None,
         member_role: discord.Role | None = None,
         partner_ping_role: discord.Role | None = None
     ):
 
-        if not any([partner_channel, ad_channel, member_role, partner_ping_role]):
+        if not any([partner_channel, ad_channel, member_role, partner_ping_role, log_channel]):
             return await interaction.response.send_message(
                 "Set at least one config element to set",
                 ephemeral=True
@@ -35,6 +36,9 @@ class Setup(commands.Cog):
 
         if ad_channel:
             fields["ad_channel"] = ad_channel.id
+
+        if log_channel:
+            fields["log_channel"] = log_channel.id
 
         if member_role:
             fields["member_role"] = member_role.id
@@ -67,6 +71,7 @@ class Setup(commands.Cog):
 
         partner_channel = guild.get_channel(config.get("partner_channel"))
         ad_channel = guild.get_channel(config.get("ad_channel"))
+        log_channel = guild.get_channel(config.get("log_channel"))
         member_role = guild.get_role(config.get("member_role"))
         partner_ping_role = guild.get_role(config.get("partner_ping_role"))
         premium = config.get("premium", False)
@@ -84,6 +89,11 @@ class Setup(commands.Cog):
         embed.add_field(
             name="Ad Channel",
             value=ad_channel.mention if ad_channel else "Not set",
+            inline=False
+        )
+        embed.add_field(
+            name="Log Channel",
+            value=log_channel.mention if log_channel else "Not set",
             inline=False
         )
         embed.add_field(
