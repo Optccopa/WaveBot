@@ -31,10 +31,10 @@ class Bot(commands.AutoShardedBot):
         )
 
         self.db_pool = await asyncpg.create_pool(
-            host="postgres",
-            user="appuser",
-            password="SuperSecretPass1235",
-            database="appdb"
+            host=os.getenv("POSTGRES_HOST", "postgres"),
+            user=os.getenv("POSTGRES_USER", "appuser"),
+            password=os.getenv("POSTGRES_PASSWORD"),
+            database=os.getenv("POSTGRES_DB", "appdb")
         )
 
         # load cogs
