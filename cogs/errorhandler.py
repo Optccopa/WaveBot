@@ -1,0 +1,105 @@
+import discord, traceback
+from discord.ext import commands
+
+class ErrorHandler(commands.Cog):
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+        self.last_errors = {
+            "slash": None,
+            "prefix": None,
+            "event": None
+        }
+
+    # Slash commands
+    @commands.Cog.listener()
+    async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        self.last_errors["slash"] = traceback.format_exception(
+            type(error), error, error.__traceback__
+        )
+
+        if isinstance(error, discord.app_commands.MissingPermissions):
+            msg = "You don't have permission to use this command."
+
+        elif isinstance(error, discord.app_commands.CommandOnCooldown):
+            msg = f"Try again in {error.retry_after:.1f}s."
+
+        else:
+            print("App command error:", repr(error))
+            msg = "An unexpected error occurred, if this issue persists please contact support."
+
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
+        else:
+            await interaction.response.send_message(msg, ephemeral=True)
+
+    # Prefix commands
+    @commands.Cog.listener()
+    async def on_command_error(self, ctx: commands.Context, error: Exception):
+
+        if isinstance(error, commands.CommandInvokeError):
+            error = error.original
+        
+        if isinstance(error, commands.CommandNotFound):
+            return
+        
+        if isinstance(error, commands.BadArgument):
+            await ctx.send("Incorrect command arguments, try running them in a different order", delete_after=3)
+            return
+        
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send("Missing command arguments, maybe you forgot a space", delete_after=3)
+            return
+        
+        if isinstance(error, commands.MissingPermissions):
+            await ctx.send("You don't have permission to use this command", delete_after=3)
+            return
+        
+        if isinstance(error, commands.CommandOnCooldown):
+            await ctx.send(f"Try again in {error.retry_after:.1f}s.", delete_after=3)
+            return
+        
+        self.last_errors["prefix"] = traceback.format_exception(
+            type(error), error, error.__traceback__
+        )
+        
+        if isinstance(error, commands.BotMissingPermissions):
+            await ctx.send("I don't have the required permissions, please contact support", delete_after=3)
+            print("Incorrect permissions set")
+            return
+        
+        print("Prefix command error:", repr(error))
+
+        await ctx.send("An unexpected error occurred, if this issue persists please contact support", delete_after=3)
+
+    # Events
+    @commands.Cog.listener()
+    async def on_error(self, event, *args, **kwargs):
+        self.last_errors["event"] = traceback.format_exc()
+        print(f"\nError in event: {event}")
+        traceback.print_exc()
+
+    @discord.app_commands.command(name="error", description="Pull the most recent bot error from errorhandlers")
+    async def lasterror(self, interaction: discord.Interaction):
+        embeds = []
+
+        for key, value in self.last_errors.items():
+            color = None
+            if value:
+                text = "".join(value)[-3500:]  # keep under embed limit
+                color = discord.Color.green()
+            else:
+                text = "No errors recorded."
+                color = discord.Color.red()
+
+            embed = discord.Embed(
+                title=f"Last {key.capitalize()} Error",
+                description=f"```py\n{text}\n```",
+                color=color
+            )
+
+            embeds.append(embed)
+
+        await interaction.response.send_message(embeds=embeds)
+
+async def setup(bot: commands.Bot):
+    await bot.add_cog(ErrorHandler(bot))
