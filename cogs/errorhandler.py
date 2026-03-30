@@ -99,7 +99,7 @@ class ErrorHandler(commands.Cog):
 
             embeds.append(embed)
 
-        await interaction.response.send_message(embeds=embeds)
+        await interaction.response.send_message(embeds=embeds, ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ErrorHandler(bot))
