@@ -2,6 +2,7 @@ import discord, os, asyncio, asyncpg
 from redis.asyncio import Redis
 from discord.ext import commands
 from dotenv import load_dotenv
+from configmanager import ConfigManager
 from utils import *
 
 load_dotenv()
@@ -46,6 +47,21 @@ class Bot(commands.AutoShardedBot):
                         await self.load_extension(ext)
                     except Exception as e:
                         print(f"Failed to load {ext}: {e}")
+        # create table
+        async with self.db_pool.acquire() as conn:
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS guild_config (
+                    guild_id BIGINT PRIMARY KEY,
+                    partner_channel BIGINT,
+                    ad_channel BIGINT,
+                    member_role BIGINT,
+                    partner_ping_role BIGINT,
+                    premium BOOLEAN DEFAULT FALSE
+                );
+            """)
+
+        # init config manager
+        self.config = ConfigManager(self.db_pool, self.redis)
 
     async def start_with_retries(self):
         retries = 3
