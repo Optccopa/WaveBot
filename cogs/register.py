@@ -13,6 +13,13 @@ class Setup(commands.Cog):
 
     @config.command(name="set", description="Configure this bot")
     @app_commands.checks.has_permissions(manage_guild=True)
+    @app_commands.describe(
+        partner_channel="Channel to send partners",
+        ad_channel="The channel with your ad, uses a recent message with a link.",
+        log_channel="Channel for WaveBot to send messages / warnings, set this to a private channel",
+        member_role=r"A role assigned to > 95% of users in your server", # raw for %
+        partner_ping_role=r"A role pinged only for partners, must be assigned to > 10% of users in your server"
+    )
     async def setconfig(
         self,
         interaction: discord.Interaction,
