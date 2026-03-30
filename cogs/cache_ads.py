@@ -1,5 +1,5 @@
 from discord.ext import tasks, commands
-import discord, re
+import re
 
 LINK_REGEX = re.compile(r"https?://\S+")
 
