@@ -79,6 +79,7 @@ class ErrorHandler(commands.Cog):
         traceback.print_exc()
 
     @discord.app_commands.command(name="error", description="Pull the most recent bot error from errorhandlers")
+    @discord.app_commands.checks.is_owner()
     async def lasterror(self, interaction: discord.Interaction):
         embeds = []
 
