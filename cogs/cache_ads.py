@@ -23,7 +23,7 @@ class AdLooper(commands.Cog):
             if not config:
                 continue
 
-            ad_channel = guild.get_channel(config.get("partner_channel"))
+            ad_channel = guild.get_channel(config.get("ad_channel"))
             if not ad_channel:
                 print(f"Ad channel not found for {guild.name}")
                 continue
