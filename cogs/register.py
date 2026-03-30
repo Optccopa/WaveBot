@@ -17,7 +17,7 @@ class Setup(commands.Cog):
         partner_channel="Channel to send partners",
         ad_channel="The channel with your ad, uses a recent message with a link.",
         log_channel="Channel for WaveBot to send messages / warnings, set this to a private channel",
-        member_role=r"A role assigned to > 95% of users in your server", # raw for %
+        member_role=r"A role assigned to > 95% of users in your server",
         partner_ping_role=r"A role pinged only for partners, must be assigned to > 10% of users in your server"
     )
     async def setconfig(
@@ -59,7 +59,7 @@ class Setup(commands.Cog):
         )
 
         await interaction.response.send_message(
-            "Configuration updated",
+            f"Configuration updated, Validity is checked at runtime so Watch {log_channel.mention if log_channel else '<Set a log channel>'} for info on any issues",
             ephemeral=True
         )
 
