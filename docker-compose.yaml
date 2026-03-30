@@ -9,6 +9,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_DB: appdb
       POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: SuperSecretPass1235
 
   redis:
     image: redis:7-alpine
