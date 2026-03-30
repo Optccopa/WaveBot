@@ -18,7 +18,7 @@ class Setup(commands.Cog):
         ad_channel="The channel with your ad, uses a recent message with a link.",
         log_channel="Channel for WaveBot to send messages / warnings, set this to a private channel",
         member_role=r"A role assigned to > 95% of users in your server",
-        partner_ping_role=r"A role pinged only for partners, must be assigned to > 10% of users in your server"
+        partner_ping_role=r"A role pinged only for partners, must be assigned to > 8% of users in your server"
     )
     async def setconfig(
         self,
@@ -57,9 +57,11 @@ class Setup(commands.Cog):
             interaction.guild.id,
             **fields
         )
+        config = await self.bot.config.get(interaction.guild.id)
+        channel = interaction.guild.get_channel(config.get('log_channel'))
 
         await interaction.response.send_message(
-            f"Configuration updated, Validity is checked at runtime so Watch {log_channel.mention if log_channel else '<Set a log channel>'} for info on any issues",
+            f"Configuration updated, Validity is checked at runtime so Watch {channel.mention} for info on any issues",
             ephemeral=True
         )
 
