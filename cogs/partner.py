@@ -55,22 +55,22 @@ class Parter(commands.Cog):
 
         r = get_req(len(guild1.members), len(guild2.members))
 
-        ad1 = f"{self.redis.get(f"ads:{server1_id}")}\n\n{r['server_a']}"
-        ad2 = f"{self.redis.get(f"ads:{server2_id}")}\n\n{r['server_b']}"
+        ad1 = f"{self.redis.get(f'ads:{server1_id}')}\n\n{r['server_a']}"
+        ad2 = f"{self.redis.get(f'ads:{server2_id}')}\n\n{r['server_b']}"
 
         await channel1.send(ad2)
-        await channel1.send(ad1)
+        await channel2.send(ad1)
 
         return channel1, channel2
     
     partnerGroup = app_commands.Group(
-        name="Partner command group",
+        name="partner",
         description="Group of partner commands"
     )
     
     @partnerGroup.command(name="force")
     async def forcepartner(self, interaction: discord.Interaction, server_id_1: int, server_id_2: int):
-        channel1, channel2, _t = await self.partner(server_id_1, server_id_2)
+        channel1, channel2 = await self.partner(server_id_1, server_id_2)
         await interaction.response.send_message(f"Send partner with respective pings, {channel1.mention} | {channel2.mention}")
 
 async def setup(bot: commands.Bot):
