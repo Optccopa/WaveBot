@@ -39,19 +39,28 @@ class Parter(commands.Cog):
         self.bot = bot
         self.redis = bot.redis
     
-    async def partner(self, server1_id: int, server2_id: int, ping: bool = True):
+    async def partner(self, server1_id: int, server2_id: int):
 
         config1 = await self.bot.config.get(server1_id)
         config2 = await self.bot.config.get(server2_id)
 
         if not config1 or not config2:
+            print("Config missing")
             return "Config missing"
         
         guild1 = self.bot.get_guild(server1_id)
         guild2 = self.bot.get_guild(server2_id)
 
+        if not guild1 or not guild2:
+            print("One or both guilds are missing")
+            return "One or both guilds are missing"
+
         channel1 = guild1.get_channel(config1.get("partner_channel"))
         channel2 = guild2.get_channel(config2.get("partner_channel"))
+
+        if not channel1 or not channel2:
+            print("One or both channels are missing")
+            return "One or both channels are missing"
 
         r = get_req(len(guild1.members), len(guild2.members))
 
