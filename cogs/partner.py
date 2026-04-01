@@ -62,7 +62,7 @@ class Parter(commands.Cog):
             print("One or both channels are missing")
             return "One or both channels are missing"
 
-        r = get_req(len(guild1.members), len(guild2.members))
+        r = get_req(guild1.member_count, guild1.member_count)
 
         raw_ad1 = await self.redis.get(f'ads:{server1_id}')
         raw_ad2 = await self.redis.get(f'ads:{server2_id}')
