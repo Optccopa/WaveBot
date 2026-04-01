@@ -34,7 +34,7 @@ def get_req(count_a: int, count_b: int) -> dict:
                 "host": "server_a" if a_is_host else "server_b",
             }
 
-class Parter(commands.Cog):
+class Partner(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.redis = bot.redis
@@ -64,8 +64,8 @@ class Parter(commands.Cog):
 
         r = get_req(guild1.member_count, guild1.member_count)
 
-        raw_ad1 = await self.redis.get(f'ads:{server1_id}')
-        raw_ad2 = await self.redis.get(f'ads:{server2_id}')
+        raw_ad1 = await self.redis.get(f'ads:{server1_id}') or ""
+        raw_ad2 = await self.redis.get(f'ads:{server2_id}') or ""
         ad1 = f"{raw_ad1}\n\n{r['server_a']}"
         ad2 = f"{raw_ad2}\n\n{r['server_b']}"
 
@@ -85,4 +85,4 @@ class Parter(commands.Cog):
         await interaction.response.send_message(f"Send partner with respective pings, {channel1.mention} | {channel2.mention}")
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(Parter(bot))
+    await bot.add_cog(Partner(bot))
