@@ -66,8 +66,8 @@ class Partner(commands.Cog):
 
         raw_ad1 = await self.redis.get(f'ads:{server1_id}') or ""
         raw_ad2 = await self.redis.get(f'ads:{server2_id}') or ""
-        ad1 = f"{raw_ad1}\n\n{r['server_a']}"
-        ad2 = f"{raw_ad2}\n\n{r['server_b']}"
+        ad1 = f"{raw_ad1}\n\n{r['server_b']}"
+        ad2 = f"{raw_ad2}\n\n{r['server_a']}"
 
         await channel1.send(ad2)
         await channel2.send(ad1)
