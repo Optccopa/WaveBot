@@ -82,7 +82,7 @@ class Partner(commands.Cog):
     @partnerGroup.command(name="force")
     async def forcepartner(self, interaction: discord.Interaction, server_id_1: str, server_id_2: str):
         channel1, channel2 = await self.partner(int(server_id_1), int(server_id_2))
-        await interaction.response.send_message(f"Send partner with respective pings, {channel1.mention} | {channel2.mention}")
+        await interaction.response.send_message(f"Send partner with respective pings, {channel1.mention} | {channel2.mention}", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Partner(bot))
