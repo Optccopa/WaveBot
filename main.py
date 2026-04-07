@@ -60,10 +60,6 @@ class Bot(commands.AutoShardedBot):
                     premium BOOLEAN DEFAULT FALSE
                 );
             """)
-            await conn.execute("""
-                ALTER TABLE guild_config
-                ADD COLUMN IF NOT EXISTS log_channel BIGINT;
-                """)
 
         # init config manager
         self.config = ConfigManager(self.db_pool, self.redis)
@@ -95,16 +91,17 @@ class Bot(commands.AutoShardedBot):
         )
 
     async def on_shard_ready(self, shard_id: int):
+        await self.bot.change_presence(
+            shard_id=shard_id,
+            activity=discord.Game(name=f"Shard {shard_id + 1}/{self.bot.shard_count}")
+        )
         print(f"Shard {shard_id} ready")
 
-
 bot = Bot()
-
 
 async def main():
     async with bot:
         await bot.start_with_retries()
-
 
 if __name__ == "__main__":
     asyncio.run(main())
