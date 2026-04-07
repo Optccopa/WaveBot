@@ -14,19 +14,19 @@ def get_req(count_a: int, count_b: int) -> dict:
     scale = host / REF
 
     tiers = [
-        (round(400 * scale), "none", "member"),
-        (round(800 * scale), "partner", "member"),
-        (round(1700 * scale), "here", "member"),
-        (round(2000 * scale), "partnerhere", "member"),
-        (float("inf"), "member", "member")
+        (round(400 * scale), "none"),
+        (round(800 * scale), "partner"),
+        (round(1700 * scale), "here"),
+        (round(2000 * scale), "partnerhere"),
+        (float("inf"), "member")
     ]
 
-    for ceiling, host_ping, guest_ping in tiers:
+    for ceiling, host_ping in tiers:
         if guest <= ceiling:
             if a_is_host:
-                ping_a, ping_b = host_ping, guest_ping
+                ping_a, ping_b = host_ping, "member"
             else:
-                ping_a, ping_b = guest_ping, host_ping
+                ping_a, ping_b = "member", host_ping
 
             return {
                 "server_a": ping_a,
