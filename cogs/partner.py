@@ -128,7 +128,7 @@ class Partner(commands.Cog):
             if guild.id in blacklisted_ids:
                 print(f"[loop] skipping {guild.id} (blacklisted)")
                 continue
-            config = self.bot.config.get(guild.id)
+            config = await self.bot.config.get(guild.id)
             if not config:
                 print(f"[loop] skipping {guild.id} (no config)")
                 continue
