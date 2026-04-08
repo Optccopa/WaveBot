@@ -72,8 +72,8 @@ class Partner(commands.Cog):
     async def partner(self, server1_id: int, server2_id: int):
         print(f"[partner] attempting {server1_id} <-> {server2_id}")
 
-        config1 = self.bot.config.get(server1_id)
-        config2 = self.bot.config.get(server2_id)
+        config1 = await self.bot.config.get(server1_id)
+        config2 = await self.bot.config.get(server2_id)
         if not config1 or not config2:
             print(f"[partner] missing config: {server1_id if not config1 else server2_id}")
             return None, None
