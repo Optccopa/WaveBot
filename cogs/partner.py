@@ -18,17 +18,17 @@ def get_req(count_a: int, count_b: int) -> dict:
         (round(2000 * scale), "partnerhere"),
         (float("inf"), "member")
     ]
+    ping_a, ping_b = "none", "none"
+
     for ceiling, host_ping in tiers:
         if guest <= ceiling:
             if a_is_host:
                 ping_a, ping_b = host_ping, "member"
             else:
                 ping_a, ping_b = "member", host_ping
-            return {
-                "server_a": ping_a,
-                "server_b": ping_b,
-                "host": "server_a" if a_is_host else "server_b",
-            }
+            break
+
+    return {"server_a": ping_a, "server_b": ping_b, "host": "server_a" if a_is_host else "server_b"}
 
 class Partner(commands.Cog):
     def __init__(self, bot):
@@ -136,11 +136,15 @@ class Partner(commands.Cog):
             ad_channel = guild.get_channel(config.get("ad_channel"))
             member_role = guild.get_role(config.get("member_role"))
             partner_ping_role = guild.get_role(config.get("partner_ping_role"))
-            if all([partner_channel, ad_channel, member_role, partner_ping_role]):
-                available.append((guild.id, guild.member_count))
-            else:
+            if not all([partner_channel, ad_channel, member_role, partner_ping_role]):
                 missing = [k for k, v in {"partner_channel": partner_channel, "ad_channel": ad_channel, "member_role": member_role, "partner_ping_role": partner_ping_role}.items() if not v]
                 print(f"[loop] skipping {guild.id} (missing: {', '.join(missing)})")
+                continue
+            ad = await self.redis.get(f"ads:{guild.id}")
+            if not ad:
+                print(f"[loop] skipping {guild.id} (no ad in redis)")
+                continue
+            available.append((guild.id, guild.member_count))
 
         print(f"[loop] {len(available)} servers available for matching")
         pairs = await self.match_servers(available)
