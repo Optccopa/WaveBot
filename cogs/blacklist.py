@@ -12,7 +12,7 @@ class Blacklists(commands.Cog):
         self.bot = bot
         self.db_pool = bot.db_pool
 
-    blacklist = app_commands.Group(name="blacklist", description="")
+    blacklist = app_commands.Group(name="blacklist", description="Server blacklist management")
 
     @blacklist.command(name="add", description="Blacklist a server")
     @is_owner()
