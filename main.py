@@ -59,6 +59,11 @@ class Bot(commands.AutoShardedBot):
                     log_channel BIGINT,
                     premium BOOLEAN DEFAULT FALSE
                 );
+                CREATE TABLE IF NOT EXISTS blacklists (
+                    guild_id BIGINT PRIMARY KEY,
+                    reason TEXT NOT NULL,
+                    added_by BIGINT NOT NULL
+                );
             """)
 
         # init config manager
