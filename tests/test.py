@@ -30,8 +30,8 @@ def get_req(count_a: int, count_b: int) -> dict:
                 "host": "server_a" if a_is_host else "server_b",
             }
         
-SERVER_A = 650
-SERVER_B = 2200
+SERVER_A = 1500
+SERVER_B = 8000
 
 r = get_req(SERVER_A, SERVER_B)
 print(f"{r['server_a']}\n{r['server_b']}\n{r['host']}")
