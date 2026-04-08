@@ -117,6 +117,10 @@ class Partner(commands.Cog):
 
     @tasks.loop(seconds=21600)
     async def partner_loop(self):
+        if await self.redis.exists("last_partner_run"):
+            print("[loop] skipping, last run was less than 3 hours ago")
+            return
+        await self.redis.set("last_partner_run", 1, ex=10800)
         print("[loop] partner loop tick")
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch("SELECT guild_id FROM blacklists")
