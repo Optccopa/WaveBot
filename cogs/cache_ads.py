@@ -18,28 +18,30 @@ class AdLooper(commands.Cog):
         await self.index_ads()
 
     async def index_ads(self):
-        for guild in self.bot.guilds:
-            config = await self.bot.config.get(guild.id)
-            if not config:
-                continue
+        async with self.redis.pipeline() as pipeline:
+            for guild in self.bot.guilds:
+                config = await self.bot.config.get(guild.id)
+                if not config:
+                    continue
 
-            ad_channel = guild.get_channel(config.get("ad_channel"))
-            if not ad_channel:
-                print(f"Ad channel not found for {guild.name}")
-                continue
+                ad_channel = guild.get_channel(config.get("ad_channel"))
+                if not ad_channel:
+                    print(f"Ad channel not found for {guild.name}")
+                    continue
 
-            ad_message = None
+                ad_message = None
 
-            async for message in ad_channel.history(limit=10):
-                if LINK_REGEX.search(message.content):
-                    ad_message = message.content
-                    break
+                async for message in ad_channel.history(limit=10):
+                    if LINK_REGEX.search(message.content):
+                        ad_message = message.content
+                        break
 
-            if ad_message:
-                await self.redis.set(f"ads:{guild.id}", ad_message)
-                print(f"Cached ad for {guild.name}")
-            else:
-                print(f"No ad found for {guild.name}")
+                if ad_message:
+                    await pipeline.set(f"ads:{guild.id}", ad_message)
+                else:
+                    print(f"No ad found for {guild.name}")
+
+            await pipeline.execute() 
 
     @ad_loop.before_loop
     async def before_ad_loop(self):
