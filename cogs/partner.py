@@ -2,6 +2,11 @@ from discord.ext import tasks, commands
 from discord import app_commands
 import discord, random
 
+def is_owner():
+    async def predicate(interaction) -> bool:
+        return await interaction.client.is_owner(interaction.user)
+    return discord.app_commands.check(predicate)
+
 def get_req(count_a: int, count_b: int) -> dict:
     if count_a >= count_b:
         host, guest = count_a, count_b
@@ -31,7 +36,7 @@ def get_req(count_a: int, count_b: int) -> dict:
     return {"server_a": ping_a, "server_b": ping_b, "host": "server_a" if a_is_host else "server_b"}
 
 class Partner(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot): 
         self.bot = bot
         self.redis = bot.redis
         self.db_pool = bot.db_pool
@@ -165,7 +170,10 @@ class Partner(commands.Cog):
     partnerGroup = app_commands.Group(name="partner", description="Partner commands")
 
     @partnerGroup.command(name="force")
+    @is_owner()
     async def force_partner(self, interaction: discord.Interaction, server_id_1: str, server_id_2: str):
+        if server_id_1 == server_id_2:
+            return
         print(f"[force] {interaction.user} forcing {server_id_1} <-> {server_id_2}")
         channel1, channel2 = await self.partner(int(server_id_1), int(server_id_2))
         if not channel1:
