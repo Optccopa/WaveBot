@@ -20,7 +20,7 @@ class AdLooper(commands.Cog):
     async def index_ads(self):
         missingChannelEmbed = discord.Embed(
             title="Ad channel missing",
-            description="Use `/config set` and select your ad channel, for the bot to work correctly all fields must be set",
+            description="Use `/config set` to set one",
             color=discord.Color.dark_red()
         )
         missingAdEmbed = discord.Embed(

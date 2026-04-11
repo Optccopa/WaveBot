@@ -1,11 +1,7 @@
 from discord import app_commands
 from discord.ext import commands
+from src.checks import is_owner
 import discord, asyncpg
-
-def is_owner():
-    async def predicate(interaction) -> bool:
-        return await interaction.client.is_owner(interaction.user)
-    return discord.app_commands.check(predicate)
 
 class Blacklists(commands.Cog):
     def __init__(self, bot):
@@ -37,8 +33,6 @@ class Blacklists(commands.Cog):
             conn: asyncpg.Connection
             await conn.execute("DELETE FROM blacklists WHERE guild_id = $1", int(guild_id))
         await interaction.response.send_message("Server removed from blacklist", ephemeral=True)
-
-
 
     @blacklist.command(name="check", description="Check if a server is blacklisted")
     @is_owner()

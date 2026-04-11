@@ -1,11 +1,7 @@
 from discord.ext import tasks, commands
 from discord import app_commands
+from src.checks import is_owner
 import discord, random
-
-def is_owner():
-    async def predicate(interaction) -> bool:
-        return await interaction.client.is_owner(interaction.user)
-    return discord.app_commands.check(predicate)
 
 def get_req(count_a: int, count_b: int) -> dict:
     if count_a >= count_b:
@@ -43,15 +39,12 @@ class Partner(commands.Cog):
 
     async def has_cooldown(self, a: int, b: int) -> bool:
         result = bool(await self.redis.exists(f"partner_cooldown:{min(a,b)}:{max(a,b)}"))
-        print(f"[cooldown] {a} <-> {b}: {'on cooldown' if result else 'clear'}")
         return result
 
     async def set_cooldown(self, a: int, b: int):
         await self.redis.set(f"partner_cooldown:{min(a,b)}:{max(a,b)}", 1, ex=60 * 60 * 24 * 7)
-        print(f"[cooldown] set for {a} <-> {b} (7d)")
 
     async def match_servers(self, guilds: list[tuple[int, int]]) -> list[tuple[int, int]]:
-        print(f"[match] matching {len(guilds)} servers")
         pool = [id for id, _ in guilds]
         random.shuffle(pool)
         pairs = []
@@ -75,87 +68,121 @@ class Partner(commands.Cog):
         return pairs
 
     async def partner(self, server1_id: int, server2_id: int):
-        print(f"[partner] attempting {server1_id} <-> {server2_id}")
 
         config1 = await self.bot.config.get(server1_id)
         config2 = await self.bot.config.get(server2_id)
         if not config1 or not config2:
-            print(f"[partner] missing config: {server1_id if not config1 else server2_id}")
             return None, None
 
         guild1 = self.bot.get_guild(server1_id)
         guild2 = self.bot.get_guild(server2_id)
         if not guild1 or not guild2:
-            print(f"[partner] guild not found: {server1_id if not guild1 else server2_id}")
             return None, None
 
         channel1 = guild1.get_channel(config1.get("partner_channel"))
+        if not channel1 or not not isinstance(channel1, discord.TextChannel):
+            log_channel = guild1.get_channel(config1.get("log_channel"))
+            if log_channel:
+                embed = discord.Embed(
+                    title="Partner channel not found",
+                    description="Use `/config set` to set one",
+                    color=discord.Color.dark_red()
+                )
+                await log_channel.send(embed=embed)
+            return None, None
+        
         channel2 = guild2.get_channel(config2.get("partner_channel"))
-        if not channel1 or not channel2:
-            print(f"[partner] channel not found: {server1_id if not channel1 else server2_id}")
+        if not channel2 or not isinstance(channel2, discord.TextChannel):
+            log_channel = guild2.get_channel(config2.get("log_channel"))
+            if log_channel:
+                embed = discord.Embed(
+                    title="Partner channel not found",
+                    description="Use `/config set` to set one",
+                    color=discord.Color.dark_red()
+                )
+                await log_channel.send(embed=embed)
             return None, None
 
         r = get_req(guild1.member_count, guild2.member_count)
         print(f"[partner] {server1_id}({guild1.member_count}) pings {r['server_a']} | {server2_id}({guild2.member_count}) pings {r['server_b']} | host: {r['host']}")
 
-        raw_ad1 = await self.redis.get(f'ads:{server1_id}') or ""
-        raw_ad2 = await self.redis.get(f'ads:{server2_id}') or ""
-        print(f"[partner] ad1 {'found' if raw_ad1 else 'empty'} | ad2 {'found' if raw_ad2 else 'empty'}")
+        raw_ad1 = await self.redis.get(f'ads:{server1_id}')
+        raw_ad2 = await self.redis.get(f'ads:{server2_id}')
 
-        await channel1.send(f"{raw_ad2}\n\n{r['server_a']} (Testing Placeholder)")
-        await channel2.send(f"{raw_ad1}\n\n{r['server_b']} (Testing Placeholder)")
-        print(f"[partner] sent: {channel1} | {channel2}")
+        if not raw_ad1 or not raw_ad2:
+            return None, None
+        
+        perms1 = channel1.permissions_for(channel1.guild.me)
+        if not perms1.send_messages or not perms1.mention_everyone:
+            return None, None
+        
+        perms2 = channel2.permissions_for(channel2.guild.me)
+        if not perms2.send_messages or not perms2.mention_everyone:
+            return None, None
+        
+        ad1 = f"{raw_ad1}\n\n{r['server_a']} (Testing Placeholder)"
+        ad2 = f"{raw_ad2}\n\n{r['server_b']} (Testing Placeholder)"
 
+        if len(ad1) > 2000 or len(ad2) > 2000:
+            return None, None
+        
+        try:
+            await channel1.send(ad2)
+        except Exception as e:
+            print(e)
+            return None, None
+        try:
+            await channel2.send(ad1)
+        except Exception as e:
+            print(e)
+            return None, None
+            
         await self.set_cooldown(server1_id, server2_id)
         return channel1, channel2
 
     async def cog_load(self):
         if self.bot.is_ready() and not self.partner_loop.is_running():
-            print("[loop] bot already ready on cog load, starting loop")
             self.partner_loop.start()
 
     @commands.Cog.listener()
     async def on_ready(self):
         if not self.partner_loop.is_running():
-            print("[loop] on_ready fired, starting loop")
             self.partner_loop.start()
 
     @tasks.loop(seconds=21600)
     async def partner_loop(self):
         if await self.redis.exists("last_partner_run"):
-            print("[loop] skipping, last run was less than 3 hours ago")
+            print("Skipping loop")
             return
         await self.redis.set("last_partner_run", 1, ex=10800)
-        print("[loop] partner loop tick")
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch("SELECT guild_id FROM blacklists")
             blacklisted_ids = {row[0] for row in rows}
-        print(f"[loop] {len(blacklisted_ids)} blacklisted servers")
 
         available = []
         for guild in self.bot.guilds:
             if guild.id in blacklisted_ids:
-                print(f"[loop] skipping {guild.id} (blacklisted)")
                 continue
             config = await self.bot.config.get(guild.id)
             if not config:
-                print(f"[loop] skipping {guild.id} (no config)")
                 continue
+
             partner_channel = guild.get_channel(config.get("partner_channel"))
             ad_channel = guild.get_channel(config.get("ad_channel"))
             member_role = guild.get_role(config.get("member_role"))
             partner_ping_role = guild.get_role(config.get("partner_ping_role"))
+
             if not all([partner_channel, ad_channel, member_role, partner_ping_role]):
                 missing = [k for k, v in {"partner_channel": partner_channel, "ad_channel": ad_channel, "member_role": member_role, "partner_ping_role": partner_ping_role}.items() if not v]
                 print(f"[loop] skipping {guild.id} (missing: {', '.join(missing)})")
                 continue
+
             ad = await self.redis.get(f"ads:{guild.id}")
             if not ad:
-                print(f"[loop] skipping {guild.id} (no ad in redis)")
                 continue
+
             available.append((guild.id, guild.member_count))
 
-        print(f"[loop] {len(available)} servers available for matching")
         pairs = await self.match_servers(available)
 
         for a, b in pairs:
@@ -163,9 +190,7 @@ class Partner(commands.Cog):
 
     @partner_loop.before_loop
     async def before_partner_loop(self):
-        print("[loop] waiting for bot ready")
         await self.bot.wait_until_ready()
-        print("[loop] bot ready, loop starting")
 
     partnerGroup = app_commands.Group(name="partner", description="Partner commands")
 
@@ -174,7 +199,6 @@ class Partner(commands.Cog):
     async def force_partner(self, interaction: discord.Interaction, server_id_1: str, server_id_2: str):
         if server_id_1 == server_id_2:
             return
-        print(f"[force] {interaction.user} forcing {server_id_1} <-> {server_id_2}")
         channel1, channel2 = await self.partner(int(server_id_1), int(server_id_2))
         if not channel1:
             await interaction.response.send_message("Failed - check configs and channels.", ephemeral=True)
