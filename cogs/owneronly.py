@@ -51,34 +51,37 @@ class OwnerOnly(commands.Cog):
     @serversGroup.command(name="list")
     @is_owner()
     async def list_servers(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
+        try:
+            await interaction.response.defer(ephemeral=True)
 
-        fields = []
-        for guild in self.bot.guilds:
-            config = await self.bot.config.get(guild.id)
-            ad = await self.redis.get(f"ads:{guild.id}")
-            partner_channel = guild.get_channel(config.get("partner_channel")) if config else None
-            ad_channel = guild.get_channel(config.get("ad_channel")) if config else None
-            member_role = guild.get_role(config.get("member_role")) if config else None
-            partner_ping_role = guild.get_role(config.get("partner_ping_role")) if config else None
+            fields = []
+            for guild in self.bot.guilds:
+                config = await self.bot.config.get(guild.id)
+                ad = await self.redis.get(f"ads:{guild.id}")
+                partner_channel = guild.get_channel(config.get("partner_channel")) if config else None
+                ad_channel = guild.get_channel(config.get("ad_channel")) if config else None
+                member_role = guild.get_role(config.get("member_role")) if config else None
+                partner_ping_role = guild.get_role(config.get("partner_ping_role")) if config else None
 
-            value = (
-                f"Members: `{guild.member_count}`\n"
-                f"Status: {':green_circle:' if all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role]) else ':red_circle:'}"
-            )
-            fields.append((guild.name, value))
+                value = (
+                    f"Members: `{guild.member_count}`\n"
+                    f"Status: {':green_circle:' if all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role]) else ':red_circle:'}"
+                )
+                fields.append((guild.name, value))
 
-        for i in range(0, max(len(fields), 1), 25):
-            chunk = fields[i:i+25]
-            embed = discord.Embed(
-                title=f"Servers ({i+1}-{i+len(chunk)} of {len(fields)})",
-                color=discord.Color.fuchsia()
-            )
-            for name, value in chunk:
-                embed.add_field(name=name, value=value, inline=False)
-            if not fields:
-                embed.description = "No servers."
-            await interaction.followup.send(embed=embed, ephemeral=True)
+            for i in range(0, max(len(fields), 1), 25):
+                chunk = fields[i:i+25]
+                embed = discord.Embed(
+                    title=f"Servers ({i+1}-{i+len(chunk)} of {len(fields)})",
+                    color=discord.Color.fuchsia()
+                )
+                for name, value in chunk:
+                    embed.add_field(name=name, value=value, inline=False)
+                if not fields:
+                    embed.description = "No servers."
+                await interaction.followup.send(embed=embed, ephemeral=True)
+        except Exception as e:
+            print(e)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(OwnerOnly(bot))

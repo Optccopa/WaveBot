@@ -59,7 +59,6 @@ class Partner(commands.Cog):
                 if not await self.has_cooldown(server, candidate):
                     pairs.append((server, candidate))
                     used.update([server, candidate])
-                    print(f"[match] paired {server} <-> {candidate}")
                     matched = True
                     break
             if not matched:
