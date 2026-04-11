@@ -1,4 +1,5 @@
 from discord.ext import commands
+from discord import app_commands
 from src.checks import is_owner
 from src.groups import blacklistGroup, serversGroup
 import discord
@@ -8,6 +9,13 @@ class OwnerOnly(commands.Cog):
         self.bot = bot
         self.db_pool = bot.db_pool
         self.redis = bot.redis
+
+    async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        if isinstance(error, app_commands.CheckFailure):
+            await interaction.response.send_message("Not authorised.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Error: {error}", ephemeral=True)
+            raise error
 
     @blacklistGroup.command(name="add", description="Blacklist a server")
     @is_owner()
