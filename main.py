@@ -69,7 +69,7 @@ class Bot(commands.AutoShardedBot):
 
         # init config manager
         self.config = ConfigManager(self.db_pool, self.redis)
-        
+
         for _, obj in inspect.getmembers(groups):
             if isinstance(obj, app_commands.Group):
                 self.tree.add_command(obj)
@@ -115,8 +115,9 @@ class Bot(commands.AutoShardedBot):
         if row:
             try:
                 await guild.owner.send(
-                    f"**{self.bot.user.name}** has left **{guild.name}** as it is blacklisted.\n"
-                    f"Reason: {row['reason']}"
+                    f"**{self.user.name}** has left **{guild.name}** as it is blacklisted.\n"
+                    f"Reason: {row['reason']}\n"
+                    f"Appeal: You can appeal this in https://discord.gg/uacMXzbAfg, https://discord.com/channels/1491681410111635478/1491709242829307965"
                 )
             except discord.Forbidden:
                 pass
