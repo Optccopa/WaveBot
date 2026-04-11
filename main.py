@@ -36,16 +36,7 @@ class Bot(commands.AutoShardedBot):
             password=os.getenv("POSTGRES_PASSWORD"),
             database=os.getenv("POSTGRES_DB", "appdb")
         )
-
-        # load cogs
-        if os.path.isdir("cogs"):
-            for file in os.listdir("cogs"):
-                if file.endswith(".py") and not file.startswith("_"):
-                    ext = f"cogs.{file[:-3]}"
-                    try:
-                        await self.load_extension(ext)
-                    except Exception as e:
-                        print(f"Failed to load {ext}: {e}")
+        
         # create table
         async with self.db_pool.acquire() as conn:
             await conn.execute("""
@@ -66,6 +57,16 @@ class Bot(commands.AutoShardedBot):
                     added_by BIGINT NOT NULL
                 )
             """)
+
+        # load cogs
+        if os.path.isdir("cogs"):
+            for file in os.listdir("cogs"):
+                if file.endswith(".py") and not file.startswith("_"):
+                    ext = f"cogs.{file[:-3]}"
+                    try:
+                        await self.load_extension(ext)
+                    except Exception as e:
+                        print(f"Failed to load {ext}: {e}")
 
         # init config manager
         self.config = ConfigManager(self.db_pool, self.redis)
