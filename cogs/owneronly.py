@@ -8,9 +8,17 @@ class Blacklists(commands.Cog):
         self.bot = bot
         self.db_pool = bot.db_pool
 
-    blacklist = app_commands.Group(name="blacklist", description="Server blacklist management")
+    blacklistGroup = app_commands.Group(
+        name="blacklist",
+        description="Server blacklist management"
+    )
 
-    @blacklist.command(name="add", description="Blacklist a server")
+    serverGroup = app_commands.Group(
+        name="servers",
+        description="manage all servers together"
+    )
+
+    @blacklistGroup.command(name="add", description="Blacklist a server")
     @is_owner()
     async def addBlacklist(self, interaction: discord.Interaction, guild_id: str, reason: str = "No reason provided"):
         async with self.db_pool.acquire() as conn:
@@ -26,7 +34,7 @@ class Blacklists(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    @blacklist.command(name="remove", description="Remove a blacklist")
+    @blacklistGroup.command(name="remove", description="Remove a blacklist")
     @is_owner()
     async def removeBlacklist(self, interaction: discord.Interaction, guild_id: str):
         async with self.db_pool.acquire() as conn:
@@ -34,7 +42,7 @@ class Blacklists(commands.Cog):
             await conn.execute("DELETE FROM blacklists WHERE guild_id = $1", int(guild_id))
         await interaction.response.send_message("Server removed from blacklist", ephemeral=True)
 
-    @blacklist.command(name="check", description="Check if a server is blacklisted")
+    @blacklistGroup.command(name="check", description="Check if a server is blacklisted")
     @is_owner()
     async def checkBlacklist(self, interaction: discord.Interaction, guild_id: str):
         async with self.db_pool.acquire() as conn:
@@ -48,8 +56,38 @@ class Blacklists(commands.Cog):
             await interaction.response.send_message(embed=embed)
         else:
             await interaction.response.send_message("Not blacklisted", ephemeral=True)
-        
 
+    @serverGroup.command(name="list")
+    @is_owner()
+    async def list_servers(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        fields = []
+        for guild in self.bot.guilds:
+            config = await self.bot.config.get(guild.id)
+            ad = await self.redis.get(f"ads:{guild.id}")
+            partner_channel = guild.get_channel(config.get("partner_channel")) if config else None
+            ad_channel = guild.get_channel(config.get("ad_channel")) if config else None
+            member_role = guild.get_role(config.get("member_role")) if config else None
+            partner_ping_role = guild.get_role(config.get("partner_ping_role")) if config else None
+
+            value = (
+                f"Members: `{guild.member_count}`\n"
+                f"Status: {":green_circle:" if all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role]) else ":red_circle:"}"
+            )
+            fields.append((guild.name, value))
+
+        for i in range(0, max(len(fields), 1), 25):
+            chunk = fields[i:i+25]
+            embed = discord.Embed(
+                title=f"Servers ({i+1}–{i+len(chunk)} of {len(fields)})",
+                color=discord.Color.blurple()
+            )
+            for name, value in chunk:
+                embed.add_field(name=name, value=value, inline=False)
+            if not fields:
+                embed.description = "No servers."
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Blacklists(bot))
