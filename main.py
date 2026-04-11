@@ -24,10 +24,6 @@ class Bot(commands.AutoShardedBot):
         self.redis = None
 
     async def setup_hook(self):
-        for _, obj in inspect.getmembers(groups):
-            if isinstance(obj, app_commands.Group):
-                self.tree.add_command(obj)
-
         self.redis = Redis(
             host="redis",
             port=6379,
@@ -73,6 +69,10 @@ class Bot(commands.AutoShardedBot):
 
         # init config manager
         self.config = ConfigManager(self.db_pool, self.redis)
+        
+        for _, obj in inspect.getmembers(groups):
+            if isinstance(obj, app_commands.Group):
+                self.tree.add_command(obj)
 
         await retry_with_backoff(self.tree.sync)
 
