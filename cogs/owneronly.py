@@ -4,7 +4,7 @@ from src.checks import is_owner
 from src.groups import partnerGroup, blacklistGroup, serversGroup
 import discord, asyncpg
 
-class Blacklists(commands.Cog):
+class OwnerOnly(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db_pool = bot.db_pool
@@ -93,4 +93,4 @@ class Blacklists(commands.Cog):
         await interaction.response.send_message(f"Partnered: {channel1.mention} | {channel2.mention}", ephemeral=True)
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(Blacklists(bot))
+    await bot.add_cog(OwnerOnly(bot))

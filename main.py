@@ -1,9 +1,11 @@
-import discord, os, asyncio, asyncpg
+import discord, os, asyncio, asyncpg, inspect
 from redis.asyncio import Redis
 from discord.ext import commands
+from discord import app_commands
 from dotenv import load_dotenv
 from src.configmanager import ConfigManager
 from src.utils import *
+from src import groups
 
 load_dotenv()
 
@@ -25,6 +27,10 @@ class Bot(commands.AutoShardedBot):
         self.redis = None
 
     async def setup_hook(self):
+        for _, obj in inspect.getmembers(groups):
+            if isinstance(obj, app_commands.Group):
+                bot.tree.add_command(obj)
+
         self.redis = Redis(
             host="redis",
             port=6379,
@@ -96,7 +102,7 @@ class Bot(commands.AutoShardedBot):
         )
 
     async def on_shard_ready(self, shard_id: int):
-        await self.bot.change_presence(
+        await self.change_presence(
             activity=discord.CustomActivity(name=f"Shard {shard_id + 1}/{self.bot.shard_count}")
         )
         print(f"Shard {shard_id} ready")
