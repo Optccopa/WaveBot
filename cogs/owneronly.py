@@ -72,7 +72,7 @@ class Blacklists(commands.Cog):
         for i in range(0, max(len(fields), 1), 25):
             chunk = fields[i:i+25]
             embed = discord.Embed(
-                title=f"Servers ({i+1}–{i+len(chunk)} of {len(fields)})",
+                title=f"Servers ({i+1}-{i+len(chunk)} of {len(fields)})",
                 color=discord.Color.blurple()
             )
             for name, value in chunk:
