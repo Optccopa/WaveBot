@@ -73,7 +73,7 @@ class Blacklists(commands.Cog):
 
             value = (
                 f"Members: `{guild.member_count}`\n"
-                f"Status: {":green_circle:" if all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role]) else ":red_circle:"}"
+                f"Status: {':green_circle:' if all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role]) else ':red_circle:'}"
             )
             fields.append((guild.name, value))
 
