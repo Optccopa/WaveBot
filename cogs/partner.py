@@ -191,6 +191,17 @@ class Partner(commands.Cog):
     @partner_loop.before_loop
     async def before_partner_loop(self):
         await self.bot.wait_until_ready()
+        
+    @partnerGroup.command(name="force")
+    @is_owner()
+    async def force_partner(self, interaction: discord.Interaction, server_id_1: str, server_id_2: str):
+        if server_id_1 == server_id_2:
+            return
+        channel1, channel2 = await self.partner(int(server_id_1), int(server_id_2))
+        if not channel1:
+            await interaction.response.send_message("Failed - check configs and channels.", ephemeral=True)
+            return
+        await interaction.response.send_message(f"Partnered: {channel1.mention} | {channel2.mention}", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Partner(bot))
