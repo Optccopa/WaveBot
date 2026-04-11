@@ -1,1 +1,0 @@
-report button sent on each ad

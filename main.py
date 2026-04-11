@@ -2,8 +2,8 @@ import discord, os, asyncio, asyncpg
 from redis.asyncio import Redis
 from discord.ext import commands
 from dotenv import load_dotenv
-from configmanager import ConfigManager
-from utils import *
+from src.configmanager import ConfigManager
+from src.utils import *
 
 load_dotenv()
 
