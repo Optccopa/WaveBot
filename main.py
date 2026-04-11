@@ -1,13 +1,10 @@
-import discord, os, asyncio, asyncpg, inspect
+import discord, os, asyncio, asyncpg, inspect, sys
 from redis.asyncio import Redis
 from discord.ext import commands
 from discord import app_commands
-from dotenv import load_dotenv
 from src.configmanager import ConfigManager
-from src.utils import *
+from src.utils import retry_with_backoff
 from src import groups
-
-load_dotenv()
 
 
 class Bot(commands.AutoShardedBot):
@@ -29,7 +26,7 @@ class Bot(commands.AutoShardedBot):
     async def setup_hook(self):
         for _, obj in inspect.getmembers(groups):
             if isinstance(obj, app_commands.Group):
-                bot.tree.add_command(obj)
+                self.tree.add_command(obj)
 
         self.redis = Redis(
             host="redis",
@@ -64,48 +61,67 @@ class Bot(commands.AutoShardedBot):
                     partner_ping_role BIGINT,
                     log_channel BIGINT,
                     premium BOOLEAN DEFAULT FALSE
-                );
+                )
+            """)
+            await conn.execute("""
                 CREATE TABLE IF NOT EXISTS blacklists (
                     guild_id BIGINT PRIMARY KEY,
                     reason TEXT NOT NULL,
                     added_by BIGINT NOT NULL
-                );
+                )
             """)
 
         # init config manager
         self.config = ConfigManager(self.db_pool, self.redis)
 
-    async def start_with_retries(self):
-        retries = 3
+        await retry_with_backoff(self.tree.sync)
 
-        while retries > 0:
+    async def start_with_retries(self):
+        for i in range(3):
             try:
                 await self.start(os.getenv("DISCORD_TOKEN"))
-                break
+                return
 
             except discord.LoginFailure:
                 print("Invalid token")
-                break
+                return
 
             except (discord.GatewayNotFound, OSError) as e:
-                retries -= 1
-                print(f"Gateway error ({retries} retries left): {e}")
-                await asyncio.sleep(5)
+                print(f"Gateway error ({2 - i} retries left): {e}")
+                await asyncio.sleep(30)
+
+        sys.exit(1)
 
     async def on_ready(self):
-        synced = await retry_with_backoff(self.tree.sync)
         print(
             f"- User: {self.user}\n"
-            f"- Shards: {self.shard_count}\n"
-            f"- Latency: {round(self.latency * 1000)} ms\n"
-            f"- Synced {len(synced)} commands"
+            f"- Shards: {self.shard_count}"
         )
 
     async def on_shard_ready(self, shard_id: int):
         await self.change_presence(
-            activity=discord.CustomActivity(name=f"Shard {shard_id + 1}/{self.bot.shard_count}")
+            activity=discord.CustomActivity(name=f"Shard {shard_id + 1}/{self.shard_count}")
         )
         print(f"Shard {shard_id} ready")
+
+    async def close(self):
+        if self.db_pool: await self.db_pool.close()
+        if self.redis: await self.redis.aclose()
+        await super().close()
+
+    async def on_guild_join(self, guild: discord.Guild):
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT reason FROM blacklists WHERE guild_id = $1", guild.id)
+        if row:
+            try:
+                await guild.owner.send(
+                    f"**{self.bot.user.name}** has left **{guild.name}** as it is blacklisted.\n"
+                    f"Reason: {row['reason']}"
+                )
+            except discord.Forbidden:
+                pass
+            finally:
+                await guild.leave()
 
 bot = Bot()
 

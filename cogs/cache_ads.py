@@ -43,6 +43,7 @@ class AdLooper(commands.Cog):
                         await log_channel.send(embed=missingChannelEmbed)
                     continue
 
+                ad_message = None
                 async for message in ad_channel.history(limit=10):
                     if LINK_REGEX.search(message.content):
                         ad_message = message.content
@@ -59,6 +60,10 @@ class AdLooper(commands.Cog):
     @ad_loop.before_loop
     async def before_ad_loop(self):
         await self.bot.wait_until_ready()
+        
+    async def cog_load(self):
+        if self.bot.is_ready() and not self.ad_loop.is_running():
+            self.ad_loop.start()
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(AdLooper(bot))

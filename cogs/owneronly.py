@@ -1,8 +1,7 @@
-from discord import app_commands
 from discord.ext import commands
 from src.checks import is_owner
-from src.groups import partnerGroup, blacklistGroup, serversGroup
-import discord, asyncpg
+from src.groups import blacklistGroup, serversGroup
+import discord
 
 class OwnerOnly(commands.Cog):
     def __init__(self, bot):
@@ -14,23 +13,24 @@ class OwnerOnly(commands.Cog):
     @is_owner()
     async def addBlacklist(self, interaction: discord.Interaction, guild_id: str, reason: str = "No reason provided"):
         async with self.db_pool.acquire() as conn:
-            conn: asyncpg.Connection
             await conn.execute(
                 "INSERT INTO blacklists (guild_id, reason, added_by) VALUES ($1, $2, $3)"
                 " ON CONFLICT (guild_id) DO UPDATE SET reason = $2, added_by = $3",
                 int(guild_id), reason, interaction.user.id
             )
+
         embed = discord.Embed(
             title="Added Blacklist",
             description=f"Reason: {reason}"
         )
-        await interaction.response.send_message(embed=embed)
+        guild: discord.Guild = self.bot.get_guild(guild_id)
+        await guild.leave()
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @blacklistGroup.command(name="remove", description="Remove a blacklist")
     @is_owner()
     async def removeBlacklist(self, interaction: discord.Interaction, guild_id: str):
         async with self.db_pool.acquire() as conn:
-            conn: asyncpg.Connection
             await conn.execute("DELETE FROM blacklists WHERE guild_id = $1", int(guild_id))
         await interaction.response.send_message("Server removed from blacklist", ephemeral=True)
 
@@ -38,14 +38,13 @@ class OwnerOnly(commands.Cog):
     @is_owner()
     async def checkBlacklist(self, interaction: discord.Interaction, guild_id: str):
         async with self.db_pool.acquire() as conn:
-            conn: asyncpg.Connection
             row = await conn.fetchrow("SELECT * FROM blacklists WHERE guild_id = $1", int(guild_id))
         if row:
             embed = discord.Embed(
                 title="Blacklisted",
                 description=f"Reason: {row['reason']}"
             )
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
         else:
             await interaction.response.send_message("Not blacklisted", ephemeral=True)
 
