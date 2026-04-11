@@ -7,6 +7,7 @@ class Blacklists(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db_pool = bot.db_pool
+        self.redis = bot.redis
 
     blacklistGroup = app_commands.Group(
         name="blacklist",
