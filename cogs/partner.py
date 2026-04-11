@@ -1,6 +1,5 @@
 from discord.ext import tasks, commands
 from src.checks import is_owner
-from src.groups import partnerGroup
 import discord, random
 
 def get_req(count_a: int, count_b: int) -> dict:
@@ -30,6 +29,11 @@ def get_req(count_a: int, count_b: int) -> dict:
             break
 
     return {"server_a": ping_a, "server_b": ping_b, "host": "server_a" if a_is_host else "server_b"}
+
+partnerGroup = discord.app_commands.Group(
+    name="partner",
+    description="Partner commands"
+)
 
 class Partner(commands.Cog):
     def __init__(self, bot): 

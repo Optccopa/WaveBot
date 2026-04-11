@@ -4,8 +4,6 @@ from discord.ext import commands
 from discord import app_commands
 from src.configmanager import ConfigManager
 from src.utils import retry_with_backoff
-from src import groups
-
 
 class Bot(commands.AutoShardedBot):
     def __init__(self):
@@ -70,10 +68,6 @@ class Bot(commands.AutoShardedBot):
 
         # init config manager
         self.config = ConfigManager(self.db_pool, self.redis)
-
-        for _, obj in inspect.getmembers(groups):
-            if isinstance(obj, app_commands.Group):
-                self.tree.add_command(obj)
 
         await retry_with_backoff(self.tree.sync)
 
