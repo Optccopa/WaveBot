@@ -1,6 +1,7 @@
 from discord import app_commands
 from discord.ext import commands
 from src.checks import is_owner
+from src.groups import partnerGroup, blacklistGroup, serversGroup
 import discord, asyncpg
 
 class Blacklists(commands.Cog):
@@ -8,16 +9,6 @@ class Blacklists(commands.Cog):
         self.bot = bot
         self.db_pool = bot.db_pool
         self.redis = bot.redis
-
-    blacklistGroup = app_commands.Group(
-        name="blacklist",
-        description="Server blacklist management"
-    )
-
-    serverGroup = app_commands.Group(
-        name="servers",
-        description="manage all servers together"
-    )
 
     @blacklistGroup.command(name="add", description="Blacklist a server")
     @is_owner()
@@ -58,7 +49,7 @@ class Blacklists(commands.Cog):
         else:
             await interaction.response.send_message("Not blacklisted", ephemeral=True)
 
-    @serverGroup.command(name="list")
+    @serversGroup.command(name="list")
     @is_owner()
     async def list_servers(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -89,6 +80,17 @@ class Blacklists(commands.Cog):
             if not fields:
                 embed.description = "No servers."
             await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @partnerGroup.command(name="force")
+    @is_owner()
+    async def force_partner(self, interaction: discord.Interaction, server_id_1: str, server_id_2: str):
+        if server_id_1 == server_id_2:
+            return
+        channel1, channel2 = await self.partner(int(server_id_1), int(server_id_2))
+        if not channel1:
+            await interaction.response.send_message("Failed - check configs and channels.", ephemeral=True)
+            return
+        await interaction.response.send_message(f"Partnered: {channel1.mention} | {channel2.mention}", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Blacklists(bot))
