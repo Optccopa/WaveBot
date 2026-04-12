@@ -76,12 +76,12 @@ class OwnerOnly(commands.Cog):
             member_role = guild.get_role(config.get("member_role")) if config else None
             partner_ping_role = guild.get_role(config.get("partner_ping_role")) if config else None
 
-            invite: str = await partner_channel.create_invite(max_age=3600, reason="Wave bot serverlist")
+            invite: discord.Invite = await partner_channel.create_invite(max_age=3600, reason="Wave bot serverlist")
 
             value = (
                 f"Members: `{guild.member_count}`\n"
                 f"Status: {':green_circle:' if all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role]) else ':red_circle:'}\n"
-                f"Invite: {invite}"
+                f"Invite: {invite.url}"
             )
             fields.append((guild.name, value))
         if not fields:
