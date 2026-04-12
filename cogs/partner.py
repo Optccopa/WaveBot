@@ -30,16 +30,16 @@ def get_req(count_a: int, count_b: int) -> dict:
 
     return {"server_a": ping_a, "server_b": ping_b, "host": "server_a" if a_is_host else "server_b"}
 
-partnerGroup = discord.app_commands.Group(
-    name="partner",
-    description="Partner commands"
-)
-
 class Partner(commands.Cog):
     def __init__(self, bot): 
         self.bot = bot
         self.redis = bot.redis
         self.db_pool = bot.db_pool
+
+    partnerGroup = discord.app_commands.Group(
+        name="partner",
+        description="Partner commands"
+    )
 
     async def has_cooldown(self, a: int, b: int) -> bool:
         result = bool(await self.redis.exists(f"partner_cooldown:{min(a,b)}:{max(a,b)}"))

@@ -3,21 +3,21 @@ from discord import app_commands
 from src.checks import is_owner
 import discord
 
-serversGroup = app_commands.Group(
-    name="servers",
-    description="Manage all servers together"
-)
-
-blacklistGroup = app_commands.Group(
-    name="blacklist",
-    description="Server blacklist management"
-)
-
 class OwnerOnly(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db_pool = bot.db_pool
         self.redis = bot.redis
+
+    serversGroup = app_commands.Group(
+        name="servers",
+        description="Manage all servers together"
+    )
+
+    blacklistGroup = app_commands.Group(
+        name="blacklist",
+        description="Server blacklist management"
+    )
 
     @blacklistGroup.command(name="add", description="Blacklist a server")
     @is_owner()
