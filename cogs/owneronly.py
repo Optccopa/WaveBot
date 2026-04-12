@@ -3,7 +3,7 @@ from asyncpg import Pool
 from discord.ext import commands
 from discord import app_commands
 from src.checks import is_owner
-import discord
+import discord, json
 
 class OwnerOnly(commands.Cog):
     def __init__(self, bot):
@@ -13,7 +13,7 @@ class OwnerOnly(commands.Cog):
 
     serversGroup = app_commands.Group(
         name="servers",
-        description="Manage all servers together"
+        description="Owner only, Manage servers"
     )
 
     blacklistGroup = app_commands.Group(
@@ -110,6 +110,159 @@ class OwnerOnly(commands.Cog):
                 embed.add_field(name=name, value=value, inline=False)
             if not fields:
                 embed.description = "No servers."
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @serversGroup.command(name="debug")
+    @app_commands.describe(server_id="The server to debug")
+    @is_owner()
+    async def debug_server(self, interaction: discord.Interaction, server_id: str):
+        await interaction.response.defer(ephemeral=True)
+
+        guild = self.bot.get_guild(int(server_id))
+        if not guild:
+            await interaction.followup.send("Guild not found.", ephemeral=True)
+            return
+
+        config = await self.bot.config.get(guild.id)
+        ad = await self.redis.get(f"ads:{guild.id}")
+
+        # raw ids from config
+        partner_channel_id = config.get("partner_channel") if config else None
+        ad_channel_id = config.get("ad_channel") if config else None
+        member_role_id = config.get("member_role") if config else None
+        partner_ping_role_id = config.get("partner_ping_role") if config else None
+
+        # resolved objects
+        partner_channel = guild.get_channel(partner_channel_id) if partner_channel_id else None
+        ad_channel = guild.get_channel(ad_channel_id) if ad_channel_id else None
+        member_role = guild.get_role(member_role_id) if member_role_id else None
+        partner_ping_role = guild.get_role(partner_ping_role_id) if partner_ping_role_id else None
+
+        # invite
+        invite_url = "N/A"
+        if isinstance(partner_channel, discord.TextChannel):
+            try:
+                invites = await partner_channel.invites()
+                invite_url = invites[0].url if invites else (await partner_channel.create_invite(max_age=604800)).url
+            except discord.Forbidden:
+                invite_url = "Missing permissions"
+        elif partner_channel_id and not partner_channel:
+            invite_url = "Channel ID set but not resolved"
+
+        def status(val, id_val=None):
+            if val:
+                return f":green_circle:"
+            elif id_val:
+                return f":red_circle: (ID `{id_val}` not resolved)"
+            return ":red_circle: (not set)"
+
+        embed = discord.Embed(
+            title=f"Debug: {guild.name}",
+            color=discord.Color.fuchsia()
+        )
+        embed.add_field(name="Guild", value=(
+            f"ID: `{guild.id}`\n"
+            f"Members: `{guild.member_count}`\n"
+            f"Owner: `{guild.owner}`"
+        ), inline=False)
+
+        embed.add_field(name="Config", value=(
+            f"Loaded: {':green_circle:' if config else ':red_circle:'}\n"
+            f"Raw: ```json\n{json.dumps(config, indent=2) if config else 'None'}```"
+        ), inline=False)
+
+        embed.add_field(name="Channels", value=(
+            f"Partner Channel: {status(partner_channel, partner_channel_id)} {f'`#{partner_channel.name}`' if partner_channel else ''}\n"
+            f"Ad Channel: {status(ad_channel, ad_channel_id)} {f'`#{ad_channel.name}`' if ad_channel else ''}"
+        ), inline=False)
+
+        embed.add_field(name="Roles", value=(
+            f"Member Role: {status(member_role, member_role_id)} {f'`@{member_role.name}`' if member_role else ''}\n"
+            f"Partner Ping Role: {status(partner_ping_role, partner_ping_role_id)} {f'`@{partner_ping_role.name}`' if partner_ping_role else ''}"
+        ), inline=False)
+
+        embed.add_field(name="Ad", value=(
+            f"Cached: {':green_circle:' if ad else ':red_circle:'}\n"
+            f"Content: ```{ad[:200] if ad else 'None'}```"
+        ), inline=False)
+
+        embed.add_field(name="Invite", value=invite_url, inline=False)
+
+        overall = all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role])
+        embed.add_field(name="Overall Status", value=':green_circle: Ready' if overall else ':red_circle: Not ready', inline=False)
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @serversGroup.command(name="debugall")
+    @is_owner()
+    async def debug_all_servers(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        for guild in self.bot.guilds:
+            config = await self.bot.config.get(guild.id)
+            ad = await self.redis.get(f"ads:{guild.id}")
+
+            partner_channel_id = config.get("partner_channel") if config else None
+            ad_channel_id = config.get("ad_channel") if config else None
+            member_role_id = config.get("member_role") if config else None
+            partner_ping_role_id = config.get("partner_ping_role") if config else None
+
+            partner_channel = guild.get_channel(partner_channel_id) if partner_channel_id else None
+            ad_channel = guild.get_channel(ad_channel_id) if ad_channel_id else None
+            member_role = guild.get_role(member_role_id) if member_role_id else None
+            partner_ping_role = guild.get_role(partner_ping_role_id) if partner_ping_role_id else None
+
+            invite_url = "N/A"
+            if isinstance(partner_channel, discord.TextChannel):
+                try:
+                    invites = await partner_channel.invites()
+                    invite_url = invites[0].url if invites else (await partner_channel.create_invite(max_age=604800)).url
+                except discord.Forbidden:
+                    invite_url = "Missing permissions"
+            elif partner_channel_id and not partner_channel:
+                invite_url = "Channel ID set but not resolved"
+
+            def status(val, id_val=None):
+                if val:
+                    return "✅"
+                elif id_val:
+                    return f":red_circle: (ID `{id_val}` not resolved)"
+                return ":red_circle: (not set)"
+
+            overall = all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role])
+
+            embed = discord.Embed(
+                title=f"{'✅' if overall else ':red_circle:'} {guild.name}",
+                color=discord.Color.green() if overall else discord.Color.red()
+            )
+            embed.add_field(name="Guild", value=(
+                f"ID: `{guild.id}`\n"
+                f"Members: `{guild.member_count}`\n"
+                f"Owner: `{guild.owner}`"
+            ), inline=False)
+
+            embed.add_field(name="Config", value=(
+                f"Loaded: {':green_circle:' if config else ':red_circle:'}\n"
+                f"Raw: ```json\n{json.dumps(config, indent=2) if config else 'None'}```"
+            ), inline=False)
+
+            embed.add_field(name="Channels", value=(
+                f"Partner Channel: {status(partner_channel, partner_channel_id)} {f'`#{partner_channel.name}`' if partner_channel else ''}\n"
+                f"Ad Channel: {status(ad_channel, ad_channel_id)} {f'`#{ad_channel.name}`' if ad_channel else ''}"
+            ), inline=False)
+
+            embed.add_field(name="Roles", value=(
+                f"Member Role: {status(member_role, member_role_id)} {f'`@{member_role.name}`' if member_role else ''}\n"
+                f"Partner Ping Role: {status(partner_ping_role, partner_ping_role_id)} {f'`@{partner_ping_role.name}`' if partner_ping_role else ''}"
+            ), inline=False)
+
+            embed.add_field(name="Ad", value=(
+                f"Cached: {':green_circle:' if ad else ':red_circle:'}\n"
+                f"Content: ```{ad[:200] if ad else 'None'}```"
+            ), inline=False)
+
+            embed.add_field(name="Invite", value=invite_url, inline=False)
+
             await interaction.followup.send(embed=embed, ephemeral=True)
 
 async def setup(bot: commands.Bot):
