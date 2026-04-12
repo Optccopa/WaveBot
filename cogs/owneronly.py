@@ -31,7 +31,8 @@ class OwnerOnly(commands.Cog):
 
         embed = discord.Embed(
             title="Added Blacklist",
-            description=f"Reason: {reason}"
+            description=f"Reason: {reason}",
+            color=discord.Color.fuchsia()
         )
         guild: discord.Guild = self.bot.get_guild(guild_id)
         await guild.leave()
@@ -52,7 +53,8 @@ class OwnerOnly(commands.Cog):
         if row:
             embed = discord.Embed(
                 title="Blacklisted",
-                description=f"Reason: {row['reason']}"
+                description=f"Reason: {row['reason']}",
+                color=discord.Color.fuchsia()
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
         else:
