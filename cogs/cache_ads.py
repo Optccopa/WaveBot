@@ -28,7 +28,7 @@ NON_DISCORD_LINK: Any URL that is not discord.gg or discord.com.
 
 Respond with a single raw JSON object using this exact schema:
 {
-    "sus": bool, -- true if ANY violation was found, false if clean
+    "sus": bool, -- True if ANY violation was found, False if clean
     "confidence": float, -- 0.0 to 1.0, how confident you are in the sus verdict
     "ai_hits": [ -- violations YOU found that regex did not catch, empty list if none {"violation": "VIOLATION_NAME", "phrase": "exact phrase from the ad that triggered it"}],
     "regex_hits": [], -- leave as empty list, this is filled in by the system
@@ -103,7 +103,7 @@ class AdLooper(commands.Cog):
     def __init__(self, bot):
         self.bot: commands.AutoShardedBot = bot
         self.redis: Redis = bot.redis
-        self.client: Anthropic = Anthropic(api_key=os.getenv("anthropic_api_key"))
+        self.client: Anthropic = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     
     def scan(self, ad: str) -> dict:
         hits = []

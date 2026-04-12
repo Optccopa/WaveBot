@@ -78,7 +78,8 @@ class OwnerOnly(commands.Cog):
 
             value = (
                 f"Members: `{guild.member_count}`\n"
-                f"Status: {':green_circle:' if all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role]) else ':red_circle:'}"
+                f"Status: {':green_circle:' if all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role]) else ':red_circle:'}\n"
+                f"Invite: {partner_channel.create_invite(max_age=3600, reason="Wave bot serverlist")}"
             )
             fields.append((guild.name, value))
         if not fields:
