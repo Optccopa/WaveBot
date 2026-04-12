@@ -84,7 +84,9 @@ class OwnerOnly(commands.Cog):
                     invite_url = invites[0].url if invites else (await partner_channel.create_invite(max_age=604800)).url
                 except discord.Forbidden:
                     invite_url = "Error fetching link (missing permissions)"
-
+                finally:
+                    if invite_url == None:
+                        invite_url = "Error fetching link (missing channels)"
             value = (
                 f"Members: `{guild.member_count}`\n"
                 f"Status: {':green_circle:' if all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role]) else ':red_circle:'}\n"
