@@ -73,7 +73,7 @@ class Bot(commands.AutoShardedBot):
     async def start_with_retries(self):
         for i in range(3):
             try:
-                await self.start(os.getenv("DISCORD_TOKEN"))
+                await self.start(os.getenv("DISCORD_TOKEN")) 
                 return
 
             except discord.LoginFailure:
@@ -83,7 +83,8 @@ class Bot(commands.AutoShardedBot):
             except (discord.GatewayNotFound, OSError) as e:
                 print(f"Gateway error ({2 - i} retries left): {e}")
                 await asyncio.sleep(30)
-
+        
+        print("Failed starting on all trys")
         sys.exit(1)
 
     async def on_shard_ready(self, shard_id: int):
