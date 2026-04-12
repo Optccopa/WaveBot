@@ -1,7 +1,6 @@
-import discord, os, asyncio, asyncpg, inspect, sys
+import discord, os, asyncio, asyncpg, sys
 from redis.asyncio import Redis
 from discord.ext import commands
-from discord import app_commands
 from src.configmanager import ConfigManager
 from src.utils import retry_with_backoff
 
