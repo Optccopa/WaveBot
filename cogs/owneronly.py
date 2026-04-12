@@ -76,8 +76,15 @@ class OwnerOnly(commands.Cog):
             member_role = guild.get_role(config.get("member_role")) if config else None
             partner_ping_role = guild.get_role(config.get("partner_ping_role")) if config else None
 
-            invites = await partner_channel.invites()
-            invite_url = invites[0].url if invites else (await partner_channel.create_invite(max_age=604800)).url
+            invites = None
+            invite_url = None
+            
+            if isinstance(partner_channel, discord.TextChannel):
+                try:
+                    invites = await partner_channel.invites()
+                    invite_url = invites[0].url if invites else (await partner_channel.create_invite(max_age=604800)).url
+                except discord.Forbidden:
+                    invite_url = "Error fetching link (missing permissions)"
 
             value = (
                 f"Members: `{guild.member_count}`\n"
