@@ -224,7 +224,7 @@ class OwnerOnly(commands.Cog):
 
             def status(val, id_val=None):
                 if val:
-                    return "✅"
+                    return ":green_circle:"
                 elif id_val:
                     return f":red_circle: (ID `{id_val}` not resolved)"
                 return ":red_circle: (not set)"
@@ -232,7 +232,7 @@ class OwnerOnly(commands.Cog):
             overall = all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role])
 
             embed = discord.Embed(
-                title=f"{'✅' if overall else ':red_circle:'} {guild.name}",
+                title=f"{':green_circle:' if overall else ':red_circle:'} {guild.name}",
                 color=discord.Color.green() if overall else discord.Color.red()
             )
             embed.add_field(name="Guild", value=(
