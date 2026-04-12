@@ -76,9 +76,8 @@ class OwnerOnly(commands.Cog):
             member_role = guild.get_role(config.get("member_role")) if config else None
             partner_ping_role = guild.get_role(config.get("partner_ping_role")) if config else None
 
-            invites = None
             invite_url = None
-            
+
             if isinstance(partner_channel, discord.TextChannel):
                 try:
                     invites = await partner_channel.invites()
