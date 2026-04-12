@@ -14,6 +14,7 @@ LEGITIMATE -- do NOT flag these:
 - Vouch counts as trust signals
 - discord.gg invite links
 - Voice call gambling between players
+- Join for a chance to win money (not invite rewards, normal giveaway)
 
 VIOLATIONS -- flag these exactly:
 
@@ -126,7 +127,12 @@ class AdLooper(commands.Cog):
         message = self.client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=256,
-            system=SCAN_PROMPT,
+            temperature=0.1,
+            system=[{
+                "type": "text",
+                "text": SCAN_PROMPT,
+                "cache_control": {"type": "ephemeral"}
+            }],
             messages=[
                 {"role": "user", "content": f"Advertisement:\n{ad}"},
                 {"role": "assistant", "content": "{"},
@@ -142,7 +148,7 @@ class AdLooper(commands.Cog):
         if not self.ad_loop.is_running():
             self.ad_loop.start()
 
-    @tasks.loop(seconds=900)  # 15 minutes
+    @tasks.loop(seconds=10800)  # 3 hours
     async def ad_loop(self):
         await self.index_ads()
 
