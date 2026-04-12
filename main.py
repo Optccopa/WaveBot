@@ -86,9 +86,6 @@ class Bot(commands.AutoShardedBot):
 
         sys.exit(1)
 
-    async def on_ready(self):
-        print(f"- User: {self.user}\n- Shards: {self.shard_count}")
-
     async def on_shard_ready(self, shard_id: int):
         await self.change_presence(
             activity=discord.CustomActivity(name=f"Shard {shard_id + 1}/{self.shard_count}")

@@ -21,6 +21,7 @@ async def check_partner_requirements(guild, channel, config):
     
     if partner_role and len(partner_role.members) / guild.member_count < 0.08:
         return False, r"Less than 8% of members have partner ping role"
+    
     return True, None
 
 def get_req(count_a: int, count_b: int) -> dict:
@@ -198,7 +199,6 @@ class Partner(commands.Cog):
     @tasks.loop(seconds=21600)
     async def partner_loop(self):
         if await self.redis.exists("last_partner_run"):
-            print("Skipping loop")
             return
         await self.redis.set("last_partner_run", 1, ex=10800)
         async with self.db_pool.acquire() as conn:
