@@ -1,7 +1,9 @@
 from discord.ext import tasks, commands
 from redis.asyncio import Redis
 from anthropic import Anthropic
-import re, discord, os, json
+import re, discord, os, json, hashlib
+
+CACHE_VER_CLAUDE = "v1"
 
 SCAN_PROMPT = """You are a rule violations detector for a Minecraft economy Discord server (DonutSMP).
 References to Millions (M) likely mean ingame money.
@@ -182,8 +184,15 @@ class AdLooper(commands.Cog):
                 async for message in ad_channel.history(limit=10):
                     if LINK_REGEX.search(message.content):
                         ad_message = message.content
+                        ad_hash = hashlib.md5(ad_message.encode()).hexdigest()[:12]
 
-                        print(json.dumps(self.scan(ad_message), indent=2))
+                        cached = await self.redis.get(f"{CACHE_VER_CLAUDE}:claude:{ad_hash}")
+                        if not cached:
+                            response = json.dumps(await self.bot.loop.run_in_executor(None, self.scan_ad, ad_message), indent=2)
+                            await self.redis.set(f"{CACHE_VER_CLAUDE}:claude:{ad_hash}", response)
+                            print(response)
+                        else:
+                            print(cached)
 
                         break
 
