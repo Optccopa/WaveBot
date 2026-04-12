@@ -265,5 +265,19 @@ class OwnerOnly(commands.Cog):
 
             await interaction.followup.send(embed=embed, ephemeral=True)
 
+    @serversGroup.command(name="leave")
+    @app_commands.describe(server_id="The server to leave")
+    @is_owner()
+    async def leave_server(self, interaction: discord.Interaction, server_id: str):
+        await interaction.response.defer(ephemeral=True)
+
+        guild = self.bot.get_guild(int(server_id))
+        if not guild:
+            await interaction.followup.send("Guild not found.", ephemeral=True)
+            return
+
+        await interaction.followup.send(f"Leaving **{guild.name}** (`{guild.id}`).", ephemeral=True)
+        await guild.leave()
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(OwnerOnly(bot))
