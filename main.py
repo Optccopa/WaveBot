@@ -22,13 +22,13 @@ class Bot(commands.AutoShardedBot):
         self.redis = None
 
     async def setup_hook(self):
-        self.redis = Redis(
+        self.redis: Redis = Redis(
             host="redis",
             port=6379,
             decode_responses=True
         )
 
-        self.db_pool = await asyncpg.create_pool(
+        self.db_pool: asyncpg.Pool = await asyncpg.create_pool(
             host=os.getenv("POSTGRES_HOST", "postgres"),
             user=os.getenv("POSTGRES_USER", "appuser"),
             password=os.getenv("POSTGRES_PASSWORD"),
