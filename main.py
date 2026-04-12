@@ -87,10 +87,7 @@ class Bot(commands.AutoShardedBot):
         sys.exit(1)
 
     async def on_ready(self):
-        print(
-            f"- User: {self.user}\n"
-            f"- Shards: {self.shard_count}"
-        )
+        print(f"- User: {self.user}\n- Shards: {self.shard_count}")
 
     async def on_shard_ready(self, shard_id: int):
         await self.change_presence(

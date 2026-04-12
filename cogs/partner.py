@@ -4,6 +4,25 @@ from redis.asyncio import Redis
 from asyncpg import Pool
 import discord, random
 
+async def check_partner_requirements(guild, channel, config):
+    member_role  = guild.get_role(config.get("member_role"))
+    partner_role = guild.get_role(config.get("partner_ping_role"))
+
+    if not member_role:
+        return False, "Member role not configured"
+    if not partner_role:
+        return False, "Partner role not configured"
+    
+    if sum(1 for m in guild.member_count if channel.permissions_for(m).view_channel) / guild.member_count < 0.95:
+        return False, r"Less than 95% of server members can see the partner channel, Make sure your partner channel is visible to everyone"
+    
+    if sum(1 for m in member_role.members if channel.permissions_for(m).view_channel) / guild.member_count < 0.95:
+        return False, r"Less than 95% of members can see the partner channel, Try giving more people member role or make sure your partner channel is visible"
+    
+    if partner_role and len(partner_role.members) / guild.member_count < 0.08:
+        return False, r"Less than 8% of members have partner ping role"
+    return True, None
+
 def get_req(count_a: int, count_b: int) -> dict:
     if count_a >= count_b:
         host, guest = count_a, count_b
@@ -85,7 +104,7 @@ class Partner(commands.Cog):
             return None, None
 
         channel1 = guild1.get_channel(config1.get("partner_channel"))
-        if not channel1 or not not isinstance(channel1, discord.TextChannel):
+        if not channel1 or not isinstance(channel1, discord.TextChannel):
             log_channel = guild1.get_channel(config1.get("log_channel"))
             if log_channel:
                 embed = discord.Embed(
@@ -107,6 +126,14 @@ class Partner(commands.Cog):
                 )
                 await log_channel.send(embed=embed)
             return None, None
+        
+        for guild, channel, config in [(guild1, channel1, config1), (guild2, channel2, config2)]:
+            passed, reason = await check_partner_requirements(guild, channel, config)
+            if not passed:
+                log = guild.get_channel(config.get("log_channel"))
+                if log: await log.send(embed=discord.Embed(title="Requirements not met", description=reason, color=discord.Color.dark_red()))
+                print("Partner refused, reason:", reason)
+                return None, None
 
         r = get_req(guild1.member_count, guild2.member_count)
         print(f"[partner] {server1_id}({guild1.member_count}) pings {r['server_a']} | {server2_id}({guild2.member_count}) pings {r['server_b']} | host: {r['host']}")
@@ -119,10 +146,24 @@ class Partner(commands.Cog):
         
         perms1 = channel1.permissions_for(channel1.guild.me)
         if not perms1.send_messages or not perms1.mention_everyone:
+            log_channel = guild1.get_channel(config1.get("log_channel"))
+            if log_channel:
+                await log_channel.send(embed=discord.Embed(
+                    title="Missing permissions",
+                    description="I need `Send Messages` and `Mention Everyone` permissions in the partner channel",
+                    color=discord.Color.dark_red()
+                ))
             return None, None
-        
+
         perms2 = channel2.permissions_for(channel2.guild.me)
         if not perms2.send_messages or not perms2.mention_everyone:
+            log_channel = guild2.get_channel(config2.get("log_channel"))
+            if log_channel:
+                await log_channel.send(embed=discord.Embed(
+                    title="Missing permissions",
+                    description="I need `Send Messages` and `Mention Everyone` in the partner channel",
+                    color=discord.Color.dark_red()
+                ))
             return None, None
         
         ad1 = f"{raw_ad1}\n\n{r['server_a']} (Testing Placeholder)"
