@@ -1,12 +1,13 @@
 from discord.ext import tasks, commands
+from redis.asyncio import Redis
 import re, discord
 
 LINK_REGEX = re.compile(r"https?://\S+")
 
 class AdLooper(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
-        self.redis = bot.redis
+        self.bot: commands.AutoShardedBot = bot
+        self.redis: Redis = bot.redis
 
     @commands.Cog.listener()
     async def on_ready(self):

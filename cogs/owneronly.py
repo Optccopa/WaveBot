@@ -1,3 +1,5 @@
+from redis.asyncio import Redis
+from asyncpg import Pool
 from discord.ext import commands
 from discord import app_commands
 from src.checks import is_owner
@@ -6,8 +8,8 @@ import discord
 class OwnerOnly(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.db_pool = bot.db_pool
-        self.redis = bot.redis
+        self.db_pool: Pool = bot.db_pool
+        self.redis: Redis = bot.redis
 
     serversGroup = app_commands.Group(
         name="servers",

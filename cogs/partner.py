@@ -1,5 +1,7 @@
 from discord.ext import tasks, commands
 from src.checks import is_owner
+from redis.asyncio import Redis
+from asyncpg import Pool
 import discord, random
 
 def get_req(count_a: int, count_b: int) -> dict:
@@ -33,8 +35,8 @@ def get_req(count_a: int, count_b: int) -> dict:
 class Partner(commands.Cog):
     def __init__(self, bot): 
         self.bot = bot
-        self.redis = bot.redis
-        self.db_pool = bot.db_pool
+        self.redis: Redis = bot.redis
+        self.db_pool: Pool = bot.db_pool
 
     partnerGroup = discord.app_commands.Group(
         name="partner",
