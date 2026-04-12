@@ -3,3 +3,4 @@ asyncio
 asyncpg
 redis
 dotenv
+anthropic
