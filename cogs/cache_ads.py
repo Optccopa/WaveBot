@@ -107,7 +107,7 @@ class AdLooper(commands.Cog):
         self.redis: Redis = bot.redis
         self.client: Anthropic = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     
-    def scan(self, ad: str) -> dict:
+    def scan_ad(self, ad: str) -> dict:
         hits = []
         lower = ad.lower()
         for rule, patterns in RULE_PATTERNS.items():
