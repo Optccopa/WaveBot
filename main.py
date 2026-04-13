@@ -9,7 +9,8 @@ class Bot(commands.AutoShardedBot):
 
         super().__init__(
             command_prefix="!",
-            intents=discord.Intents.all()
+            intents=discord.Intents.all(),
+            chunk_guilds_at_startup=True
         )
 
         self.db_pool = None
