@@ -28,7 +28,7 @@ class OwnerOnly(commands.Cog):
     )
 
     @blacklistGroup.command(name="add", description="Blacklist a server")
-    @app_commands.is_owner()
+    @is_owner()
     async def addBlacklist(self, interaction: discord.Interaction, guild_id: str, reason: str = "No reason provided"):
         async with self.db_pool.acquire() as conn:
             await conn.execute(
