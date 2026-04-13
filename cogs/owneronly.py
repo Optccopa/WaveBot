@@ -352,10 +352,15 @@ class OwnerOnly(commands.Cog):
             output = stdout.getvalue()
             error = traceback.format_exc()
 
-            await ctx.send(
-                f"Exec error\n"
-                f"```py\n{output}{error}\n```"
+            embed = discord.Embed(
+                title="Exec exception",
+                color=discord.Color.fuchsia()
             )
+            
+            embed.add_field(name="Output", value=f"```\n{output}\n```")
+            embed.add_field(name="Error", value=f"```\n{error}\n```")
+
+            await ctx.send(embed=embed)
             return
 
 async def setup(bot: commands.Bot):
