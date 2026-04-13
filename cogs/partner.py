@@ -16,7 +16,7 @@ class AddBotView(discord.ui.View):
         )
         embed.add_field(
             name="Invite the bot",
-            value=f'[Click Here](https://discord.com/oauth2/authorize?client_id={self.bot.user.id}) and click "Add to server"',
+            value='[Click Here](https://discord.com/oauth2/authorize?client_id=1487962334138863666) and click "Add to server"',
             inline=False
         )
         embed.add_field(
