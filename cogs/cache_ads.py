@@ -3,7 +3,7 @@ from redis.asyncio import Redis
 from anthropic import Anthropic
 import re, discord, os, json, hashlib
 
-CACHE_VER_CLAUDE = "v1"
+CACHE_VER_CLAUDE = "v2"
 
 SCAN_PROMPT = """You are a rule violations detector for a Minecraft economy Discord server (DonutSMP).
 References to Millions (M) likely mean ingame money.
@@ -34,7 +34,7 @@ Respond with a single raw JSON object using this exact schema:
     "confidence": float, -- 0.0 to 1.0, how confident you are in the sus verdict
     "ai_hits": [ -- violations YOU found that regex did not catch, empty list if none {"violation": "VIOLATION_NAME", "phrase": "exact phrase from the ad that triggered it"}],
     "regex_hits": [], -- leave as empty list, this is filled in by the system
-    "user_reason": string -- if sus=true, a short friendly message to show the user explaining what they need to fix WITHOUT mentioning regex, AI, or detection methods. if sus=false, set to null. Example: "Your ad appears to offer rewards for inviting members, which isn't allowed." NOT: "Regex pattern INVITE_REWARDS matched '5M / inv' in your message."
+    "user_reason": string -- if sus=true, write as if speaking directly to the ad poster, be specific but not accusatory WITHOUT mentioning regex, AI, or detection methods. if sus=false, set to null. Example: "Your ad appears to offer rewards for inviting members, which isn't allowed." NOT: "Regex pattern INVITE_REWARDS matched '5M / inv' in your message."
 }
 
 No markdown. No backticks. No explanation outside the JSON. First character must be {."""
@@ -140,8 +140,12 @@ class AdLooper(commands.Cog):
                 {"role": "assistant", "content": "{"},
             ],
         )
-        raw = "{" + message.content[0].text.strip()
-        result = json.loads(raw)
+        try:
+            raw = "{" + message.content[0].text.strip()
+            result = json.loads(raw)
+        except json.JSONDecodeError:
+            print(f"Failed to parse claude haiku response")
+            result = {"sus": False, "confidence": 0.0, "ai_hits": [], "regex_hits": [], "user_reason": None}
 
         return result
 

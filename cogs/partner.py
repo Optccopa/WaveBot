@@ -12,7 +12,7 @@ class AddBotView(discord.ui.View):
     async def add_bot(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = discord.Embed(
             title="Add WaveBot to your server!",
-            color=discord.Color.blurple()
+            color=discord.Color.fuchsia()
         )
         embed.add_field(
             name="Invite the bot",
@@ -38,7 +38,7 @@ class AddBotView(discord.ui.View):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-async def check_partner_requirements(guild, channel, config):
+async def check_partner_requirements(guild: discord.Guild, channel: discord.TextChannel, config):
     member_role  = guild.get_role(config.get("member_role"))
     partner_role = guild.get_role(config.get("partner_ping_role"))
 
@@ -61,7 +61,7 @@ async def check_partner_requirements(guild, channel, config):
         return False, "Less than 8% of members have partner ping role"
 
     return True, None
-
+ 
 def get_req(count_a: int, count_b: int) -> dict:
     if count_a >= count_b:
         host, guest = count_a, count_b
