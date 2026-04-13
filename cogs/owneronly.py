@@ -344,21 +344,10 @@ class OwnerOnly(commands.Cog):
             "message": ctx.message
         }
 
-        code = code.strip("`")
-        code = textwrap.indent(code, "    ")
-
-        func_code = f"""
-async def _exec():
-{code}
-"""
-
         stdout = StringIO()
 
         try:
-            exec(func_code, env)
-            with contextlib.redirect_stdout(stdout):
-                result = await env["_exec"]()
-
+            exec(code, env)
         except Exception:
             output = stdout.getvalue()
             error = traceback.format_exc()
