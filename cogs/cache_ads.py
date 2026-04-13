@@ -190,10 +190,10 @@ class AdLooper(commands.Cog):
                         if not cached:
                             response = json.dumps(await self.bot.loop.run_in_executor(None, self.scan_ad, ad_message), indent=2)
                             await self.redis.set(f"{CACHE_VER_CLAUDE}:claude:{ad_hash}", response)
-                            print(f"Response:\n{response}")
                         else:
                             response = cached
-                            print(f"Cached:\n{cached}")
+                        
+                        print(response)
 
                         break
 
