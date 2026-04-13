@@ -59,9 +59,11 @@ class Setup(commands.Cog):
         )
         config = await self.bot.config.get(interaction.guild.id)
         channel = interaction.guild.get_channel(config.get('log_channel'))
+        if channel: mention = channel.mention
+        else: mention = "<Unconfigured>"
 
         await interaction.response.send_message(
-            f"Configuration updated, Validity is checked at runtime so Watch {channel.mention} for info on any issues",
+            f"Configuration updated, Validity is checked at runtime so Watch {channel} for info on any issues",
             ephemeral=True
         )
 

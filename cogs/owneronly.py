@@ -30,12 +30,15 @@ class OwnerOnly(commands.Cog):
     @blacklistGroup.command(name="add", description="Blacklist a server")
     @is_owner()
     async def addBlacklist(self, interaction: discord.Interaction, guild_id: str, reason: str = "No reason provided"):
-        async with self.db_pool.acquire() as conn:
-            await conn.execute(
-                "INSERT INTO blacklists (guild_id, reason, added_by) VALUES ($1, $2, $3)"
-                " ON CONFLICT (guild_id) DO UPDATE SET reason = $2, added_by = $3",
-                int(guild_id), reason, interaction.user.id
-            )
+        try:
+            async with self.db_pool.acquire() as conn:
+                await conn.execute(
+                    "INSERT INTO blacklists (guild_id, reason, added_by) VALUES ($1, $2, $3)"
+                    " ON CONFLICT (guild_id) DO UPDATE SET reason = $2, added_by = $3",
+                    int(guild_id), reason, interaction.user.id
+                )
+        except ValueError:
+            await interaction.response.send_message("Guild id must be int")
 
         embed = discord.Embed(
             title="Added Blacklist",
@@ -59,8 +62,11 @@ class OwnerOnly(commands.Cog):
     @blacklistGroup.command(name="check", description="Check if a server is blacklisted")
     @is_owner()
     async def checkBlacklist(self, interaction: discord.Interaction, guild_id: str):
-        async with self.db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT * FROM blacklists WHERE guild_id = $1", int(guild_id))
+        try:
+            async with self.db_pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT * FROM blacklists WHERE guild_id = $1", int(guild_id))
+        except ValueError:
+            await interaction.response.send_message("Guild id must be int")
         if row:
             embed = discord.Embed(
                 title="Blacklisted",

@@ -1,5 +1,7 @@
 import json
 
+ALLOWED_COLUMNS = {"partner_channel", "ad_channel", "member_role", "partner_ping_role", "log_channel"}
+
 class ConfigManager:
     def __init__(self, db_pool, redis):
         self.db = db_pool
@@ -28,9 +30,12 @@ class ConfigManager:
         return data
 
     async def set(self, guild_id: int, **fields):
+        invalid = set(fields) - ALLOWED_COLUMNS
+        if invalid:
+            raise ValueError(f"Invalid config fields: {invalid}")
+        
         columns = ", ".join(f"{k} = ${i+2}" for i, k in enumerate(fields))
         values = list(fields.values())
-
         async with self.db.acquire() as conn:
             await conn.execute(
                 f"""

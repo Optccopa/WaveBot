@@ -34,7 +34,7 @@ class Bot(commands.AutoShardedBot):
             database=os.getenv("POSTGRES_DB", "appdb")
         )
         
-        # create table
+        # create tables
         async with self.db_pool.acquire() as conn:
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS guild_config (

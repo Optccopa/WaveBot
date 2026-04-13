@@ -3,9 +3,7 @@ import anthropic
 import re
 from src.prompts import *
 
-API_KEY = "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"
-
-client = anthropic.Anthropic(api_key=API_KEY)
+client = anthropic.Anthropic(api_key=None)
 
 def scan_ad(ad: str) -> dict:
     hits = []

@@ -16,7 +16,7 @@ class AddBotView(discord.ui.View):
         )
         embed.add_field(
             name="Invite the bot",
-            value='[Click Here](https://discord.com/oauth2/authorize?client_id=1487962334138863666) and click "Add to server"',
+            value=f'[Click Here](https://discord.com/oauth2/authorize?client_id={self.bot.user.id}) and click "Add to server"',
             inline=False
         )
         embed.add_field(
@@ -240,9 +240,8 @@ class Partner(commands.Cog):
 
     @tasks.loop(seconds=21600)
     async def partner_loop(self):
-        if await self.redis.exists("last_partner_run"):
+        if not await self.redis.set("last_partner_run", 1, nx=True, ex=10800):
             return
-        await self.redis.set("last_partner_run", 1, ex=10800)
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch("SELECT guild_id FROM blacklists")
             blacklisted_ids = {row[0] for row in rows}
