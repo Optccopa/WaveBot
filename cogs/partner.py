@@ -49,8 +49,8 @@ async def check_partner_requirements(guild: discord.Guild, channel: discord.Text
 
     total = guild.member_count or 1
 
-    if len(member_role.members) / total < 0.95:
-        return False, "Less than 95% of server members have the member role, Make sure your member role is assigned to everyone"
+    if len(member_role.members) / total < 0.85:
+        return False, "Less than 85% of server members have the member role, Make sure your member role is assigned to everyone"
 
     role_members = member_role.members
     visible = sum(1 for m in role_members if channel.permissions_for(m).view_channel)
