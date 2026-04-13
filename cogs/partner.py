@@ -297,7 +297,7 @@ class Partner(commands.Cog):
 
     @partnerGroup.command(name="loop", description="Get info on the partner loop")
     async def loop_info(self, interaction: discord.Interaction):
-        loop = self.ad_loop
+        loop = self.partner_loop
 
         if not loop.is_running():
             await interaction.response.send_message("`ad_loop` is not running.")
