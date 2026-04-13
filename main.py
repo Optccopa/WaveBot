@@ -8,7 +8,7 @@ class Bot(commands.AutoShardedBot):
     def __init__(self):
 
         super().__init__(
-            command_prefix="!",
+            command_prefix="p!",
             intents=discord.Intents.all(),
             chunk_guilds_at_startup=True
         )
@@ -129,6 +129,10 @@ class Bot(commands.AutoShardedBot):
                 await guild.leave()
 
 bot = Bot()
+
+@bot.command(name="dr")
+async def pinger(ctx):
+    ctx.reply("Donut")
 
 async def main():
     async with bot:
