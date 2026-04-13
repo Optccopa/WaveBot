@@ -1,4 +1,5 @@
 import discord, traceback
+from time import time
 from discord.ext import commands
 
 def is_owner():
@@ -25,8 +26,12 @@ class ErrorHandler(commands.Cog):
         if isinstance(error, discord.app_commands.MissingPermissions):
             msg = "You don't have permission to use this command."
 
-        elif isinstance(error, discord.app_commands.CommandOnCooldown):
-            msg = f"Try again in {error.retry_after:.1f}s."
+        if isinstance(error, discord.app_commands.CommandOnCooldown):
+            retry_at = int(time() + error.retry_after)
+            await interaction.response.send_message(
+                f"Slow down, Retry at: <t:{retry_at}:R>",
+                ephemeral=True
+            )
 
         else:
             print("App command error:", repr(error))
