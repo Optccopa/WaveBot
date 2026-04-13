@@ -9,12 +9,7 @@ class Bot(commands.AutoShardedBot):
 
         super().__init__(
             command_prefix="!",
-            intents=discord.Intents(
-                guilds=True,
-                messages=True,
-                message_content=True,
-                members=True
-            )
+            intents=discord.Intents.all()
         )
 
         self.db_pool = None
