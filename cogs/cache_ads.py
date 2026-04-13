@@ -82,7 +82,6 @@ class AdLooper(commands.Cog):
         pending = []
 
         for guild in self.bot.guilds:
-            guild: discord.Guild
             config = await self.bot.config.get(guild.id)
             if not config:
                 continue
