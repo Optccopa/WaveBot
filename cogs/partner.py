@@ -4,6 +4,38 @@ from redis.asyncio import Redis
 from asyncpg import Pool
 import discord, random
 
+class AddBotView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Add WaveBot", style=discord.ButtonStyle.blurple, custom_id="wavebot:add_bot")
+    async def add_bot(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="Add WaveBot to your server!",
+            color=discord.Color.blurple()
+        )
+        embed.add_field(
+            name="Invite the bot",
+            value="[Click Here](https://discord.com/oauth2/authorize?client_id=1487962334138863666) and click “Add to server”",
+            inline=False
+        )
+        embed.add_field(
+            name="Assign permissions",
+            value="Give the bot the same permissions you would give to a partner manager, Required in partner channel: Mention_everyone, Send messages",
+            inline=False
+        )
+        embed.add_field(
+            name="Configure the bot",
+            value="Run `/setup` for a step-by-step interactive setup guide (recommended), or use `/config set` to configure manually",
+            inline=False
+        )
+        embed.add_field(
+            name="Join the support server",
+            value="Click the link sent with this embed",
+            inline=False
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 async def check_partner_requirements(guild, channel, config):
     member_role  = guild.get_role(config.get("member_role"))
     partner_role = guild.get_role(config.get("partner_ping_role"))
@@ -174,12 +206,12 @@ class Partner(commands.Cog):
             return None, None
         
         try:
-            await channel1.send(ad2)
+            await channel1.send(ad2, view=AddBotView())
         except Exception as e:
             print(e)
             return None, None
         try:
-            await channel2.send(ad1)
+            await channel2.send(ad1, view=AddBotView())
         except Exception as e:
             print(e)
             return None, None
@@ -188,11 +220,13 @@ class Partner(commands.Cog):
         return channel1, channel2
 
     async def cog_load(self):
+        self.bot.add_view(AddBotView())
         if self.bot.is_ready() and not self.partner_loop.is_running():
             self.partner_loop.start()
 
     @commands.Cog.listener()
     async def on_ready(self):
+        self.bot.add_view(AddBotView())
         if not self.partner_loop.is_running():
             self.partner_loop.start()
 
