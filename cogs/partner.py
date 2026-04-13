@@ -294,12 +294,13 @@ class Partner(commands.Cog):
             await interaction.followup.send("Failed - check logs and console for details.", ephemeral=True)
             return
         await interaction.followup.send(f"Partnered: {channel1.mention} | {channel2.mention}", ephemeral=True)
+
     @partnerGroup.command(name="loop", description="Get info on the partner loop")
-    async def loop_info(self, ctx: commands.Context):
+    async def loop_info(self, interaction: discord.Interaction):
         loop = self.ad_loop
 
         if not loop.is_running():
-            await ctx.send("`ad_loop` is not running.")
+            await interaction.response.send_message("`ad_loop` is not running.")
             return
 
         next_iter = loop.next_iteration
@@ -322,7 +323,7 @@ class Partner(commands.Cog):
         embed.add_field(name="Current Loop", value=str(loop.current_loop), inline=True)
         embed.add_field(name="Next Run", value=time_str, inline=False)
 
-        await ctx.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Partner(bot))
