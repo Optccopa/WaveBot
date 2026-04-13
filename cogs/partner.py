@@ -23,7 +23,7 @@ class AddBotView(discord.ui.View):
             name="Grant permissions",
             value="The bot needs **Send Messages** and **Mention Everyone** permissions in both:\n"
                   "- Your **partner channel** (where ads are posted)\n"
-                  "- Your **logging channel** (for errors and warnings)",
+                  "- Your **logging channel** (for errors, warnings, and announcements)",
             inline=False
         )
         embed.add_field(

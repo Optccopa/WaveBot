@@ -41,10 +41,13 @@ class OwnerOnly(commands.Cog):
             description=f"Reason: {reason}",
             color=discord.Color.fuchsia()
         )
-        guild: discord.Guild = self.bot.get_guild(guild_id)
-        await guild.leave()
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
+        try:
+            guild: discord.Guild = self.bot.get_guild(int(guild_id))
+            await guild.leave()
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        except ValueError:
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
     @blacklistGroup.command(name="remove", description="Remove a blacklist")
     @is_owner()
     async def removeBlacklist(self, interaction: discord.Interaction, guild_id: str):
