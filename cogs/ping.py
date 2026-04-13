@@ -8,7 +8,7 @@ class Ping(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="ping", description="Check bot latency and service health")
-    @app_commands.Cooldown(3, 30)
+    @app_commands.Cooldown(1, 10, key=lambda i: i.user.id)
     async def ping(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
