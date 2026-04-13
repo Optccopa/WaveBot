@@ -352,13 +352,17 @@ class OwnerOnly(commands.Cog):
             output = stdout.getvalue()
             error = traceback.format_exc()
 
+            lines = error.strip().splitlines()
+            tb_body = "\n".join(lines[:-1])
+            exc_line = lines[-1]
+
             embed = discord.Embed(
                 title="Exec exception",
                 color=discord.Color.fuchsia()
             )
             
-            embed.add_field(name="Output", value=f"```\n{output}\n```")
-            embed.add_field(name="Error", value=f"```\n{error}\n```")
+            embed.add_field(name="Output", value=f"```\n{tb_body}\n```", inline=False)
+            embed.add_field(name="Error", value=f"```\n{exc_line}\n```", inline=False)
 
             await ctx.send(embed=embed)
             return
