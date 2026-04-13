@@ -294,6 +294,35 @@ class Partner(commands.Cog):
             await interaction.followup.send("Failed - check logs and console for details.", ephemeral=True)
             return
         await interaction.followup.send(f"Partnered: {channel1.mention} | {channel2.mention}", ephemeral=True)
+    @partnerGroup.command(name="loop", description="Get info on the partner loop")
+    async def loop_info(self, ctx: commands.Context):
+        loop = self.ad_loop
+
+        if not loop.is_running():
+            await ctx.send("`ad_loop` is not running.")
+            return
+
+        next_iter = loop.next_iteration
+        time_str = "N/A"
+
+        if next_iter:
+            now = discord.utils.utcnow()
+            seconds = int((next_iter - now).total_seconds())
+            m, s = divmod(seconds, 60)
+            h, m = divmod(m, 60)
+            parts = []
+            if h: parts.append(f"{h}h")
+            if m: parts.append(f"{m}m")
+            parts.append(f"{s}s")
+            time_str = f"{''.join(parts)} (<t:{int(next_iter.timestamp())}:R>)"
+
+        embed = discord.Embed(title="Ad Loop Info", color=discord.Color.fuchsia())
+        embed.add_field(name="Running", value=str(loop.is_running()), inline=True)
+        embed.add_field(name="Failed", value=str(loop.failed()), inline=True)
+        embed.add_field(name="Current Loop", value=str(loop.current_loop), inline=True)
+        embed.add_field(name="Next Run", value=time_str, inline=False)
+
+        await ctx.send(embed=embed)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Partner(bot))
