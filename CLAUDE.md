@@ -1,0 +1,5 @@
+- Never compromise claude caching
+- Cache in redis when possible
+- Backup any values that dont fill themselves to postgres
+- Prioritize speed
+- Only abstract functions that are used in multiple places and very long

@@ -21,6 +21,11 @@ class OwnerOnly(commands.Cog):
         description="Server blacklist management"
     )
 
+    whitelistGroup = app_commands.Group(
+        name="whitelist",
+        description="Manage whitelisted links for ad scanning"
+    )
+
     @blacklistGroup.command(name="add", description="Blacklist a server")
     @is_owner()
     async def addBlacklist(self, interaction: discord.Interaction, guild_id: str, reason: str = "No reason provided"):
@@ -61,6 +66,47 @@ class OwnerOnly(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
         else:
             await interaction.response.send_message("Not blacklisted", ephemeral=True)
+
+    @whitelistGroup.command(name="add", description="Whitelist a link from ad scanning")
+    @is_owner()
+    async def addWhitelist(self, interaction: discord.Interaction, link: str):
+        async with self.db_pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO whitelisted_links (link, added_by) VALUES ($1, $2)"
+                " ON CONFLICT (link) DO NOTHING",
+                link, interaction.user.id
+            )
+        await self.redis.sadd("whitelisted_links", link)
+        embed = discord.Embed(
+            title="Link Whitelisted",
+            description=f"`{link}`",
+            color=discord.Color.fuchsia()
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @whitelistGroup.command(name="remove", description="Remove a link from the whitelist")
+    @is_owner()
+    async def removeWhitelist(self, interaction: discord.Interaction, link: str):
+        async with self.db_pool.acquire() as conn:
+            await conn.execute("DELETE FROM whitelisted_links WHERE link = $1", link)
+        await self.redis.srem("whitelisted_links", link)
+        await interaction.response.send_message("Link removed from whitelist", ephemeral=True)
+
+    @whitelistGroup.command(name="list", description="List all whitelisted links")
+    @is_owner()
+    async def listWhitelist(self, interaction: discord.Interaction):
+        async with self.db_pool.acquire() as conn:
+            rows = await conn.fetch("SELECT link, added_by FROM whitelisted_links")
+        if not rows:
+            await interaction.response.send_message("No whitelisted links", ephemeral=True)
+            return
+        embed = discord.Embed(
+            title=f"Whitelisted Links ({len(rows)})",
+            color=discord.Color.fuchsia()
+        )
+        for row in rows:
+            embed.add_field(name=row["link"], value=f"Added by <@{row['added_by']}>", inline=False)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @serversGroup.command(name="list")
     @is_owner()

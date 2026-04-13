@@ -54,6 +54,12 @@ class Bot(commands.AutoShardedBot):
                     added_by BIGINT NOT NULL
                 )
             """)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS whitelisted_links (
+                    link TEXT PRIMARY KEY,
+                    added_by BIGINT NOT NULL
+                )
+            """)
 
         # load cogs
         if os.path.isdir("cogs"):

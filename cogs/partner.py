@@ -219,8 +219,6 @@ class Partner(commands.Cog):
             partner_ping_role = guild.get_role(config.get("partner_ping_role"))
 
             if not all([partner_channel, ad_channel, member_role, partner_ping_role]):
-                missing = [k for k, v in {"partner_channel": partner_channel, "ad_channel": ad_channel, "member_role": member_role, "partner_ping_role": partner_ping_role}.items() if not v]
-                print(f"[loop] skipping {guild.id} (missing: {', '.join(missing)})")
                 continue
 
             ad = await self.redis.get(f"ads:{guild.id}")

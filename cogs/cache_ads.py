@@ -155,6 +155,8 @@ class AdLooper(commands.Cog):
         await self.index_ads()
 
     async def index_ads(self):
+        whitelisted = await self.redis.smembers("whitelisted_links")
+
         missingChannelEmbed = discord.Embed(
             title="Ad channel missing",
             description="Use `/config set` to set one",
@@ -184,6 +186,8 @@ class AdLooper(commands.Cog):
                 async for message in ad_channel.history(limit=10):
                     if LINK_REGEX.search(message.content):
                         ad_message = message.content
+                        for link in whitelisted:
+                            ad_message = ad_message.replace(link, "")
                         ad_hash = hashlib.md5(ad_message.encode()).hexdigest()[:12]
 
                         cached = await self.redis.get(f"{CACHE_VER_CLAUDE}:claude:{ad_hash}")
