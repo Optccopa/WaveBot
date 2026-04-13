@@ -36,7 +36,7 @@ class AddBotView(discord.ui.View):
             value="Click the link sent with this embed",
             inline=False
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message("https://discord.gg/uacMXzbAfg", embed=embed, ephemeral=True)
 
 async def check_partner_requirements(guild: discord.Guild, channel: discord.TextChannel, config):
     member_role  = guild.get_role(config.get("member_role"))
