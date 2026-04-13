@@ -171,7 +171,7 @@ class Partner(commands.Cog):
             if not passed:
                 log = guild.get_channel(config.get("log_channel"))
                 if log: await log.send(embed=discord.Embed(title="Requirements not met", description=reason, color=discord.Color.dark_red()))
-                print("Partner refused, reason:", reason)
+                print(f"[partner] REFUSED {guild.name} ({guild.id}): {reason}")
                 return None, None
 
         r = get_req(guild1.member_count, guild2.member_count)
@@ -249,6 +249,7 @@ class Partner(commands.Cog):
         available = []
         for guild in self.bot.guilds:
             if guild.id in blacklisted_ids:
+                print(f"[loop] SKIP {guild.name} ({guild.id}): blacklisted")
                 continue
             config = await self.bot.config.get(guild.id)
             if not config:
@@ -259,19 +260,35 @@ class Partner(commands.Cog):
             member_role = guild.get_role(config.get("member_role"))
             partner_ping_role = guild.get_role(config.get("partner_ping_role"))
 
-            if not all([partner_channel, ad_channel, member_role, partner_ping_role]):
+            missing = []
+            if not partner_channel: missing.append("partner_channel")
+            if not ad_channel: missing.append("ad_channel")
+            if not member_role: missing.append("member_role")
+            if not partner_ping_role: missing.append("partner_ping_role")
+            if missing:
+                print(f"[loop] SKIP {guild.name} ({guild.id}): missing config — {', '.join(missing)}")
                 continue
 
             ad = await self.redis.get(f"ads:{guild.id}")
             if not ad:
+                print(f"[loop] SKIP {guild.name} ({guild.id}): no ad in redis")
                 continue
 
+            print(f"[loop] ELIGIBLE {guild.name} ({guild.id}) members={guild.member_count}")
             available.append((guild.id, guild.member_count))
 
+        print(f"[loop] {len(available)} eligible servers going into matching")
         pairs = await self.match_servers(available)
 
         for a, b in pairs:
-            await self.partner(a, b)
+            guild_a = self.bot.get_guild(a)
+            guild_b = self.bot.get_guild(b)
+            print(f"[loop] attempting pair: {guild_a.name if guild_a else a} <-> {guild_b.name if guild_b else b}")
+            ch1, ch2 = await self.partner(a, b)
+            if ch1:
+                print(f"[loop] SUCCESS: {guild_a.name if guild_a else a} <-> {guild_b.name if guild_b else b}")
+            else:
+                print(f"[loop] FAILED pair: {guild_a.name if guild_a else a} <-> {guild_b.name if guild_b else b} — see reason above")
 
     @partner_loop.before_loop
     async def before_partner_loop(self):
