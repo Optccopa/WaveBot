@@ -353,9 +353,11 @@ class OwnerOnly(commands.Cog):
         stdout = StringIO()
 
         try:
-            exec(code, env)
+            func_code = f"async def _exec():\n{textwrap.indent(code, "    ")}"
+
+            exec(func_code, env)
+            await env["_exec"]()
         except Exception:
-            output = stdout.getvalue()
             error = traceback.format_exc()
 
             lines = error.strip().splitlines()
