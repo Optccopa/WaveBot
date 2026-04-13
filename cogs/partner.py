@@ -206,8 +206,8 @@ class Partner(commands.Cog):
                 ))
             return None, None
         
-        ad1 = f"{raw_ad1}\n\n{r['server_a']} (Testing Placeholder)"
-        ad2 = f"{raw_ad2}\n\n{r['server_b']} (Testing Placeholder)"
+        ad1 = f"{raw_ad1}\n\n{r['server_b']} (Testing Placeholder)"
+        ad2 = f"{raw_ad2}\n\n{r['server_a']} (Testing Placeholder)"
 
         if len(ad1) > 2000 or len(ad2) > 2000:
             print(f"[partner] ad too long: server1={len(ad1)} server2={len(ad2)}")
