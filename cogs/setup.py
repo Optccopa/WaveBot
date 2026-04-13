@@ -102,7 +102,7 @@ class PartnerChannelView(discord.ui.View):
         embed = step_embed(
             "Step 3/5 - Ad Channel",
             "Select the channel that contains **your server's advertisement**.\n\n"
-            "Your **most recent message** in this channel must be your ad and must contain your `discord.gg` invite link."
+            "Your **10 recent messages** in this channel must be contain ad and your `discord.gg` invite link."
         )
         await interaction.response.edit_message(embed=embed, view=AdChannelView(self.state, self.bot, self.guild))
 

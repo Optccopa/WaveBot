@@ -46,16 +46,20 @@ async def check_partner_requirements(guild, channel, config):
         return False, "Member role not configured"
     if not partner_role:
         return False, "Partner role not configured"
-    
-    if sum(1 for m in guild.member_count if channel.permissions_for(m).view_channel) / guild.member_count < 0.95:
-        return False, r"Less than 95% of server members can see the partner channel, Make sure your partner channel is visible to everyone"
-    
-    if sum(1 for m in member_role.members if channel.permissions_for(m).view_channel) / guild.member_count < 0.95:
-        return False, r"Less than 95% of members can see the partner channel, Try giving more people member role or make sure your partner channel is visible"
-    
-    if partner_role and len(partner_role.members) / guild.member_count < 0.08:
-        return False, r"Less than 8% of members have partner ping role"
-    
+
+    total = guild.member_count or 1
+
+    if len(member_role.members) / total < 0.95:
+        return False, "Less than 95% of server members have the member role, Make sure your member role is assigned to everyone"
+
+    role_members = member_role.members
+    visible = sum(1 for m in role_members if channel.permissions_for(m).view_channel)
+    if role_members and visible / len(role_members) < 0.95:
+        return False, "Less than 95% of members can see the partner channel, Make sure your partner channel is visible to everyone"
+
+    if len(partner_role.members) / total < 0.08:
+        return False, "Less than 8% of members have partner ping role"
+
     return True, None
 
 def get_req(count_a: int, count_b: int) -> dict:
@@ -177,8 +181,9 @@ class Partner(commands.Cog):
         raw_ad2 = await self.redis.get(f'ads:{server2_id}')
 
         if not raw_ad1 or not raw_ad2:
+            print(f"[partner] missing ad: server1={bool(raw_ad1)} server2={bool(raw_ad2)}")
             return None, None
-        
+
         perms1 = channel1.permissions_for(channel1.guild.me)
         if not perms1.send_messages or not perms1.mention_everyone:
             log_channel = guild1.get_channel(config1.get("log_channel"))
@@ -205,6 +210,7 @@ class Partner(commands.Cog):
         ad2 = f"{raw_ad2}\n\n{r['server_b']} (Testing Placeholder)"
 
         if len(ad1) > 2000 or len(ad2) > 2000:
+            print(f"[partner] ad too long: server1={len(ad1)} server2={len(ad2)}")
             return None, None
         
         try:
@@ -275,13 +281,20 @@ class Partner(commands.Cog):
     @partnerGroup.command(name="force")
     @is_owner()
     async def force_partner(self, interaction: discord.Interaction, server_id_1: str, server_id_2: str):
+        await interaction.response.defer(ephemeral=True)
         if server_id_1 == server_id_2:
+            await interaction.followup.send("Cannot partner a server with itself.", ephemeral=True)
             return
-        channel1, channel2 = await self.partner(int(server_id_1), int(server_id_2))
+        try:
+            channel1, channel2 = await self.partner(int(server_id_1), int(server_id_2))
+        except Exception as e:
+            print(f"[force_partner] exception: {e}")
+            await interaction.followup.send(f"Error: {e}", ephemeral=True)
+            return
         if not channel1:
-            await interaction.response.send_message("Failed - check configs and channels.", ephemeral=True)
+            await interaction.followup.send("Failed - check logs and console for details.", ephemeral=True)
             return
-        await interaction.response.send_message(f"Partnered: {channel1.mention} | {channel2.mention}", ephemeral=True)
+        await interaction.followup.send(f"Partnered: {channel1.mention} | {channel2.mention}", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Partner(bot))
