@@ -16,12 +16,14 @@ class AddBotView(discord.ui.View):
         )
         embed.add_field(
             name="Invite the bot",
-            value="[Click Here](https://discord.com/oauth2/authorize?client_id=1487962334138863666) and click “Add to server”",
+            value='[Click Here](https://discord.com/oauth2/authorize?client_id=1487962334138863666) and click "Add to server"',
             inline=False
         )
         embed.add_field(
-            name="Assign permissions",
-            value="Give the bot the same permissions you would give to a partner manager, Required in partner channel: Mention_everyone, Send messages",
+            name="Grant permissions",
+            value="The bot needs **Send Messages** and **Mention Everyone** permissions in both:\n"
+                  "- Your **partner channel** (where ads are posted)\n"
+                  "- Your **logging channel** (for errors and warnings)",
             inline=False
         )
         embed.add_field(
