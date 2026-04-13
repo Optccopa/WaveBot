@@ -108,8 +108,7 @@ class AdLooper(commands.Cog):
                         try:
                             scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=30.0)
                         except asyncio.TimeoutError:
-                            print("[cache_ads] scan timed out for guild %s", guild.id)
-                            scan_result = {"sus": True, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Ad scan timed out, please resubmit."}
+                            scan_result = {"sus": False, "confidence": .5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
                         response = json.dumps(scan_result, indent=2)
                         await self.redis.set(f"{CACHE_VER_CLAUDE}:claude:{ad_hash}", response)
                     else:

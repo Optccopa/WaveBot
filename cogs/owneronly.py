@@ -2,8 +2,9 @@ from redis.asyncio import Redis
 from asyncpg import Pool
 from discord.ext import commands
 from discord import app_commands
-from src.checks import is_owner
-import discord, json
+from io import StringIO
+from checks import is_owner
+import discord, json, traceback, contextlib, textwrap, asyncio
 
 class OwnerOnly(commands.Cog):
     def __init__(self, bot):
@@ -27,7 +28,7 @@ class OwnerOnly(commands.Cog):
     )
 
     @blacklistGroup.command(name="add", description="Blacklist a server")
-    @is_owner()
+    @app_commands.is_owner()
     async def addBlacklist(self, interaction: discord.Interaction, guild_id: str, reason: str = "No reason provided"):
         async with self.db_pool.acquire() as conn:
             await conn.execute(
@@ -327,6 +328,46 @@ class OwnerOnly(commands.Cog):
 
         await interaction.followup.send(f"Leaving **{guild.name}** (`{guild.id}`).", ephemeral=True)
         await guild.leave()
+
+    @commands.command(name="exec")
+    @commands.is_owner()
+    async def exec_code(self, ctx: commands.Context, *, code: str):
+        env = {
+            "bot": self.bot,
+            "ctx": ctx,
+            "discord": discord,
+            "asyncio": asyncio,
+            "db_pool": getattr(self.bot, "db_pool", None),
+            "guild": ctx.guild,
+            "channel": ctx.channel,
+            "author": ctx.author,
+            "message": ctx.message
+        }
+
+        code = code.strip("`")
+        code = textwrap.indent(code, "    ")
+
+        func_code = f"""
+async def _exec():
+{code}
+"""
+
+        stdout = StringIO()
+
+        try:
+            exec(func_code, env)
+            with contextlib.redirect_stdout(stdout):
+                result = await env["_exec"]()
+
+        except Exception:
+            output = stdout.getvalue()
+            error = traceback.format_exc()
+
+            await ctx.send(
+                f"Exec error\n"
+                f"```py\n{output}{error}\n```"
+            )
+            return
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(OwnerOnly(bot))
