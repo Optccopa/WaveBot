@@ -3,7 +3,7 @@ from asyncpg import Pool
 from discord.ext import commands
 from discord import app_commands
 from io import StringIO
-from checks import is_owner
+from src.checks import is_owner
 import discord, json, traceback, contextlib, textwrap, asyncio
 
 class OwnerOnly(commands.Cog):
