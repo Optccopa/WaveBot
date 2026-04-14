@@ -1,4 +1,4 @@
-import discord, os, asyncio, asyncpg, sys, logging
+import discord, os, asyncio, asyncpg, sys, logging, aiohttp
 from redis.asyncio import Redis
 from discord.ext import commands
 from src.configmanager import ConfigManager
@@ -14,6 +14,26 @@ logging.getLogger("discord.http").setLevel(logging.WARNING)
 
 log = logging.getLogger(__name__)
 
+class WebhookHandler(logging.Handler):
+    def __init__(self, url: str):
+        super().__init__(level=logging.INFO)
+        self.url = url
+
+    def emit(self, record: logging.LogRecord):
+        msg = self.format(record)
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._send(msg))
+        except RuntimeError:
+            pass
+
+    async def _send(self, msg: str):
+        try:
+            async with aiohttp.ClientSession() as session:
+                await session.post(self.url, json={"content": f"```\n{msg[:1990]}\n```"})
+        except Exception:
+            pass
+
 class Bot(commands.AutoShardedBot):
     def __init__(self):
 
@@ -27,6 +47,10 @@ class Bot(commands.AutoShardedBot):
         self.redis = None
 
     async def setup_hook(self):
+        url = os.getenv("LOG_WEBHOOK_URL")
+        if url:
+            logging.getLogger().addHandler(WebhookHandler(url))
+
         self.redis: Redis = Redis(
             host="redis",
             port=6379,
