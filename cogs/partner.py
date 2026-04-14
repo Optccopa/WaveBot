@@ -12,6 +12,7 @@ class AddBotView(discord.ui.View):
 
     @discord.ui.button(label="Add WaveBot", style=discord.ButtonStyle.blurple, custom_id="wavebot:add_bot")
     async def add_bot(self, interaction: discord.Interaction, button: discord.ui.Button):
+        logger.info("[AddBotView] button clicked by user=%d guild=%s", interaction.user.id, interaction.guild_id)
         embed = discord.Embed(
             title="Add WaveBot to your server!",
             color=discord.Color.fuchsia()
@@ -41,27 +42,37 @@ class AddBotView(discord.ui.View):
         await interaction.response.send_message("https://discord.gg/uacMXzbAfg", embed=embed, ephemeral=True)
 
 async def check_partner_requirements(guild: discord.Guild, channel: discord.TextChannel, config):
+    logger.debug("[req] checking %s (%d) channel=#%s", guild.name, guild.id, channel.name)
     member_role  = guild.get_role(config.get("member_role"))
     partner_role = guild.get_role(config.get("partner_ping_role"))
 
     if not member_role:
+        logger.debug("[req] %d: member_role id=%s not found in guild", guild.id, config.get("member_role"))
         return False, "Member role not configured"
     if not partner_role:
+        logger.debug("[req] %d: partner_ping_role id=%s not found in guild", guild.id, config.get("partner_ping_role"))
         return False, "Partner role not configured"
 
     total = guild.member_count or 1
+    member_pct = len(member_role.members) / total
+    logger.debug("[req] %d: member_role coverage %.1f%% (%d/%d)", guild.id, member_pct * 100, len(member_role.members), total)
 
-    if len(member_role.members) / total < 0.85:
+    if member_pct < 0.85:
         return False, "Less than 85% of server members have the member role, Make sure your member role is assigned to everyone"
 
     role_members = member_role.members
     visible = sum(1 for m in role_members if channel.permissions_for(m).view_channel)
-    if role_members and visible / len(role_members) < 0.95:
+    visible_pct = visible / len(role_members) if role_members else 1.0
+    logger.debug("[req] %d: channel visibility %.1f%% (%d/%d can see #%s)", guild.id, visible_pct * 100, visible, len(role_members), channel.name)
+    if role_members and visible_pct < 0.95:
         return False, "Less than 95% of members can see the partner channel, Make sure your partner channel is visible to everyone"
 
-    if len(partner_role.members) / total < 0.08:
+    partner_pct = len(partner_role.members) / total
+    logger.debug("[req] %d: partner_ping_role coverage %.1f%% (%d/%d)", guild.id, partner_pct * 100, len(partner_role.members), total)
+    if partner_pct < 0.08:
         return False, "Less than 8% of members have partner ping role"
 
+    logger.debug("[req] %d: all checks passed", guild.id)
     return True, None
  
 def get_req(count_a: int, count_b: int) -> dict:
@@ -88,9 +99,12 @@ def get_req(count_a: int, count_b: int) -> dict:
                 ping_a, ping_b = host_ping, "member"
             else:
                 ping_a, ping_b = "member", host_ping
+            logger.debug("[get_req] host=%d guest=%d scale=%.3f ceiling=%s -> host_ping=%s", host, guest, scale, ceiling, host_ping)
             break
 
-    return {"server_a": ping_a, "server_b": ping_b, "host": "server_a" if a_is_host else "server_b"}
+    result = {"server_a": ping_a, "server_b": ping_b, "host": "server_a" if a_is_host else "server_b"}
+    logger.debug("[get_req] a=%d(%s) b=%d(%s) host=%s", count_a, ping_a, count_b, ping_b, result["host"])
+    return result
 
 class Partner(commands.Cog):
     def __init__(self, bot): 
@@ -104,13 +118,18 @@ class Partner(commands.Cog):
     )
 
     async def has_cooldown(self, a: int, b: int) -> bool:
-        result = bool(await self.redis.exists(f"partner_cooldown:{min(a,b)}:{max(a,b)}"))
+        key = f"partner_cooldown:{min(a,b)}:{max(a,b)}"
+        result = bool(await self.redis.exists(key))
+        logger.debug("[cooldown] %s -> %s", key, "HIT" if result else "MISS")
         return result
 
     async def set_cooldown(self, a: int, b: int):
-        await self.redis.set(f"partner_cooldown:{min(a,b)}:{max(a,b)}", 1, ex=60 * 60 * 24 * 7)
+        key = f"partner_cooldown:{min(a,b)}:{max(a,b)}"
+        await self.redis.set(key, 1, ex=60 * 60 * 24 * 7)
+        logger.debug("[cooldown] SET %s (7d)", key)
 
     async def match_servers(self, guilds: list[tuple[int, int]]) -> list[tuple[int, int]]:
+        logger.info("[match] starting with %d servers", len(guilds))
         pool = [id for id, _ in guilds]
         random.shuffle(pool)
         pairs = []
@@ -125,6 +144,7 @@ class Partner(commands.Cog):
                 if not await self.has_cooldown(server, candidate):
                     pairs.append((server, candidate))
                     used.update([server, candidate])
+                    logger.debug("[match] paired %d <-> %d", server, candidate)
                     matched = True
                     break
             if not matched:
@@ -133,19 +153,25 @@ class Partner(commands.Cog):
         return pairs
 
     async def partner(self, server1_id: int, server2_id: int):
+        logger.info("[partner] START %d <-> %d", server1_id, server2_id)
 
         config1 = await self.bot.config.get(server1_id)
         config2 = await self.bot.config.get(server2_id)
         if not config1 or not config2:
+            logger.warning("[partner] ABORT %d<->%d: missing config (config1=%s config2=%s)", server1_id, server2_id, bool(config1), bool(config2))
             return None, None
 
         guild1 = self.bot.get_guild(server1_id)
         guild2 = self.bot.get_guild(server2_id)
         if not guild1 or not guild2:
+            logger.warning("[partner] ABORT %d<->%d: guild not in cache (guild1=%s guild2=%s)", server1_id, server2_id, bool(guild1), bool(guild2))
             return None, None
+
+        logger.debug("[partner] guilds resolved: %s (%d members) <-> %s (%d members)", guild1.name, guild1.member_count, guild2.name, guild2.member_count)
 
         channel1 = guild1.get_channel(config1.get("partner_channel"))
         if not channel1 or not isinstance(channel1, discord.TextChannel):
+            logger.warning("[partner] ABORT: %s (%d) partner_channel id=%s not found or wrong type", guild1.name, server1_id, config1.get("partner_channel"))
             log_channel = guild1.get_channel(config1.get("log_channel"))
             if log_channel:
                 embed = discord.Embed(
@@ -156,11 +182,12 @@ class Partner(commands.Cog):
                 try:
                     await log_channel.send(embed=embed)
                 except discord.Forbidden:
-                    pass
+                    logger.warning("[partner] Forbidden sending to log_channel in %d", server1_id)
             return None, None
 
         channel2 = guild2.get_channel(config2.get("partner_channel"))
         if not channel2 or not isinstance(channel2, discord.TextChannel):
+            logger.warning("[partner] ABORT: %s (%d) partner_channel id=%s not found or wrong type", guild2.name, server2_id, config2.get("partner_channel"))
             log_channel = guild2.get_channel(config2.get("log_channel"))
             if log_channel:
                 embed = discord.Embed(
@@ -171,8 +198,10 @@ class Partner(commands.Cog):
                 try:
                     await log_channel.send(embed=embed)
                 except discord.Forbidden:
-                    pass
+                    logger.warning("[partner] Forbidden sending to log_channel in %d", server2_id)
             return None, None
+
+        logger.debug("[partner] channels resolved: #%s (%d) <-> #%s (%d)", channel1.name, server1_id, channel2.name, server2_id)
         
         for guild, channel, config in [(guild1, channel1, config1), (guild2, channel2, config2)]:
             passed, reason = await check_partner_requirements(guild, channel, config)
@@ -197,7 +226,9 @@ class Partner(commands.Cog):
             return None, None
 
         perms1 = channel1.permissions_for(channel1.guild.me)
+        logger.debug("[partner] %d #%s perms: send_messages=%s mention_everyone=%s", server1_id, channel1.name, perms1.send_messages, perms1.mention_everyone)
         if not perms1.send_messages or not perms1.mention_everyone:
+            logger.warning("[partner] ABORT: missing perms in %s (%d) #%s — send=%s mention=%s", guild1.name, server1_id, channel1.name, perms1.send_messages, perms1.mention_everyone)
             log_channel = guild1.get_channel(config1.get("log_channel"))
             if log_channel:
                 try:
@@ -207,11 +238,13 @@ class Partner(commands.Cog):
                         color=discord.Color.dark_red()
                     ))
                 except discord.Forbidden:
-                    pass
+                    logger.warning("[partner] Forbidden sending to log_channel in %d", server1_id)
             return None, None
 
         perms2 = channel2.permissions_for(channel2.guild.me)
+        logger.debug("[partner] %d #%s perms: send_messages=%s mention_everyone=%s", server2_id, channel2.name, perms2.send_messages, perms2.mention_everyone)
         if not perms2.send_messages or not perms2.mention_everyone:
+            logger.warning("[partner] ABORT: missing perms in %s (%d) #%s — send=%s mention=%s", guild2.name, server2_id, channel2.name, perms2.send_messages, perms2.mention_everyone)
             log_channel = guild2.get_channel(config2.get("log_channel"))
             if log_channel:
                 try:
@@ -221,48 +254,65 @@ class Partner(commands.Cog):
                         color=discord.Color.dark_red()
                     ))
                 except discord.Forbidden:
-                    pass
+                    logger.warning("[partner] Forbidden sending to log_channel in %d", server2_id)
             return None, None
         
         ad1 = f"{raw_ad1}\n\n{r['server_b']} (Testing Placeholder)"
         ad2 = f"{raw_ad2}\n\n{r['server_a']} (Testing Placeholder)"
 
+        logger.debug("[partner] ad lengths: server1_ad=%d server2_ad=%d (ad1 sent to ch2, ad2 sent to ch1)", len(ad1), len(ad2))
         if len(ad1) > 2000 or len(ad2) > 2000:
-            logger.warning("[partner] ad too long: server1=%d server2=%d", len(ad1), len(ad2))
+            logger.warning("[partner] ABORT: ad too long — server1_ad=%d server2_ad=%d (max 2000)", len(ad1), len(ad2))
             return None, None
-        
+
+        logger.info("[partner] sending ad2 -> #%s in %s (%d)", channel1.name, guild1.name, server1_id)
         try:
             await channel1.send(ad2, view=AddBotView())
+            logger.info("[partner] sent ad2 -> %d #%s OK", server1_id, channel1.name)
         except Exception as e:
-            logger.error("%s", e)
+            logger.error("[partner] FAILED sending to %d #%s: %s", server1_id, channel1.name, e)
             return None, None
+        logger.info("[partner] sending ad1 -> #%s in %s (%d)", channel2.name, guild2.name, server2_id)
         try:
             await channel2.send(ad1, view=AddBotView())
+            logger.info("[partner] sent ad1 -> %d #%s OK", server2_id, channel2.name)
         except Exception as e:
-            logger.error("%s", e)
+            logger.error("[partner] FAILED sending to %d #%s: %s", server2_id, channel2.name, e)
             return None, None
-            
+
         await self.set_cooldown(server1_id, server2_id)
+        logger.info("[partner] DONE %s (%d) <-> %s (%d)", guild1.name, server1_id, guild2.name, server2_id)
         return channel1, channel2
 
     async def cog_load(self):
         self.bot.add_view(AddBotView())
         if self.bot.is_ready() and not self.partner_loop.is_running():
+            logger.info("[cog_load] bot already ready, starting partner_loop")
             self.partner_loop.start()
+        else:
+            logger.debug("[cog_load] bot not ready yet, loop will start on_ready")
 
     @commands.Cog.listener()
     async def on_ready(self):
         self.bot.add_view(AddBotView())
         if not self.partner_loop.is_running():
+            logger.info("[on_ready] starting partner_loop")
             self.partner_loop.start()
+        else:
+            logger.debug("[on_ready] partner_loop already running")
 
     @tasks.loop(seconds=21600)
     async def partner_loop(self):
-        if not await self.redis.set("last_partner_run", 1, nx=True, ex=10800):
+        logger.info("[loop] tick #%d fired", self.partner_loop.current_loop)
+        acquired = await self.redis.set("last_partner_run", 1, nx=True, ex=10800)
+        if not acquired:
+            logger.info("[loop] skipping — another instance already running (last_partner_run key exists)")
             return
+        logger.info("[loop] acquired lock, proceeding")
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch("SELECT guild_id FROM blacklists")
             blacklisted_ids = {row[0] for row in rows}
+        logger.info("[loop] %d blacklisted guilds loaded", len(blacklisted_ids))
 
         available = []
         for guild in self.bot.guilds:
@@ -315,19 +365,23 @@ class Partner(commands.Cog):
     @partnerGroup.command(name="force")
     @is_owner()
     async def force_partner(self, interaction: discord.Interaction, server_id_1: str, server_id_2: str):
+        logger.info("[force_partner] invoked by %d: %s <-> %s", interaction.user.id, server_id_1, server_id_2)
         await interaction.response.defer(ephemeral=True)
         if server_id_1 == server_id_2:
+            logger.warning("[force_partner] rejected: same server id %s", server_id_1)
             await interaction.followup.send("Cannot partner a server with itself.", ephemeral=True)
             return
         try:
             channel1, channel2 = await self.partner(int(server_id_1), int(server_id_2))
         except Exception as e:
-            logger.error("[force_partner] exception: %s", e)
+            logger.error("[force_partner] exception: %s", e, exc_info=True)
             await interaction.followup.send(f"Error: {e}", ephemeral=True)
             return
         if not channel1:
+            logger.warning("[force_partner] partner() returned None for %s <-> %s", server_id_1, server_id_2)
             await interaction.followup.send("Failed - check logs and console for details.", ephemeral=True)
             return
+        logger.info("[force_partner] SUCCESS: %s <-> %s", channel1, channel2)
         await interaction.followup.send(f"Partnered: {channel1.mention} | {channel2.mention}", ephemeral=True)
 
     @partnerGroup.command(name="loop", description="Get info on the partner loop")

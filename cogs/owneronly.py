@@ -371,8 +371,6 @@ class OwnerOnly(commands.Cog):
             "message": ctx.message
         }
 
-        stdout = StringIO()
-
         try:
             func_code = f"async def _exec():\n{textwrap.indent(code, "    ")}"
 

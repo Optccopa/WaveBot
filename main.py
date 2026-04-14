@@ -5,7 +5,7 @@ from src.configmanager import ConfigManager
 from src.utils import retry_with_backoff
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%H:%M:%S"
 )
@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 class WebhookHandler(logging.Handler):
     def __init__(self, url: str, loop: asyncio.AbstractEventLoop):
-        super().__init__(level=logging.INFO)
+        super().__init__(level=logging.DEBUG)
         self.url = url
         self.loop = loop
         self.session = aiohttp.ClientSession()
