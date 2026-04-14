@@ -132,7 +132,7 @@ bot = Bot()
 
 @bot.command(name="dr")
 async def pinger(ctx):
-    ctx.reply("Donut")
+    await ctx.reply("Donut")
 
 async def main():
     async with bot:

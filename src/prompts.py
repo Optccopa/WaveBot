@@ -47,7 +47,6 @@ RULE_PATTERNS = {
     ],
     "IRL_TRADING": [
         r"\bgift card",
-        r"\birl\b",
         r"\breal.?money\b",
         r"\birl trad",
         r"\bautobuy\b",

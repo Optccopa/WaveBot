@@ -109,7 +109,7 @@ class AdLooper(commands.Cog):
                         except asyncio.TimeoutError:
                             scan_result = {"sus": False, "confidence": .5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
                         response = json.dumps(scan_result, indent=2)
-                        await self.redis.set(f"{CACHE_VER_CLAUDE}:claude:{ad_hash}", response)
+                        await self.redis.set(f"{CACHE_VER_CLAUDE}:claude:{ad_hash}", response, ex=2592000)
                     else:
                         response = cached
 

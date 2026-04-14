@@ -25,7 +25,7 @@ class ConfigManager:
 
         data = dict(row)
 
-        await self.redis.set(key, json.dumps(data))
+        await self.redis.set(key, json.dumps(data), ex=2592000)
 
         return data
 
