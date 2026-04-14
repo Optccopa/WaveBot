@@ -15,16 +15,16 @@ logging.getLogger("discord.http").setLevel(logging.WARNING)
 log = logging.getLogger(__name__)
 
 class WebhookHandler(logging.Handler):
-    def __init__(self, url: str):
+    def __init__(self, url: str, loop: asyncio.AbstractEventLoop):
         super().__init__(level=logging.INFO)
         self.url = url
+        self.loop = loop
 
     def emit(self, record: logging.LogRecord):
         msg = self.format(record)
         try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(self._send(msg))
-        except RuntimeError:
+            asyncio.run_coroutine_threadsafe(self._send(msg), self.loop)
+        except Exception:
             pass
 
     async def _send(self, msg: str):
@@ -49,7 +49,7 @@ class Bot(commands.AutoShardedBot):
     async def setup_hook(self):
         url = os.getenv("LOG_WEBHOOK_URL")
         if url:
-            logging.getLogger().addHandler(WebhookHandler(url))
+            logging.getLogger().addHandler(WebhookHandler(url, asyncio.get_running_loop()))
 
         self.redis: Redis = Redis(
             host="redis",
