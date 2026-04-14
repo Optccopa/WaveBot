@@ -54,7 +54,7 @@ class Ping(commands.Cog):
             db_status = ":red_circle: Unreachable"
 
         t = time.monotonic()
-        msg = await interaction.followup.send("...")
+        msg = await interaction.followup.send("...", wait=True)
         rtt = round((time.monotonic() - t) * 1000)
         await msg.delete()
 
