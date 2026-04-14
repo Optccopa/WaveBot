@@ -3,3 +3,5 @@
 - Backup any values that dont fill themselves to postgres
 - Prioritize speed
 - Only abstract functions that are used in multiple places and very long
+- Ignore tests/ the files are temp testing files that are kept around, no bugs in them matter
+- Fixes should be surgical, avoid changing any surrounding code

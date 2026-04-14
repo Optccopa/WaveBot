@@ -4,7 +4,7 @@ from discord.ext import commands
 from discord import app_commands
 from io import StringIO
 from src.checks import is_owner
-import discord, json, traceback, contextlib, textwrap, asyncio
+import discord, json, traceback, textwrap, asyncio
 
 class OwnerOnly(commands.Cog):
     def __init__(self, bot):
@@ -31,42 +31,53 @@ class OwnerOnly(commands.Cog):
     @is_owner()
     async def addBlacklist(self, interaction: discord.Interaction, guild_id: str, reason: str = "No reason provided"):
         try:
-            async with self.db_pool.acquire() as conn:
-                await conn.execute(
-                    "INSERT INTO blacklists (guild_id, reason, added_by) VALUES ($1, $2, $3)"
-                    " ON CONFLICT (guild_id) DO UPDATE SET reason = $2, added_by = $3",
-                    int(guild_id), reason, interaction.user.id
-                )
+            gid = int(guild_id)
         except ValueError:
-            await interaction.response.send_message("Guild id must be int")
+            await interaction.response.send_message("Guild ID must be a number.", ephemeral=True)
+            return
+
+        async with self.db_pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO blacklists (guild_id, reason, added_by) VALUES ($1, $2, $3)"
+                " ON CONFLICT (guild_id) DO UPDATE SET reason = $2, added_by = $3",
+                gid, reason, interaction.user.id
+            )
+
+        guild = self.bot.get_guild(gid)
+        if guild:
+            await guild.leave()
 
         embed = discord.Embed(
             title="Added Blacklist",
             description=f"Reason: {reason}",
             color=discord.Color.fuchsia()
         )
-        try:
-            guild: discord.Guild = self.bot.get_guild(int(guild_id))
-            await guild.leave()
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-        except ValueError:
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
             
     @blacklistGroup.command(name="remove", description="Remove a blacklist")
     @is_owner()
     async def removeBlacklist(self, interaction: discord.Interaction, guild_id: str):
-        async with self.db_pool.acquire() as conn:
-            await conn.execute("DELETE FROM blacklists WHERE guild_id = $1", int(guild_id))
-        await interaction.response.send_message("Server removed from blacklist", ephemeral=True)
+        try:
+            gid = int(guild_id)
+        except ValueError:
+            await interaction.response.send_message("Guild ID must be a number.", ephemeral=True)
+            return
 
+        async with self.db_pool.acquire() as conn:
+            await conn.execute("DELETE FROM blacklists WHERE guild_id = $1", gid)
+        await interaction.response.send_message("Server removed from blacklist", ephemeral=True)
+        
     @blacklistGroup.command(name="check", description="Check if a server is blacklisted")
     @is_owner()
     async def checkBlacklist(self, interaction: discord.Interaction, guild_id: str):
         try:
-            async with self.db_pool.acquire() as conn:
-                row = await conn.fetchrow("SELECT * FROM blacklists WHERE guild_id = $1", int(guild_id))
+            gid = int(guild_id)
         except ValueError:
-            await interaction.response.send_message("Guild id must be int")
+            await interaction.response.send_message("Guild ID must be a number.", ephemeral=True)
+            return
+
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT * FROM blacklists WHERE guild_id = $1", gid)
         if row:
             embed = discord.Embed(
                 title="Blacklisted",
@@ -174,7 +185,12 @@ class OwnerOnly(commands.Cog):
     async def debug_server(self, interaction: discord.Interaction, server_id: str):
         await interaction.response.defer(ephemeral=True)
 
-        guild = self.bot.get_guild(int(server_id))
+        try:
+            gid = int(server_id)
+        except ValueError:
+            await interaction.followup.send("Server ID must be a number.", ephemeral=True)
+            return
+        guild = self.bot.get_guild(gid)
         if not guild:
             await interaction.followup.send("Guild not found.", ephemeral=True)
             return
@@ -327,7 +343,12 @@ class OwnerOnly(commands.Cog):
     async def leave_server(self, interaction: discord.Interaction, server_id: str):
         await interaction.response.defer(ephemeral=True)
 
-        guild = self.bot.get_guild(int(server_id))
+        try:
+            gid = int(server_id)
+        except ValueError:
+            await interaction.followup.send("Server ID must be a number.", ephemeral=True)
+            return
+        guild = self.bot.get_guild(gid)
         if not guild:
             await interaction.followup.send("Guild not found.", ephemeral=True)
             return

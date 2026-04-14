@@ -10,16 +10,15 @@ LEGITIMATE -- do NOT flag these:
 - discord.gg invite links
 - Voice call gambling between players
 - Join for a chance to win money (not invite rewards, normal giveaway)
+- Note pings are reffering to irl stuff (so for example "Ping Rewards for invites!" is ok)
 
 VIOLATIONS -- flag these exactly:
 
-INVITE_REWARDS: Promising in-game money or items for inviting people to the server.
-IRL_TRADING: Buying or selling in-game money/items for real money (PayPal, gift cards, cash).
-EXTERNAL_GAMBLING: Gambling using Discord bots or bot commands.
-BOOST_REWARDS: Rewarding Discord server boosts with in-game money or items.
-CROSS_SERVER_TRADING: Trading DonutSMP items for items from another server.
-HACKS_OR_CHEATS: Hacked clients, macros, scripts, duplication, account sharing, ban evasion.
-NON_DISCORD_LINK: Any URL that is not discord.gg or discord.com.
+Invite_Rewards: Promising in-game money or items for inviting people to the server.
+Irl_Trading: Buying or selling in-game money/items for real money (PayPal, gift cards, cash).
+External_Gambling: Gambling using Discord bots or bot commands.
+Hacks_or_Cheats: Hacked clients, macros, scripts, duplication, account sharing, ban evasion.
+Unwhitelisted_Link: Any URL that is not discord.gg or discord.com.
 
 Respond with a single raw JSON object using this exact schema:
 {

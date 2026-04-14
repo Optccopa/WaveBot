@@ -1,11 +1,13 @@
 import json
 
+from redis.asyncio import Redis
+
 ALLOWED_COLUMNS = {"partner_channel", "ad_channel", "member_role", "partner_ping_role", "log_channel"}
 
 class ConfigManager:
     def __init__(self, db_pool, redis):
         self.db = db_pool
-        self.redis = redis
+        self.redis: Redis = redis
 
     async def get(self, guild_id: int):
         key = f"config:{guild_id}"
@@ -52,7 +54,7 @@ class ConfigManager:
         config = await self.get(guild_id) or {}
         config.update(fields)
 
-        await self.redis.set(key, json.dumps(config))
+        await self.redis.set(key, json.dumps(config), ex=2592000)
 
     async def invalidate(self, guild_id: int):
         await self.redis.delete(f"config:{guild_id}")

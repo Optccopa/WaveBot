@@ -112,31 +112,31 @@ class Bot(commands.AutoShardedBot):
 
     async def on_guild_join(self, guild: discord.Guild):
         if guild.member_count < 50:
-            try:
-                await guild.owner.send(
-                    f"**{self.user.name}** has left **{guild.name}** as it is under the minimum membercount `50`\n"
-                    f"Access: You can request access in https://discord.gg/uacMXzbAfg , https://discord.com/channels/1491681410111635478/1491709242829307965"
-                )
-            except discord.Forbidden:
-                pass
-            finally:
-                await guild.leave()
+            if guild.owner:
+                try:
+                    await guild.owner.send(
+                        f"**{self.user.name}** has left **{guild.name}** as it is under the minimum membercount `50`\n"
+                        f"Access: You can request access in https://discord.gg/uacMXzbAfg , https://discord.com/channels/1491681410111635478/1491709242829307965"
+                    )
+                except discord.Forbidden:
+                    pass
+            await guild.leave()
 
             return
 
         async with self.db_pool.acquire() as conn:
             row = await conn.fetchrow("SELECT reason FROM blacklists WHERE guild_id = $1", guild.id)
         if row:
-            try:
-                await guild.owner.send(
-                    f"**{self.user.name}** has left **{guild.name}** as it is blacklisted.\n"
-                    f"Reason: {row['reason']}\n"
-                    f"Appeal: You can appeal this in https://discord.gg/uacMXzbAfg, https://discord.com/channels/1491681410111635478/1491709242829307965"
-                )
-            except discord.Forbidden:
-                pass
-            finally:
-                await guild.leave()
+            if guild.owner:
+                try:
+                    await guild.owner.send(
+                        f"**{self.user.name}** has left **{guild.name}** as it is blacklisted.\n"
+                        f"Reason: {row['reason']}\n"
+                        f"Appeal: You can appeal this in https://discord.gg/uacMXzbAfg, https://discord.com/channels/1491681410111635478/1491709242829307965"
+                    )
+                except discord.Forbidden:
+                    pass
+            await guild.leave() 
 
 bot = Bot()
 

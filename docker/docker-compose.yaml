@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: docker/bot.Dockerfile
+      dockerignore: docker/bot.dockerignore
     container_name: myapp
     depends_on:
       - redis
