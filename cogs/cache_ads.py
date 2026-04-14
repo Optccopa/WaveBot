@@ -93,7 +93,10 @@ class AdLooper(commands.Cog):
 
             if not ad_channel:
                 if log_channel:
-                    await log_channel.send(embed=missing_channel_embed)
+                    try:
+                        await log_channel.send(embed=missing_channel_embed)
+                    except discord.Forbidden:
+                        pass
                 continue
 
             ad_message = None
@@ -122,7 +125,10 @@ class AdLooper(commands.Cog):
                 pending.append((f"ads:{guild.id}", ad_message))
             else:
                 if log_channel:
-                    await log_channel.send(embed=missing_ad_embed)
+                    try:
+                        await log_channel.send(embed=missing_ad_embed)
+                    except discord.Forbidden:
+                        pass
 
         for i in range(0, max(len(pending), 1), _PIPELINE_BATCH):
             chunk = pending[i:i + _PIPELINE_BATCH]

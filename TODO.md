@@ -1,3 +1,5 @@
+except log channel perms
+
 # TODO
 
 Issues sorted by priority. Based on code audit cross-referenced against current codebase state.
@@ -53,18 +55,6 @@ ping2 = resolve_ping(guild2, config2, r["server_b"])
 ad1 = f"{raw_ad1}\n\n{ping2}".strip()
 ad2 = f"{raw_ad2}\n\n{ping1}".strip()
 ```
-
----
-
-## [LOW] `import random` after first use in `tests/matchtest.py`
-
-**File:** [tests/matchtest.py:18-24](tests/matchtest.py#L18)
-
-**Description**
-`random.choice(pool)` is used at line 18 but `import random` appears at line 24. Works at runtime but violates PEP 8 and confuses linters.
-
-**Fix**
-Move `import random` to the top of the file.
 
 ---
 

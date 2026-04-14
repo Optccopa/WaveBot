@@ -153,9 +153,12 @@ class Partner(commands.Cog):
                     description="Use `/config set` to set one",
                     color=discord.Color.dark_red()
                 )
-                await log_channel.send(embed=embed)
+                try:
+                    await log_channel.send(embed=embed)
+                except discord.Forbidden:
+                    pass
             return None, None
-        
+
         channel2 = guild2.get_channel(config2.get("partner_channel"))
         if not channel2 or not isinstance(channel2, discord.TextChannel):
             log_channel = guild2.get_channel(config2.get("log_channel"))
@@ -165,14 +168,21 @@ class Partner(commands.Cog):
                     description="Use `/config set` to set one",
                     color=discord.Color.dark_red()
                 )
-                await log_channel.send(embed=embed)
+                try:
+                    await log_channel.send(embed=embed)
+                except discord.Forbidden:
+                    pass
             return None, None
         
         for guild, channel, config in [(guild1, channel1, config1), (guild2, channel2, config2)]:
             passed, reason = await check_partner_requirements(guild, channel, config)
             if not passed:
                 log = guild.get_channel(config.get("log_channel"))
-                if log: await log.send(embed=discord.Embed(title="Requirements not met", description=reason, color=discord.Color.dark_red()))
+                if log:
+                    try:
+                        await log.send(embed=discord.Embed(title="Requirements not met", description=reason, color=discord.Color.dark_red()))
+                    except discord.Forbidden:
+                        pass
                 logger.info("[partner] REFUSED %s (%d): %s", guild.name, guild.id, reason)
                 return None, None
 
@@ -190,22 +200,28 @@ class Partner(commands.Cog):
         if not perms1.send_messages or not perms1.mention_everyone:
             log_channel = guild1.get_channel(config1.get("log_channel"))
             if log_channel:
-                await log_channel.send(embed=discord.Embed(
-                    title="Missing permissions",
-                    description="I need `Send Messages` and `Mention Everyone` permissions in the partner channel",
-                    color=discord.Color.dark_red()
-                ))
+                try:
+                    await log_channel.send(embed=discord.Embed(
+                        title="Missing permissions",
+                        description="I need `Send Messages` and `Mention Everyone` permissions in the partner channel",
+                        color=discord.Color.dark_red()
+                    ))
+                except discord.Forbidden:
+                    pass
             return None, None
 
         perms2 = channel2.permissions_for(channel2.guild.me)
         if not perms2.send_messages or not perms2.mention_everyone:
             log_channel = guild2.get_channel(config2.get("log_channel"))
             if log_channel:
-                await log_channel.send(embed=discord.Embed(
-                    title="Missing permissions",
-                    description="I need `Send Messages` and `Mention Everyone` in the partner channel",
-                    color=discord.Color.dark_red()
-                ))
+                try:
+                    await log_channel.send(embed=discord.Embed(
+                        title="Missing permissions",
+                        description="I need `Send Messages` and `Mention Everyone` in the partner channel",
+                        color=discord.Color.dark_red()
+                    ))
+                except discord.Forbidden:
+                    pass
             return None, None
         
         ad1 = f"{raw_ad1}\n\n{r['server_b']} (Testing Placeholder)"
