@@ -19,6 +19,7 @@ class WebhookHandler(logging.Handler):
         super().__init__(level=logging.INFO)
         self.url = url
         self.loop = loop
+        self.session = aiohttp.ClientSession()
 
     def emit(self, record: logging.LogRecord):
         msg = self.format(record)
@@ -29,8 +30,7 @@ class WebhookHandler(logging.Handler):
 
     async def _send(self, msg: str):
         try:
-            async with aiohttp.ClientSession() as session:
-                await session.post(self.url, json={"content": f"```\n{msg[:1990]}\n```"})
+            await self.session.post(self.url, json={"content": f"```\n{msg[:1990]}\n```"})
         except Exception:
             pass
 
@@ -47,7 +47,7 @@ class Bot(commands.AutoShardedBot):
         self.redis = None
 
         with open("config.yaml", "r") as f:
-            self.config = yaml.safe_load(f)
+            self.yaml_config = yaml.safe_load(f)
 
     async def setup_hook(self):
         url = os.getenv("LOG_WEBHOOK_URL")
@@ -135,6 +135,9 @@ class Bot(commands.AutoShardedBot):
     async def close(self):
         if self.db_pool: await self.db_pool.close()
         if self.redis: await self.redis.aclose()
+        for handler in logging.getLogger().handlers:
+            if isinstance(handler, WebhookHandler):
+                await handler.session.close()
         await super().close()
 
     async def on_guild_join(self, guild: discord.Guild):
