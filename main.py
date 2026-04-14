@@ -1,8 +1,18 @@
-import discord, os, asyncio, asyncpg, sys
+import discord, os, asyncio, asyncpg, sys, logging
 from redis.asyncio import Redis
 from discord.ext import commands
 from src.configmanager import ConfigManager
 from src.utils import retry_with_backoff
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S"
+)
+logging.getLogger("discord").setLevel(logging.WARNING)
+logging.getLogger("discord.http").setLevel(logging.WARNING)
+
+log = logging.getLogger(__name__)
 
 class Bot(commands.AutoShardedBot):
     def __init__(self):
@@ -65,7 +75,7 @@ class Bot(commands.AutoShardedBot):
                     try:
                         await self.load_extension(ext)
                     except Exception as e:
-                        print(f"Failed to load {ext}: {e}")
+                        log.error("Failed to load %s: %s", ext, e)
 
         # init config manager
         self.config = ConfigManager(self.db_pool, self.redis)
@@ -79,21 +89,21 @@ class Bot(commands.AutoShardedBot):
                 return
 
             except discord.LoginFailure:
-                print("Invalid token")
+                log.error("Invalid token")
                 return
 
             except (discord.GatewayNotFound, OSError) as e:
-                print(f"Gateway error ({2 - i} retries left): {e}")
+                log.error("Gateway error (%d retries left): %s", 2 - i, e)
                 await asyncio.sleep(30)
-        
-        print("Failed starting on all trys")
+
+        log.error("Failed starting on all trys")
         sys.exit(1)
 
     async def on_shard_ready(self, shard_id: int):
         await self.change_presence(
             activity=discord.CustomActivity(name=f"Shard {shard_id + 1}/{self.shard_count}")
         )
-        print(f"Shard {shard_id} ready")
+        log.info("Shard %d ready", shard_id)
 
     async def close(self):
         if self.db_pool: await self.db_pool.close()

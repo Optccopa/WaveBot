@@ -2,7 +2,9 @@ from discord.ext import tasks, commands
 from src.checks import is_owner
 from redis.asyncio import Redis
 from asyncpg import Pool
-import discord, random
+import discord, random, logging
+
+logger = logging.getLogger(__name__)
 
 class AddBotView(discord.ui.View):
     def __init__(self):
@@ -126,8 +128,8 @@ class Partner(commands.Cog):
                     matched = True
                     break
             if not matched:
-                print(f"[match] no valid partner found for {server} (all on cooldown or exhausted)")
-        print(f"[match] result: {len(pairs)} pairs")
+                logger.warning("[match] no valid partner found for %s (all on cooldown or exhausted)", server)
+        logger.info("[match] result: %d pairs", len(pairs))
         return pairs
 
     async def partner(self, server1_id: int, server2_id: int):
@@ -171,17 +173,17 @@ class Partner(commands.Cog):
             if not passed:
                 log = guild.get_channel(config.get("log_channel"))
                 if log: await log.send(embed=discord.Embed(title="Requirements not met", description=reason, color=discord.Color.dark_red()))
-                print(f"[partner] REFUSED {guild.name} ({guild.id}): {reason}")
+                logger.info("[partner] REFUSED %s (%d): %s", guild.name, guild.id, reason)
                 return None, None
 
         r = get_req(guild1.member_count, guild2.member_count)
-        print(f"[partner] {server1_id}({guild1.member_count}) pings {r['server_a']} | {server2_id}({guild2.member_count}) pings {r['server_b']} | host: {r['host']}")
+        logger.info("[partner] %d(%d) pings %s | %d(%d) pings %s | host: %s", server1_id, guild1.member_count, r['server_a'], server2_id, guild2.member_count, r['server_b'], r['host'])
 
         raw_ad1 = await self.redis.get(f'ads:{server1_id}')
         raw_ad2 = await self.redis.get(f'ads:{server2_id}')
 
         if not raw_ad1 or not raw_ad2:
-            print(f"[partner] missing ad: server1={bool(raw_ad1)} server2={bool(raw_ad2)}")
+            logger.warning("[partner] missing ad: server1=%s server2=%s", bool(raw_ad1), bool(raw_ad2))
             return None, None
 
         perms1 = channel1.permissions_for(channel1.guild.me)
@@ -210,18 +212,18 @@ class Partner(commands.Cog):
         ad2 = f"{raw_ad2}\n\n{r['server_a']} (Testing Placeholder)"
 
         if len(ad1) > 2000 or len(ad2) > 2000:
-            print(f"[partner] ad too long: server1={len(ad1)} server2={len(ad2)}")
+            logger.warning("[partner] ad too long: server1=%d server2=%d", len(ad1), len(ad2))
             return None, None
         
         try:
             await channel1.send(ad2, view=AddBotView())
         except Exception as e:
-            print(e)
+            logger.error("%s", e)
             return None, None
         try:
             await channel2.send(ad1, view=AddBotView())
         except Exception as e:
-            print(e)
+            logger.error("%s", e)
             return None, None
             
         await self.set_cooldown(server1_id, server2_id)
@@ -249,7 +251,7 @@ class Partner(commands.Cog):
         available = []
         for guild in self.bot.guilds:
             if guild.id in blacklisted_ids:
-                print(f"[loop] SKIP {guild.name} ({guild.id}): blacklisted")
+                logger.info("[loop] SKIP %s (%d): blacklisted", guild.name, guild.id)
                 continue
             config = await self.bot.config.get(guild.id)
             if not config:
@@ -266,29 +268,29 @@ class Partner(commands.Cog):
             if not member_role: missing.append("member_role")
             if not partner_ping_role: missing.append("partner_ping_role")
             if missing:
-                print(f"[loop] SKIP {guild.name} ({guild.id}): missing config — {', '.join(missing)}")
+                logger.info("[loop] SKIP %s (%d): missing config — %s", guild.name, guild.id, ', '.join(missing))
                 continue
 
             ad = await self.redis.get(f"ads:{guild.id}")
             if not ad:
-                print(f"[loop] SKIP {guild.name} ({guild.id}): no ad in redis")
+                logger.info("[loop] SKIP %s (%d): no ad in redis", guild.name, guild.id)
                 continue
 
-            print(f"[loop] ELIGIBLE {guild.name} ({guild.id}) members={guild.member_count}")
+            logger.info("[loop] ELIGIBLE %s (%d) members=%d", guild.name, guild.id, guild.member_count)
             available.append((guild.id, guild.member_count))
 
-        print(f"[loop] {len(available)} eligible servers going into matching")
+        logger.info("[loop] %d eligible servers going into matching", len(available))
         pairs = await self.match_servers(available)
 
         for a, b in pairs:
             guild_a = self.bot.get_guild(a)
             guild_b = self.bot.get_guild(b)
-            print(f"[loop] attempting pair: {guild_a.name if guild_a else a} <-> {guild_b.name if guild_b else b}")
+            logger.info("[loop] attempting pair: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             ch1, ch2 = await self.partner(a, b)
             if ch1:
-                print(f"[loop] SUCCESS: {guild_a.name if guild_a else a} <-> {guild_b.name if guild_b else b}")
+                logger.info("[loop] SUCCESS: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             else:
-                print(f"[loop] FAILED pair: {guild_a.name if guild_a else a} <-> {guild_b.name if guild_b else b} — see reason above")
+                logger.warning("[loop] FAILED pair: %s <-> %s — see reason above", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
 
     @partner_loop.before_loop
     async def before_partner_loop(self):
@@ -304,7 +306,7 @@ class Partner(commands.Cog):
         try:
             channel1, channel2 = await self.partner(int(server_id_1), int(server_id_2))
         except Exception as e:
-            print(f"[force_partner] exception: {e}")
+            logger.error("[force_partner] exception: %s", e)
             await interaction.followup.send(f"Error: {e}", ephemeral=True)
             return
         if not channel1:

@@ -1,11 +1,9 @@
-import discord, traceback
+import discord, traceback, logging
 from time import time
 from discord.ext import commands
+from src.checks import is_owner
 
-def is_owner():
-    async def predicate(interaction) -> bool:
-        return await interaction.client.is_owner(interaction.user)
-    return discord.app_commands.check(predicate)
+log = logging.getLogger(__name__)
 
 class ErrorHandler(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -25,16 +23,15 @@ class ErrorHandler(commands.Cog):
 
         if isinstance(error, discord.app_commands.MissingPermissions):
             msg = "You don't have permission to use this command."
-
-        if isinstance(error, discord.app_commands.CommandOnCooldown):
+        elif isinstance(error, discord.app_commands.CommandOnCooldown):
             retry_at = int(time() + error.retry_after)
             await interaction.response.send_message(
                 f"Slow down, Retry at: <t:{retry_at}:R>",
                 ephemeral=True
             )
-
+            return
         else:
-            print("App command error:", repr(error))
+            log.error("App command error: %r", error)
             msg = "An unexpected error occurred, if this issue persists please contact support."
 
         if interaction.response.is_done():
@@ -74,10 +71,10 @@ class ErrorHandler(commands.Cog):
         
         if isinstance(error, commands.BotMissingPermissions):
             await ctx.send("I don't have the required permissions, please contact support", delete_after=3)
-            print("Incorrect permissions set")
+            log.warning("Incorrect permissions set")
             return
-        
-        print("Prefix command error:", repr(error))
+
+        log.error("Prefix command error: %r", error)
 
         await ctx.send("An unexpected error occurred, if this issue persists please contact support", delete_after=3)
 
@@ -85,8 +82,7 @@ class ErrorHandler(commands.Cog):
     @commands.Cog.listener()
     async def on_error(self, event, *args, **kwargs):
         self.last_errors["event"] = traceback.format_exc()
-        print(f"\nError in event: {event}")
-        traceback.print_exc()
+        log.exception("Error in event: %s", event)
 
     @discord.app_commands.command(name="error", description="Pull the most recent bot error from errorhandlers")
     @is_owner()

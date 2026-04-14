@@ -2,7 +2,9 @@ from discord.ext import tasks, commands
 from redis.asyncio import Redis
 from anthropic import AsyncAnthropic
 from src.prompts import SCAN_PROMPT, RULE_PATTERNS
-import re, discord, os, json, hashlib, asyncio
+import re, discord, os, json, hashlib, asyncio, logging
+
+log = logging.getLogger(__name__)
 
 CACHE_VER_CLAUDE = "v2"
 LINK_REGEX = re.compile(r"https?://\S+")
@@ -51,7 +53,7 @@ class AdLooper(commands.Cog):
             raw = "{" + message.content[0].text.strip()
             result = json.loads(raw)
         except json.JSONDecodeError:
-            print("Failed to parse claude haiku response for ad: %.100s", ad)
+            log.error("Failed to parse claude haiku response for ad: %.100s", ad)
             result = {"sus": True, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Your ad could not be automatically verified. Please review the server rules and resubmit."}
 
         return result
@@ -113,7 +115,7 @@ class AdLooper(commands.Cog):
                     else:
                         response = cached
 
-                    print("[cache_ads] guild %s scan result: %s", guild.id, response)
+                    log.info("[cache_ads] guild %s scan result: %s", guild.id, response)
                     break
 
             if ad_message:

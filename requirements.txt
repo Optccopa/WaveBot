@@ -1,6 +1,4 @@
 discord
-asyncio
 asyncpg
 redis
-dotenv
 anthropic
