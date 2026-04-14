@@ -2,3 +2,4 @@ discord
 asyncpg
 redis
 anthropic
+pyyaml

@@ -1,4 +1,4 @@
-import discord, os, asyncio, asyncpg, sys, logging, aiohttp
+import discord, os, asyncio, asyncpg, sys, logging, aiohttp, yaml
 from redis.asyncio import Redis
 from discord.ext import commands
 from src.configmanager import ConfigManager
@@ -45,6 +45,9 @@ class Bot(commands.AutoShardedBot):
 
         self.db_pool = None
         self.redis = None
+
+        with open("config.yaml", "r") as f:
+            self.config = yaml.safe_load(f)
 
     async def setup_hook(self):
         url = os.getenv("LOG_WEBHOOK_URL")
