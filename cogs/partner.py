@@ -42,7 +42,7 @@ class AddBotView(discord.ui.View):
         await interaction.response.send_message("https://discord.gg/uacMXzbAfg", embed=embed, ephemeral=True)
 
 async def check_partner_requirements(guild: discord.Guild, channel: discord.TextChannel, config):
-    return True, None
+    return True, None # doesnt check them
     logger.debug("[req] checking %s (%d) channel=#%s", guild.name, guild.id, channel.name)
     member_role  = guild.get_role(config.get("member_role"))
     partner_role = guild.get_role(config.get("partner_ping_role"))
@@ -359,10 +359,11 @@ class Partner(commands.Cog):
     @partnerGroup.command(name="loopforce")
     @is_owner()
     async def forceloop(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         logging.debug("Forcing partner loop")
         await self.redis.delete("last_partner_run")
         await self.partner_loop()
-        await interaction.response.send_message("Running partner loop", ephemeral=True)
+        await interaction.followup.send("Partner loop complete", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Partner(bot))
