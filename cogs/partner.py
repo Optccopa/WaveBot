@@ -170,92 +170,14 @@ class Partner(commands.Cog):
         logger.debug("[partner] guilds resolved: %s (%d members) <-> %s (%d members)", guild1.name, guild1.member_count, guild2.name, guild2.member_count)
 
         channel1 = guild1.get_channel(config1.get("partner_channel"))
-        if not channel1 or not isinstance(channel1, discord.TextChannel):
-            logger.warning("[partner] ABORT: %s (%d) partner_channel id=%s not found or wrong type", guild1.name, server1_id, config1.get("partner_channel"))
-            log_channel = guild1.get_channel(config1.get("log_channel"))
-            if log_channel:
-                embed = discord.Embed(
-                    title="Partner channel not found",
-                    description="Use `/config set` to set one",
-                    color=discord.Color.dark_red()
-                )
-                try:
-                    await log_channel.send(embed=embed)
-                except discord.Forbidden:
-                    logger.warning("[partner] Forbidden sending to log_channel in %d", server1_id)
-            return None, None
-
         channel2 = guild2.get_channel(config2.get("partner_channel"))
-        if not channel2 or not isinstance(channel2, discord.TextChannel):
-            logger.warning("[partner] ABORT: %s (%d) partner_channel id=%s not found or wrong type", guild2.name, server2_id, config2.get("partner_channel"))
-            log_channel = guild2.get_channel(config2.get("log_channel"))
-            if log_channel:
-                embed = discord.Embed(
-                    title="Partner channel not found",
-                    description="Use `/config set` to set one",
-                    color=discord.Color.dark_red()
-                )
-                try:
-                    await log_channel.send(embed=embed)
-                except discord.Forbidden:
-                    logger.warning("[partner] Forbidden sending to log_channel in %d", server2_id)
-            return None, None
-
-        logger.debug("[partner] channels resolved: #%s (%d) <-> #%s (%d)", channel1.name, server1_id, channel2.name, server2_id)
-        
-        for guild, channel, config in [(guild1, channel1, config1), (guild2, channel2, config2)]:
-            passed, reason = await check_partner_requirements(guild, channel, config)
-            if not passed:
-                log = guild.get_channel(config.get("log_channel"))
-                if log:
-                    try:
-                        await log.send(embed=discord.Embed(title="Requirements not met", description=reason, color=discord.Color.dark_red()))
-                    except discord.Forbidden:
-                        pass
-                logger.info("[partner] REFUSED %s (%d): %s", guild.name, guild.id, reason)
-                return None, None
+        logger.debug("[partner] channels resolved: #%s (%d) <-> #%s (%d)", getattr(channel1, 'name', None), server1_id, getattr(channel2, 'name', None), server2_id)
 
         r = get_req(guild1.member_count, guild2.member_count)
         logger.info("[partner] %d(%d) pings %s | %d(%d) pings %s | host: %s", server1_id, guild1.member_count, r['server_a'], server2_id, guild2.member_count, r['server_b'], r['host'])
 
         raw_ad1 = await self.redis.get(f'ads:{server1_id}')
         raw_ad2 = await self.redis.get(f'ads:{server2_id}')
-
-        if not raw_ad1 or not raw_ad2:
-            logger.warning("[partner] missing ad: server1=%s server2=%s", bool(raw_ad1), bool(raw_ad2))
-            return None, None
-
-        perms1 = channel1.permissions_for(channel1.guild.me)
-        logger.debug("[partner] %d #%s perms: send_messages=%s mention_everyone=%s", server1_id, channel1.name, perms1.send_messages, perms1.mention_everyone)
-        if not perms1.send_messages or not perms1.mention_everyone:
-            logger.warning("[partner] ABORT: missing perms in %s (%d) #%s — send=%s mention=%s", guild1.name, server1_id, channel1.name, perms1.send_messages, perms1.mention_everyone)
-            log_channel = guild1.get_channel(config1.get("log_channel"))
-            if log_channel:
-                try:
-                    await log_channel.send(embed=discord.Embed(
-                        title="Missing permissions",
-                        description="I need `Send Messages` and `Mention Everyone` permissions in the partner channel",
-                        color=discord.Color.dark_red()
-                    ))
-                except discord.Forbidden:
-                    logger.warning("[partner] Forbidden sending to log_channel in %d", server1_id)
-            return None, None
-
-        perms2 = channel2.permissions_for(channel2.guild.me)
-        logger.debug("[partner] %d #%s perms: send_messages=%s mention_everyone=%s", server2_id, channel2.name, perms2.send_messages, perms2.mention_everyone)
-        if not perms2.send_messages or not perms2.mention_everyone:
-            logger.warning("[partner] ABORT: missing perms in %s (%d) #%s — send=%s mention=%s", guild2.name, server2_id, channel2.name, perms2.send_messages, perms2.mention_everyone)
-            log_channel = guild2.get_channel(config2.get("log_channel"))
-            if log_channel:
-                try:
-                    await log_channel.send(embed=discord.Embed(
-                        title="Missing permissions",
-                        description="I need `Send Messages` and `Mention Everyone` in the partner channel",
-                        color=discord.Color.dark_red()
-                    ))
-                except discord.Forbidden:
-                    logger.warning("[partner] Forbidden sending to log_channel in %d", server2_id)
-            return None, None
         
         ad1 = f"{raw_ad1}\n\n{r['server_b']} (Testing Placeholder)"
         ad2 = f"{raw_ad2}\n\n{r['server_a']} (Testing Placeholder)"
@@ -337,9 +259,41 @@ class Partner(commands.Cog):
                 logger.info("[loop] SKIP %s (%d): missing config — %s", guild.name, guild.id, ', '.join(missing))
                 continue
 
+            if not isinstance(partner_channel, discord.TextChannel):
+                logger.info("[loop] SKIP %s (%d): partner_channel is wrong type", guild.name, guild.id)
+                log_channel = guild.get_channel(config.get("log_channel"))
+                if log_channel:
+                    try:
+                        await log_channel.send(embed=discord.Embed(title="Partner channel not found", description="Use `/config set` to set one", color=discord.Color.dark_red()))
+                    except discord.Forbidden:
+                        pass
+                continue
+
+            perms = partner_channel.permissions_for(guild.me)
+            if not perms.send_messages or not perms.mention_everyone:
+                logger.info("[loop] SKIP %s (%d): missing perms in #%s — send=%s mention=%s", guild.name, guild.id, partner_channel.name, perms.send_messages, perms.mention_everyone)
+                log_channel = guild.get_channel(config.get("log_channel"))
+                if log_channel:
+                    try:
+                        await log_channel.send(embed=discord.Embed(title="Missing permissions", description="I need `Send Messages` and `Mention Everyone` permissions in the partner channel", color=discord.Color.dark_red()))
+                    except discord.Forbidden:
+                        pass
+                continue 
+
             ad = await self.redis.get(f"ads:{guild.id}")
             if not ad:
                 logger.info("[loop] SKIP %s (%d): no ad in redis", guild.name, guild.id)
+                continue
+
+            passed, reason = await check_partner_requirements(guild, partner_channel, config)
+            if not passed:
+                logger.info("[loop] SKIP %s (%d): req failed — %s", guild.name, guild.id, reason)
+                log_channel = guild.get_channel(config.get("log_channel"))
+                if log_channel:
+                    try:
+                        await log_channel.send(embed=discord.Embed(title="Requirements not met", description=reason, color=discord.Color.dark_red()))
+                    except discord.Forbidden:
+                        pass
                 continue
 
             logger.info("[loop] ELIGIBLE %s (%d) members=%d", guild.name, guild.id, guild.member_count)
