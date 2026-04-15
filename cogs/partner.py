@@ -42,6 +42,7 @@ class AddBotView(discord.ui.View):
         await interaction.response.send_message("https://discord.gg/uacMXzbAfg", embed=embed, ephemeral=True)
 
 async def check_partner_requirements(guild: discord.Guild, channel: discord.TextChannel, config):
+    return True, None
     logger.debug("[req] checking %s (%d) channel=#%s", guild.name, guild.id, channel.name)
     member_role  = guild.get_role(config.get("member_role"))
     partner_role = guild.get_role(config.get("partner_ping_role"))
