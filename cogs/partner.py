@@ -393,24 +393,12 @@ class Partner(commands.Cog):
             return
 
         next_iter = loop.next_iteration
-        time_str = "N/A"
-
-        if next_iter:
-            now = discord.utils.utcnow()
-            seconds = int((next_iter - now).total_seconds())
-            m, s = divmod(seconds, 60)
-            h, m = divmod(m, 60)
-            parts = []
-            if h: parts.append(f"{h}h")
-            if m: parts.append(f"{m}m")
-            parts.append(f"{s}s")
-            time_str = f"{''.join(parts)} (<t:{int(next_iter.timestamp())}:R>)"
 
         embed = discord.Embed(title="Ad Loop Info", color=discord.Color.fuchsia())
         embed.add_field(name="Running", value=str(loop.is_running()), inline=True)
         embed.add_field(name="Failed", value=str(loop.failed()), inline=True)
         embed.add_field(name="Current Loop", value=str(loop.current_loop), inline=True)
-        embed.add_field(name="Next Run", value=time_str, inline=False)
+        embed.add_field(name="Next Run", value=f"<t:{int(next_iter.timestamp())}:R>", inline=False)
 
         await interaction.response.send_message(embed=embed)
 

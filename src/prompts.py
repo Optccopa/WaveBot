@@ -10,7 +10,7 @@ LEGITIMATE -- do NOT flag these:
 - discord.gg invite links
 - Voice call gambling between players
 - Join for a chance to win money (not invite rewards, normal giveaway)
-- Note pings are reffering to irl stuff (so for example "Ping Rewards for invites!" is ok)
+- "Pings" being exchanged for things like invites or irl money
 
 VIOLATIONS -- flag these exactly:
 
@@ -26,7 +26,7 @@ Respond with a single raw JSON object using this exact schema:
     "confidence": float, -- 0.0 to 1.0, how confident you are in the sus verdict
     "ai_hits": [ -- violations YOU found that regex did not catch, empty list if none {"violation": "VIOLATION_NAME", "phrase": "exact phrase from the ad that triggered it"}],
     "regex_hits": [], -- leave as empty list, this is filled in by the system
-    "user_reason": string -- if sus=true, write as if speaking directly to the ad poster, be specific but not accusatory WITHOUT mentioning regex, AI, or detection methods. if sus=false, set to null. Example: "Your ad appears to offer rewards for inviting members, which isn't allowed." NOT: "Regex pattern INVITE_REWARDS matched '5M / inv' in your message."
+    "user_reason": string -- if sus=true, write as if speaking directly to the ad poster, be specific but not accusatory WITHOUT mentioning regex, AI, or detection methods, or exact details. if sus=false, set to null. Example: "Your ad appears to offer rewards for inviting members, which isn't allowed." NOT: "Regex pattern INVITE_REWARDS matched '5M / inv' in your message."
 }
 
 No markdown. No backticks. No explanation outside the JSON. First character must be {."""

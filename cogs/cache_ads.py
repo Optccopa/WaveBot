@@ -6,7 +6,7 @@ import re, discord, os, json, hashlib, asyncio, logging
 
 log = logging.getLogger(__name__)
 
-CACHE_VER_CLAUDE = "v3"
+CACHE_VER_CLAUDE = "v4"
 LINK_REGEX = re.compile(r"https?://\S+")
 _PIPELINE_BATCH = 500
 
