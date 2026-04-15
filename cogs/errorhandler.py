@@ -13,9 +13,9 @@ class ErrorHandler(commands.Cog):
             "prefix": None,
             "event": None
         }
+        self.bot.tree.on_error = self.on_app_command_error
 
     # Slash commands
-    @commands.Cog.listener()
     async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
         self.last_errors["slash"] = traceback.format_exception(
             type(error), error, error.__traceback__
@@ -25,11 +25,7 @@ class ErrorHandler(commands.Cog):
             msg = "You don't have permission to use this command."
         elif isinstance(error, discord.app_commands.CommandOnCooldown):
             retry_at = int(time() + error.retry_after)
-            await interaction.response.send_message(
-                f"Slow down, Retry at: <t:{retry_at}:R>",
-                ephemeral=True
-            )
-            return
+            msg = f"Slow down, Retry at: <t:{retry_at}:R>"
         else:
             log.error("App command error: %r", error)
             msg = "An unexpected error occurred, if this issue persists please contact support."
