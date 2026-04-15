@@ -338,12 +338,12 @@ class Partner(commands.Cog):
         logger.info("[force_partner] SUCCESS: %s <-> %s", channel1, channel2)
         await interaction.followup.send(f"Partnered: {channel1.mention} | {channel2.mention}", ephemeral=True)
 
-    @partnerGroup.command(name="loop", description="Get info on the partner loop")
+    @partnerGroup.command(name="loopinfo", description="Get info on the partner loop")
     async def loop_info(self, interaction: discord.Interaction):
         loop = self.partner_loop
 
         if not loop.is_running():
-            await interaction.response.send_message("`ad_loop` is not running.")
+            await interaction.response.send_message("`ad_loop` is not running.", ephemeral=True)
             return
 
         next_iter = loop.next_iteration
@@ -354,7 +354,13 @@ class Partner(commands.Cog):
         embed.add_field(name="Current Loop", value=str(loop.current_loop), inline=True)
         embed.add_field(name="Next Run", value=f"<t:{int(next_iter.timestamp())}:R>", inline=False)
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    
+    @partnerGroup.command(name="loopforce")
+    @is_owner()
+    async def forceloop(self, interaction: discord.Interaction):
+        await self.partner_loop()
+        await interaction.response.send_message("Running partner loop", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Partner(bot))
