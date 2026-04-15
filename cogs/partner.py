@@ -4,6 +4,8 @@ from redis.asyncio import Redis
 from asyncpg import Pool
 import discord, random, logging
 
+COOLDOWN_REDIS_VER = "v1"
+
 logger = logging.getLogger(__name__)
 
 class AddBotView(discord.ui.View):
@@ -119,13 +121,13 @@ class Partner(commands.Cog):
     )
 
     async def has_cooldown(self, a: int, b: int) -> bool:
-        key = f"partner_cooldown:{min(a,b)}:{max(a,b)}"
+        key = f"{COOLDOWN_REDIS_VER}:partner_cooldown:{min(a,b)}:{max(a,b)}"
         result = bool(await self.redis.exists(key))
         logger.debug("[cooldown] %s -> %s", key, "HIT" if result else "MISS")
         return result
 
     async def set_cooldown(self, a: int, b: int):
-        key = f"partner_cooldown:{min(a,b)}:{max(a,b)}"
+        key = f"{COOLDOWN_REDIS_VER}:partner_cooldown:{min(a,b)}:{max(a,b)}"
         await self.redis.set(key, 1, ex=60 * 60 * 24 * 7)
         logger.debug("[cooldown] SET %s (7d)", key)
 
