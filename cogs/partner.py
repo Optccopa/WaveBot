@@ -351,7 +351,6 @@ class Partner(commands.Cog):
         embed = discord.Embed(title="Ad Loop Info", color=discord.Color.fuchsia())
         embed.add_field(name="Running", value=str(loop.is_running()), inline=True)
         embed.add_field(name="Failed", value=str(loop.failed()), inline=True)
-        embed.add_field(name="Current Loop", value=str(loop.current_loop), inline=True)
         embed.add_field(name="Next Run", value=f"<t:{int(next_iter.timestamp())}:R>", inline=False)
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -359,6 +358,8 @@ class Partner(commands.Cog):
     @partnerGroup.command(name="loopforce")
     @is_owner()
     async def forceloop(self, interaction: discord.Interaction):
+        logging.debug("Forcing partner loop")
+        await self.redis.delete("last_partner_run")
         await self.partner_loop()
         await interaction.response.send_message("Running partner loop", ephemeral=True)
 
