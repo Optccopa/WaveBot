@@ -128,9 +128,11 @@ class Bot(commands.AutoShardedBot):
         sys.exit(1)
 
     async def on_ready(self):
-        await self.redis.delete("bot:guild_ids")
-        if self.guilds:
-            await self.redis.sadd("bot:guild_ids", *[g.id for g in self.guilds])
+        async with self.redis.pipeline(transaction=True) as pipe:
+            pipe.delete("bot:guild_ids")
+            if self.guilds:
+                pipe.sadd("bot:guild_ids", *[g.id for g in self.guilds])
+            await pipe.execute()
             await self.redis.hset("bot:guild_info", mapping={
                 str(g.id): json.dumps({
                     "name": g.name,

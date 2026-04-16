@@ -145,6 +145,7 @@ class AdLooper(commands.Cog):
     async def cog_load(self):
         async with self.bot.db_pool.acquire() as conn:
             rows = await conn.fetch("SELECT link FROM whitelisted_links")
+        await self.redis.delete("whitelisted_links")
         if rows:
             await self.redis.sadd("whitelisted_links", *[r["link"] for r in rows])
         if self.bot.is_ready() and not self.ad_loop.is_running():

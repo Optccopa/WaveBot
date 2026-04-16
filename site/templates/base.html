@@ -19,7 +19,10 @@
             >
             {% endif %}
             <span class="nav-username">{{ user.username }}</span>
-            <a href="/logout" class="nav-logout">Logout</a>
+            <form method="POST" action="/logout" style="display:inline;margin:0">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="nav-logout">Logout</button>
+            </form>
         </div>
         {% endif %}
     </nav>

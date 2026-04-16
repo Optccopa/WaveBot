@@ -1,6 +1,7 @@
 import random, asyncio
+from time import perf_counter
 
-servers = list(range(31))
+servers = list(range(100))
 
 random.seed(42)
 _hot = set(random.sample(servers, int(len(servers) * 0.9)))
@@ -55,6 +56,10 @@ class Cog:
         sat_out = [p for p in shuffled if p not in paired]
         return pairs, sat_out
 
+start = perf_counter()
 for i in range(30):
     pairs, sat_out = asyncio.run(Cog().match(servers))
     print(pairs, f"\n{sat_out}")
+
+print(perf_counter() - start)
+

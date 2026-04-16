@@ -58,6 +58,7 @@ async def security_headers_middleware(request, handler):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "img-src 'self' https://cdn.discordapp.com data:; "
@@ -164,9 +165,9 @@ async def _discord_get(http: aiohttp.ClientSession, token: str, path: str):
 
 
 async def _check_rate_limit(redis: Redis, key: str, max_requests: int, window: int):
+    # SET NX EX is atomic — eliminates INCR/EXPIRE race
+    await redis.set(key, 0, nx=True, ex=window)
     count = await redis.incr(key)
-    if count == 1:
-        await redis.expire(key, window)
     if count > max_requests:
         raise web.HTTPTooManyRequests(reason="Too many requests. Slow down.")
 
@@ -247,9 +248,14 @@ async def handle_callback(request: web.Request) -> web.Response:
     raise web.HTTPFound("/")
 
 
-@routes.get("/logout")
+@routes.post("/logout")
 async def handle_logout(request: web.Request) -> web.Response:
     session = await aiohttp_session.get_session(request)
+    form = await request.post()
+    if form.get("csrf_token") != session.get("csrf_token"):
+        return aiohttp_jinja2.render_template(
+            "error.html", request, {"code": 403, "message": "Invalid request. Please try again."}, status=403
+        )
     session.invalidate()
     raise web.HTTPFound("/login")
 
@@ -259,6 +265,9 @@ async def handle_guild_list(request: web.Request) -> web.Response:
     session = await aiohttp_session.get_session(request)
     user = session["user"]
     cm: ConfigManager = request.app["config_manager"]
+
+    redis: Redis = request.app["redis"]
+    await _check_rate_limit(redis, f"ratelimit:get:{user['id']}", max_requests=30, window=60)
 
     user_guilds = await _get_user_guilds(request)
 
@@ -280,6 +289,7 @@ async def handle_guild_list(request: web.Request) -> web.Response:
     return aiohttp_jinja2.render_template("guilds.html", request, {
         "user": user,
         "guilds": guild_cards,
+        "csrf_token": _csrf_token(session),
     })
 
 
@@ -294,6 +304,9 @@ async def handle_server_get(request: web.Request) -> web.Response:
             "error.html", request, {"code": 404, "message": "Guild not found."}, status=404
         )
     guild_id = int(guild_id_str)
+
+    redis: Redis = request.app["redis"]
+    await _check_rate_limit(redis, f"ratelimit:get:{user['id']}", max_requests=30, window=60)
 
     user_guilds = await _get_user_guilds(request)
     guild = next((g for g in user_guilds if int(g["id"]) == guild_id), None)
@@ -415,7 +428,13 @@ async def on_cleanup(app: web.Application):
 def make_app() -> web.Application:
     raw_key = os.environ["SESSION_SECRET_KEY"].encode()
     secret_key = hashlib.sha256(raw_key).digest()
-    storage = EncryptedCookieStorage(secret_key, max_age=86400)
+    storage = EncryptedCookieStorage(
+        secret_key,
+        max_age=86400,
+        secure=os.environ.get("PRODUCTION", "false").lower() == "true",
+        httponly=True,
+        samesite="Lax",
+    )
 
     app = web.Application()
     aiohttp_session.setup(app, storage)

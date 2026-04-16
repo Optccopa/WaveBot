@@ -1,9 +1,9 @@
 import random, asyncio, time
 
-servers = list(range(31))
+servers = list(range(1000))
 
 random.seed(42)
-_hot = set(random.sample(servers, int(len(servers) * 0.3)))
+_hot = set(random.sample(servers, int(len(servers) * 0.02)))
 _cooldown_pairs: set[tuple[int, int]] = set()
 for _a in _hot:
     for _b in servers:

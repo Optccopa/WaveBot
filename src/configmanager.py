@@ -50,11 +50,9 @@ class ConfigManager:
                 *values
             )
 
-        key = f"config:{guild_id}"
-        config = await self.get(guild_id) or {}
-        config.update(fields)
-
-        await self.redis.set(key, json.dumps(config), ex=2592000)
+        # Invalidate then re-read from DB — avoids read-merge-write race
+        await self.redis.delete(f"config:{guild_id}")
+        await self.get(guild_id)
 
     async def invalidate(self, guild_id: int):
         await self.redis.delete(f"config:{guild_id}")

@@ -80,6 +80,9 @@ a:hover { text-decoration: underline; }
     border: 1px solid var(--border);
     border-radius: 6px;
     transition: border-color 0.15s, color 0.15s, background 0.15s;
+    background: none;
+    cursor: pointer;
+    font-family: inherit;
 }
 .nav-logout:hover {
     color: var(--text);
