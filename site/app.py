@@ -1,4 +1,3 @@
-import base64
 import hashlib
 import json
 import logging
@@ -44,6 +43,31 @@ routes = web.RouteTableDef()
 # ---------------------------------------------------------------------------
 
 @web.middleware
+async def security_headers_middleware(request, handler):
+    try:
+        response = await handler(request)
+    except web.HTTPException:
+        raise
+    except Exception:
+        log.exception("Unhandled error on %s %s", request.method, request.path)
+        response = aiohttp_jinja2.render_template(
+            "error.html", request,
+            {"code": 500, "message": "Something went wrong. Try again later."},
+            status=500
+        )
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "img-src 'self' https://cdn.discordapp.com data:; "
+        "style-src 'self'; "
+        "script-src 'none'"
+    )
+    return response
+
+
+@web.middleware
 async def auth_middleware(request, handler):
     public = {"/login", "/callback"}
     if request.path not in public and not request.path.startswith("/static"):
@@ -79,20 +103,23 @@ def _is_ready(config: dict | None) -> bool:
     return all(config.get(f) for f in FIELD_LABELS)
 
 
+def _csrf_token(session) -> str:
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_urlsafe(32)
+    return session["csrf_token"]
+
+
 async def _authorized_guild_ids(request) -> set[int]:
-    """Return set of guild IDs the bot knows about."""
     redis: Redis = request.app["redis"]
     members = await redis.smembers("bot:guild_ids")
     if members:
         return {int(m) for m in members}
-    # fallback: guilds that have touched config
     async with request.app["db_pool"].acquire() as conn:
         rows = await conn.fetch("SELECT guild_id FROM guild_config")
     return {row["guild_id"] for row in rows}
 
 
 async def _get_user_guilds(request) -> list[dict]:
-    """Fetch user's guilds. Bot owner sees all bot guilds; others see managed+present only."""
     session = await aiohttp_session.get_session(request)
     user_id = session["user"]["id"]
     redis: Redis = request.app["redis"]
@@ -136,6 +163,14 @@ async def _discord_get(http: aiohttp.ClientSession, token: str, path: str):
         return await resp.json()
 
 
+async def _check_rate_limit(redis: Redis, key: str, max_requests: int, window: int):
+    count = await redis.incr(key)
+    if count == 1:
+        await redis.expire(key, window)
+    if count > max_requests:
+        raise web.HTTPTooManyRequests(reason="Too many requests. Slow down.")
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -164,8 +199,13 @@ async def handle_callback(request: web.Request) -> web.Response:
 
     code = request.rel_url.query.get("code")
     state = request.rel_url.query.get("state")
+    stored_state = session.get("oauth_state")
 
-    if not code or state != session.get("oauth_state"):
+    # Clear state immediately after reading — prevents replay
+    if "oauth_state" in session:
+        del session["oauth_state"]
+
+    if not code or state != stored_state:
         return aiohttp_jinja2.render_template(
             "error.html", request,
             {"code": 400, "message": "Invalid OAuth2 state. Try logging in again."},
@@ -193,17 +233,16 @@ async def handle_callback(request: web.Request) -> web.Response:
         token_data = await resp.json()
 
     access_token = token_data["access_token"]
-
     user = await _discord_get(http, access_token, "/users/@me")
-    guilds = await _discord_get(http, access_token, "/users/@me/guilds")
 
+    # Regenerate session to prevent session fixation
+    session.invalidate()
     session["user"] = {
         "id": user["id"],
         "username": user["username"],
         "avatar": user.get("avatar"),
     }
     session["access_token"] = access_token
-    del session["oauth_state"]
 
     raise web.HTTPFound("/")
 
@@ -250,12 +289,11 @@ async def handle_server_get(request: web.Request) -> web.Response:
     user = session["user"]
     guild_id_str = request.match_info["guild_id"]
 
-    try:
-        guild_id = int(guild_id_str)
-    except ValueError:
+    if not SNOWFLAKE_RE.match(guild_id_str):
         return aiohttp_jinja2.render_template(
             "error.html", request, {"code": 404, "message": "Guild not found."}, status=404
         )
+    guild_id = int(guild_id_str)
 
     user_guilds = await _get_user_guilds(request)
     guild = next((g for g in user_guilds if int(g["id"]) == guild_id), None)
@@ -277,6 +315,7 @@ async def handle_server_get(request: web.Request) -> web.Response:
         "saved": saved,
         "errors": {},
         "labels": FIELD_LABELS,
+        "csrf_token": _csrf_token(session),
     })
 
 
@@ -286,12 +325,11 @@ async def handle_server_post(request: web.Request) -> web.Response:
     user = session["user"]
     guild_id_str = request.match_info["guild_id"]
 
-    try:
-        guild_id = int(guild_id_str)
-    except ValueError:
+    if not SNOWFLAKE_RE.match(guild_id_str):
         return aiohttp_jinja2.render_template(
             "error.html", request, {"code": 404, "message": "Guild not found."}, status=404
         )
+    guild_id = int(guild_id_str)
 
     user_guilds = await _get_user_guilds(request)
     guild = next((g for g in user_guilds if int(g["id"]) == guild_id), None)
@@ -301,6 +339,17 @@ async def handle_server_post(request: web.Request) -> web.Response:
         )
 
     form = await request.post()
+
+    # CSRF check
+    if form.get("csrf_token") != session.get("csrf_token"):
+        return aiohttp_jinja2.render_template(
+            "error.html", request, {"code": 403, "message": "Invalid request. Please try again."}, status=403
+        )
+
+    # Rate limit: 10 saves per minute per user
+    redis: Redis = request.app["redis"]
+    await _check_rate_limit(redis, f"ratelimit:config:{user['id']}", max_requests=10, window=60)
+
     errors = {}
     fields = {}
 
@@ -316,7 +365,6 @@ async def handle_server_post(request: web.Request) -> web.Response:
     if errors:
         cm: ConfigManager = request.app["config_manager"]
         config = await cm.get(guild_id) or {}
-        # overlay submitted values so the form retains user input
         for f, v in fields.items():
             config[f] = v
         return aiohttp_jinja2.render_template("server.html", request, {
@@ -328,6 +376,7 @@ async def handle_server_post(request: web.Request) -> web.Response:
             "saved": False,
             "errors": errors,
             "labels": FIELD_LABELS,
+            "csrf_token": _csrf_token(session),
         }, status=422)
 
     if fields:
@@ -364,16 +413,15 @@ async def on_cleanup(app: web.Application):
 
 
 def make_app() -> web.Application:
-    # Session middleware must be registered before auth_middleware so get_session() works
     raw_key = os.environ["SESSION_SECRET_KEY"].encode()
     secret_key = hashlib.sha256(raw_key).digest()
     storage = EncryptedCookieStorage(secret_key, max_age=86400)
 
     app = web.Application()
-    aiohttp_session.setup(app, storage)  # adds session middleware first
+    aiohttp_session.setup(app, storage)
+    app.middlewares.append(security_headers_middleware)
     app.middlewares.append(auth_middleware)
 
-    # Jinja2 templates
     aiohttp_jinja2.setup(
         app,
         loader=jinja2.FileSystemLoader(

@@ -17,6 +17,7 @@
 
 <div class="config-card">
     <form method="POST" action="/server/{{ guild_id }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         {% for field, (label, description) in labels.items() %}
         <div class="form-group {% if errors.get(field) %}has-error{% endif %}">
             <label for="{{ field }}">{{ label }}</label>
