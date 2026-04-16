@@ -86,9 +86,24 @@ async def _authorized_guild_ids(request) -> set[int]:
 
 
 async def _get_user_guilds(request) -> list[dict]:
-    """Guilds from session filtered to: user has MANAGE_GUILD + bot is present."""
+    """Fetch user's guilds from Discord API, cache in Redis for 5 min."""
     session = await aiohttp_session.get_session(request)
-    raw_guilds: list[dict] = session.get("guilds", [])
+    user_id = session["user"]["id"]
+    redis: Redis = request.app["redis"]
+
+    cache_key = f"panel:guilds:{user_id}"
+    cached = await redis.get(cache_key)
+    if cached:
+        raw_guilds = json.loads(cached)
+    else:
+        http: aiohttp.ClientSession = request.app["http_session"]
+        raw_guilds = await _discord_get(http, session["access_token"], "/users/@me/guilds")
+        raw_guilds = [
+            {"id": g["id"], "name": g["name"], "icon": g.get("icon"), "permissions": g["permissions"]}
+            for g in raw_guilds
+        ]
+        await redis.set(cache_key, json.dumps(raw_guilds), ex=300)
+
     bot_guild_ids = await _authorized_guild_ids(request)
     return [
         g for g in raw_guilds
@@ -171,10 +186,6 @@ async def handle_callback(request: web.Request) -> web.Response:
         "username": user["username"],
         "avatar": user.get("avatar"),
     }
-    session["guilds"] = [
-        {"id": g["id"], "name": g["name"], "icon": g.get("icon"), "permissions": g["permissions"]}
-        for g in guilds
-    ]
     session["access_token"] = access_token
     del session["oauth_state"]
 
