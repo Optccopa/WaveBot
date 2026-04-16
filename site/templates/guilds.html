@@ -9,19 +9,34 @@
 </div>
 
 {% if guilds %}
-<div class="guild-grid">
+<div class="guild-list">
     {% for guild in guilds %}
-    <div class="guild-card">
-        <img src="{{ guild.icon_url }}" alt="{{ guild.name }}" class="guild-icon">
-        <div class="guild-info">
-            <h2 class="guild-name">{{ guild.name }}</h2>
+    <div class="guild-card {% if guild.banner_url %}has-banner{% endif %}"
+         {% if guild.banner_url %}style="--banner: url('{{ guild.banner_url }}')"{% endif %}>
+        <div class="guild-card-inner">
+            <a href="/server/{{ guild.id }}" class="btn btn-configure">Configure</a>
+            <img src="{{ guild.icon_url }}" alt="{{ guild.name }}" class="guild-icon">
+            <div class="guild-info">
+                <span class="guild-name">{{ guild.name }}</span>
+                <div class="guild-meta">
+                    {% if guild.member_count is not none %}
+                    <span class="meta-item">
+                        <span class="dot dot-members"></span>{{ guild.member_count }} members
+                    </span>
+                    {% endif %}
+                    {% if guild.online_count is not none %}
+                    <span class="meta-item">
+                        <span class="dot dot-online"></span>{{ guild.online_count }} online
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
             {% if guild.is_ready %}
             <span class="badge badge-ready">Ready</span>
             {% else %}
             <span class="badge badge-notready">Not configured</span>
             {% endif %}
         </div>
-        <a href="/server/{{ guild.id }}" class="btn btn-configure">Configure</a>
     </div>
     {% endfor %}
 </div>

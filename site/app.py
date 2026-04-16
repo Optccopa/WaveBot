@@ -67,6 +67,12 @@ def _icon_url(guild_id: str, icon: str | None) -> str:
     return "https://cdn.discordapp.com/embed/avatars/0.png"
 
 
+def _banner_url(guild_id: str, banner: str | None) -> str | None:
+    if banner:
+        return f"https://cdn.discordapp.com/banners/{guild_id}/{banner}.png?size=512"
+    return None
+
+
 def _is_ready(config: dict | None) -> bool:
     if not config:
         return False
@@ -97,9 +103,17 @@ async def _get_user_guilds(request) -> list[dict]:
         raw_guilds = json.loads(cached)
     else:
         http: aiohttp.ClientSession = request.app["http_session"]
-        raw_guilds = await _discord_get(http, session["access_token"], "/users/@me/guilds")
+        raw_guilds = await _discord_get(http, session["access_token"], "/users/@me/guilds?with_counts=true")
         raw_guilds = [
-            {"id": g["id"], "name": g["name"], "icon": g.get("icon"), "permissions": g["permissions"]}
+            {
+                "id": g["id"],
+                "name": g["name"],
+                "icon": g.get("icon"),
+                "banner": g.get("banner"),
+                "permissions": g["permissions"],
+                "member_count": g.get("approximate_member_count"),
+                "online_count": g.get("approximate_presence_count"),
+            }
             for g in raw_guilds
         ]
         await redis.set(cache_key, json.dumps(raw_guilds), ex=300)
@@ -116,6 +130,8 @@ async def _discord_get(http: aiohttp.ClientSession, token: str, path: str):
         f"{DISCORD_API}{path}",
         headers={"Authorization": f"Bearer {token}"}
     ) as resp:
+        if resp.status == 429:
+            raise web.HTTPServiceUnavailable(reason="Discord rate limit hit, try again in a moment.")
         resp.raise_for_status()
         return await resp.json()
 
@@ -214,6 +230,9 @@ async def handle_guild_list(request: web.Request) -> web.Response:
             "id": g["id"],
             "name": g["name"],
             "icon_url": _icon_url(g["id"], g.get("icon")),
+            "banner_url": _banner_url(g["id"], g.get("banner")),
+            "member_count": g.get("member_count"),
+            "online_count": g.get("online_count"),
             "is_ready": _is_ready(config),
         })
 
