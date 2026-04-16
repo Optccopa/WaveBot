@@ -1,4 +1,4 @@
-import discord, os, asyncio, asyncpg, sys, logging, aiohttp, yaml
+import discord, os, asyncio, asyncpg, sys, logging, aiohttp, yaml, json
 from redis.asyncio import Redis
 from discord.ext import commands
 from src.configmanager import ConfigManager
@@ -107,9 +107,18 @@ class Bot(commands.AutoShardedBot):
         # init config manager
         self.config = ConfigManager(self.db_pool, self.redis)
 
-        # seed guild IDs for the web panel
+        # rebuild guild sets for the web panel (DEL first removes stale entries)
+        await self.redis.delete("bot:guild_ids")
         if self.guilds:
             await self.redis.sadd("bot:guild_ids", *[g.id for g in self.guilds])
+            await self.redis.hset("bot:guild_info", mapping={
+                str(g.id): json.dumps({
+                    "name": g.name,
+                    "icon": str(g.icon) if g.icon else None,
+                    "member_count": g.member_count,
+                })
+                for g in self.guilds
+            })
 
         await retry_with_backoff(self.tree.sync)
 
@@ -146,6 +155,7 @@ class Bot(commands.AutoShardedBot):
 
     async def on_guild_remove(self, guild: discord.Guild):
         await self.redis.srem("bot:guild_ids", guild.id)
+        await self.redis.hdel("bot:guild_info", guild.id)
 
     async def on_guild_join(self, guild: discord.Guild):
         if guild.member_count < 50:
@@ -162,6 +172,11 @@ class Bot(commands.AutoShardedBot):
             return
 
         await self.redis.sadd("bot:guild_ids", guild.id)
+        await self.redis.hset("bot:guild_info", guild.id, json.dumps({
+            "name": guild.name,
+            "icon": str(guild.icon) if guild.icon else None,
+            "member_count": guild.member_count,
+        }))
 
         async with self.db_pool.acquire() as conn:
             row = await conn.fetchrow("SELECT reason FROM blacklists WHERE guild_id = $1", guild.id)

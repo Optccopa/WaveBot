@@ -176,7 +176,7 @@ a:hover { text-decoration: underline; }
     position: absolute;
     inset: 0;
     background: var(--banner) center/cover no-repeat;
-    opacity: 0.18;
+    opacity: 0.40;
     pointer-events: none;
 }
 

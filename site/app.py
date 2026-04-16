@@ -25,6 +25,7 @@ log = logging.getLogger(__name__)
 
 DISCORD_API = "https://discord.com/api/v10"
 MANAGE_GUILD = 0x20
+BOT_OWNER_ID = "1198470843014053970"
 
 FIELD_LABELS = {
     "partner_channel": ("Partner Channel ID", "Channel where partner ads are posted"),
@@ -92,10 +93,26 @@ async def _authorized_guild_ids(request) -> set[int]:
 
 
 async def _get_user_guilds(request) -> list[dict]:
-    """Fetch user's guilds from Discord API, cache in Redis for 5 min."""
+    """Fetch user's guilds. Bot owner sees all bot guilds; others see managed+present only."""
     session = await aiohttp_session.get_session(request)
     user_id = session["user"]["id"]
     redis: Redis = request.app["redis"]
+
+    if user_id == BOT_OWNER_ID:
+        raw = await redis.hgetall("bot:guild_info")
+        guilds = []
+        for gid, data in raw.items():
+            meta = json.loads(data)
+            guilds.append({
+                "id": gid,
+                "name": meta.get("name", gid),
+                "icon": meta.get("icon"),
+                "banner": None,
+                "permissions": str(MANAGE_GUILD),
+                "member_count": meta.get("member_count"),
+                "online_count": None,
+            })
+        return sorted(guilds, key=lambda g: g["name"].lower())
 
     cache_key = f"panel:guilds:{user_id}"
     cached = await redis.get(cache_key)
