@@ -171,7 +171,10 @@ async def handle_callback(request: web.Request) -> web.Response:
         "username": user["username"],
         "avatar": user.get("avatar"),
     }
-    session["guilds"] = guilds
+    session["guilds"] = [
+        {"id": g["id"], "name": g["name"], "icon": g.get("icon"), "permissions": g["permissions"]}
+        for g in guilds
+    ]
     session["access_token"] = access_token
     del session["oauth_state"]
 
