@@ -129,29 +129,44 @@ class Partner(commands.Cog):
         await self.redis.set(key, 1, ex=self.bot.yaml_config['times']['partner_cooldown_ttl'])
         logger.debug("[cooldown] SET %s (7d)", key)
 
-    async def match_servers(self, guilds: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    async def match_servers(self, guilds: list[tuple[int, int]]) -> tuple[list[tuple[int, int]], list[int]]:
         logger.info("[match] starting with %d servers", len(guilds))
         pool = [id for id, _ in guilds]
         random.shuffle(pool)
-        pairs = []
-        used = set()
-        for server in pool:
-            if server in used:
-                continue
-            candidates = [s for s in pool if s != server and s not in used]
-            random.shuffle(candidates)
-            matched = False
-            for candidate in candidates:
-                if not await self.has_cooldown(server, candidate):
-                    pairs.append((server, candidate))
-                    used.update([server, candidate])
-                    logger.debug("[match] paired %d <-> %d", server, candidate)
-                    matched = True
-                    break
-            if not matched:
-                logger.warning("[match] no valid partner found for %s (all on cooldown or exhausted)", server)
-        logger.info("[match] result: %d pairs", len(pairs))
-        return pairs
+
+        cooldowns: set[tuple[int, int]] = set()
+        for i, a in enumerate(pool):
+            for b in pool[i + 1:]:
+                if await self.has_cooldown(a, b):
+                    cooldowns.add((min(a, b), max(a, b)))
+
+        def backtrack(remaining: list[int]) -> list[tuple[int, int]]:
+            if len(remaining) < 2:
+                return []
+            first = remaining[0]
+            rest = remaining[1:]
+            best = []
+            for i, candidate in enumerate(rest):
+                if (min(first, candidate), max(first, candidate)) not in cooldowns:
+                    result = [(first, candidate)] + backtrack(rest[:i] + rest[i + 1:])
+                    if len(result) > len(best):
+                        best = result
+                        if len(best) == len(remaining) // 2:
+                            return best
+            skipped = backtrack(rest)
+            if len(skipped) > len(best):
+                best = skipped
+            return best
+
+        pairs = backtrack(pool)
+        paired = {p for pair in pairs for p in pair}
+        sat_out = [p for p in pool if p not in paired]
+        logger.info("[match] result: %d pairs, %d sat out", len(pairs), len(sat_out))
+        for a, b in pairs:
+            logger.debug("[match] paired %d <-> %d", a, b)
+        for s in sat_out:
+            logger.warning("[match] sat out (all on cooldown): %d", s)
+        return pairs, sat_out
 
     async def partner(self, server1_id: int, server2_id: int):
         logger.info("[partner] START %d <-> %d", server1_id, server2_id)
@@ -301,7 +316,7 @@ class Partner(commands.Cog):
             available.append((guild.id, guild.member_count))
 
         logger.info("[loop] %d eligible servers going into matching", len(available))
-        pairs = await self.match_servers(available)
+        pairs, cooldown = await self.match_servers(available)
 
         for a, b in pairs:
             guild_a = self.bot.get_guild(a)
