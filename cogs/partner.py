@@ -132,35 +132,49 @@ class Partner(commands.Cog):
     async def match_servers(self, guilds: list[tuple[int, int]]) -> tuple[list[tuple[int, int]], list[int]]:
         logger.info("[match] starting with %d servers", len(guilds))
         pool = [id for id, _ in guilds]
-        random.shuffle(pool)
+        random.shuffle(pool)  # randomise before sort so ties break randomly
 
-        cooldowns: set[tuple[int, int]] = set()
-        for i, a in enumerate(pool):
-            for b in pool[i + 1:]:
-                if await self.has_cooldown(a, b):
-                    cooldowns.add((min(a, b), max(a, b)))
+        if len(pool) < 2:
+            return [], pool
 
-        def backtrack(remaining: list[int]) -> list[tuple[int, int]]:
-            if len(remaining) < 2:
-                return []
-            first = remaining[0]
-            rest = remaining[1:]
-            best = []
-            for i, candidate in enumerate(rest):
-                if (min(first, candidate), max(first, candidate)) not in cooldowns:
-                    result = [(first, candidate)] + backtrack(rest[:i] + rest[i + 1:])
-                    if len(result) > len(best):
-                        best = result
-                        if len(best) == len(remaining) // 2:
-                            return best
-            skipped = backtrack(rest)
-            if len(skipped) > len(best):
-                best = skipped
-            return best
+        ver = self.bot.yaml_config['cache']['cache_version']
+        all_pairs = [(min(a, b), max(a, b)) for i, a in enumerate(pool) for b in pool[i + 1:]]
 
-        pairs = backtrack(pool)
-        paired = {p for pair in pairs for p in pair}
-        sat_out = [p for p in pool if p not in paired]
+        # Fetch all cooldowns in one pipeline round-trip instead of n²/2 individual calls
+        async with self.redis.pipeline(transaction=False) as pipe:
+            for a, b in all_pairs:
+                pipe.exists(f"{ver}:partner_cooldown:{a}:{b}")
+            results = await pipe.execute()
+
+        on_cooldown = {pair for pair, hit in zip(all_pairs, results) if hit}
+        logger.info("[match] cooldown check: %d/%d pairs blocked", len(on_cooldown), len(all_pairs))
+
+        # Build adjacency sets
+        neighbors: dict[int, set[int]] = {s: set() for s in pool}
+        for a, b in all_pairs:
+            if (a, b) not in on_cooldown:
+                neighbors[a].add(b)
+                neighbors[b].add(a)
+
+        # Greedy maximum matching — most-constrained nodes first
+        # Picking the partner with the fewest remaining options keeps the graph
+        # denser for subsequent nodes, approaching optimal without Blossom complexity.
+        order = sorted(pool, key=lambda x: len(neighbors[x]))
+        matched: set[int] = set()
+        pairs: list[tuple[int, int]] = []
+
+        for server in order:
+            if server in matched:
+                continue
+            available = [p for p in neighbors[server] if p not in matched]
+            if not available:
+                continue
+            partner = min(available, key=lambda x: len(neighbors[x] - matched))
+            pairs.append((server, partner))
+            matched.add(server)
+            matched.add(partner)
+
+        sat_out = [s for s in pool if s not in matched]
         logger.info("[match] result: %d pairs, %d sat out", len(pairs), len(sat_out))
         for a, b in pairs:
             logger.debug("[match] paired %d <-> %d", a, b)
