@@ -377,6 +377,15 @@ class Partner(commands.Cog):
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
     
+    @partnerGroup.command(name="ad", description="Send a server's partner ad")
+    @discord.app_commands.checks.cooldown(rate=1, per=10)
+    async def send_ad(self, interaction: discord.Interaction, guild_id: str):
+        ad = await self.redis.get(f"ads:{guild_id}")
+        if not ad:
+            await interaction.response.send_message("No ad found for that server.", ephemeral=True)
+            return
+        await interaction.response.send_message(ad, ephemeral=True)
+
     @partnerGroup.command(name="loopforce")
     @is_owner()
     async def forceloop(self, interaction: discord.Interaction):
