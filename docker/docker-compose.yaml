@@ -1,7 +1,7 @@
 services:
   app:
     build:
-      context: ..
+      context: .
       dockerfile: docker/bot.Dockerfile
     container_name: myapp
     depends_on:
@@ -15,7 +15,7 @@ services:
 
   site:
     build:
-      context: ..
+      context: .
       dockerfile: docker/site.Dockerfile
     container_name: wavebot-panel
     restart: always
