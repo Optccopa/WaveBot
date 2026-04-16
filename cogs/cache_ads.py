@@ -128,7 +128,7 @@ class AdLooper(commands.Cog):
                     except discord.Forbidden:
                         pass
 
-        for i in range(0, max(len(pending), 1), self.bot.config['cache']['pipeline_batch']):
+        for i in range(0, max(len(pending), 1), self.bot.yaml_config['cache']['pipeline_batch']):
             chunk = pending[i:i + self.bot.yaml_config['cache']['pipeline_batch']]
             if not chunk:
                 break
