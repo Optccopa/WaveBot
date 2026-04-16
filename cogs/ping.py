@@ -1,7 +1,7 @@
 import discord, time
 from discord.ext import commands
 
-class ConfigCommands(commands.Cog):
+class Ping(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
@@ -44,7 +44,7 @@ class ConfigCommands(commands.Cog):
                 f"Api: `{api_latency}ms`\n"
                 f"Edit: `{edit_latency}ms`\n"
                 f"Database: `{db_latency}`\n"
-                f"Redis: `{redis_latency}`"
+                f"Cache: `{redis_latency}`"
             ),
             color=discord.Color.fuchsia()
         )
@@ -52,4 +52,4 @@ class ConfigCommands(commands.Cog):
         await msg.edit(embed=embed)
         
 async def setup(bot: commands.Bot):
-    await bot.add_cog(ConfigCommands(bot))
+    await bot.add_cog(Ping(bot))
