@@ -107,18 +107,6 @@ class Bot(commands.AutoShardedBot):
         # init config manager
         self.config = ConfigManager(self.db_pool, self.redis)
 
-        # rebuild guild sets for the web panel (DEL first removes stale entries)
-        await self.redis.delete("bot:guild_ids")
-        if self.guilds:
-            await self.redis.sadd("bot:guild_ids", *[g.id for g in self.guilds])
-            await self.redis.hset("bot:guild_info", mapping={
-                str(g.id): json.dumps({
-                    "name": g.name,
-                    "icon": str(g.icon) if g.icon else None,
-                    "member_count": g.member_count,
-                })
-                for g in self.guilds
-            })
 
         await retry_with_backoff(self.tree.sync)
 
@@ -138,6 +126,20 @@ class Bot(commands.AutoShardedBot):
 
         log.error("Failed starting on all trys")
         sys.exit(1)
+
+    async def on_ready(self):
+        await self.redis.delete("bot:guild_ids")
+        if self.guilds:
+            await self.redis.sadd("bot:guild_ids", *[g.id for g in self.guilds])
+            await self.redis.hset("bot:guild_info", mapping={
+                str(g.id): json.dumps({
+                    "name": g.name,
+                    "icon": str(g.icon) if g.icon else None,
+                    "member_count": g.member_count,
+                })
+                for g in self.guilds
+            })
+        log.info("[on_ready] seeded %d guilds into bot:guild_ids", len(self.guilds))
 
     async def on_shard_ready(self, shard_id: int):
         await self.change_presence(
