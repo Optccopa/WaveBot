@@ -22,6 +22,8 @@ services:
     depends_on:
       - redis
       - postgres
+    ports:
+      - "8080:8080"
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_DB: appdb
@@ -30,33 +32,8 @@ services:
       REDIS_HOST: redis
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
-      DISCORD_REDIRECT_URI: https://${DOMAIN}/callback
+      DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
       SESSION_SECRET_KEY: ${SESSION_SECRET_KEY}
-
-  nginx:
-    image: nginx:alpine
-    container_name: wavebot-nginx
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - certbot_www:/var/www/certbot:ro
-      - certbot_certs:/etc/letsencrypt:ro
-    environment:
-      DOMAIN: ${DOMAIN}
-      NGINX_ENVSUBST_TEMPLATE_VARS: DOMAIN
-    depends_on:
-      - site
-
-  certbot:
-    image: certbot/certbot
-    container_name: wavebot-certbot
-    volumes:
-      - certbot_www:/var/www/certbot
-      - certbot_certs:/etc/letsencrypt
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done;'"
 
   redis:
     image: redis:7-alpine
@@ -80,5 +57,3 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  certbot_www:
-  certbot_certs:
