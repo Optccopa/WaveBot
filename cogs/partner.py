@@ -211,14 +211,14 @@ class Partner(commands.Cog):
 
         logger.info("[partner] sending ad2 -> #%s in %s (%d)", channel1.name, guild1.name, server1_id)
         try:
-            await channel1.send(ad2, view=AddBotView())
+            await channel1.send(ad2, view=AddBotView(), allowed_mentions=discord.AllowedMentions(everyone=False))
             logger.info("[partner] sent ad2 -> %d #%s OK", server1_id, channel1.name)
         except Exception as e:
             logger.error("[partner] FAILED sending to %d #%s: %s", server1_id, channel1.name, e)
             return None, None
         logger.info("[partner] sending ad1 -> #%s in %s (%d)", channel2.name, guild2.name, server2_id)
         try:
-            await channel2.send(ad1, view=AddBotView())
+            await channel2.send(ad1, view=AddBotView(), allowed_mentions=discord.AllowedMentions(everyone=False))
             logger.info("[partner] sent ad1 -> %d #%s OK", server2_id, channel2.name)
         except Exception as e:
             logger.error("[partner] FAILED sending to %d #%s: %s", server2_id, channel2.name, e)

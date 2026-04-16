@@ -7,6 +7,7 @@ import re, discord, os, json, hashlib, asyncio, logging
 log = logging.getLogger(__name__)
 
 LINK_REGEX = re.compile(r"https?://\S+")
+PING_RE = re.compile(r"@everyone|@here|<@&\d+>")
 
 class AdLooper(commands.Cog):
     def __init__(self, bot):
@@ -120,7 +121,7 @@ class AdLooper(commands.Cog):
                     break
 
             if ad_message:
-                pending.append((f"ads:{guild.id}", ad_message))
+                pending.append((f"ads:{guild.id}", PING_RE.sub("", ad_message)))
             else:
                 if log_channel:
                     try:
