@@ -252,17 +252,21 @@ a:hover { text-decoration: underline; }
 .dot-online  { background: var(--green); }
 
 /* ============================================================
-   Status dot
+   Badges
    ============================================================ */
-.status-dot {
+.badge {
     display: inline-block;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    flex-shrink: 0;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
 }
-.status-ready    { background: var(--green); box-shadow: 0 0 6px rgba(26,158,92,0.5); }
-.status-notready { background: var(--red);   box-shadow: 0 0 6px rgba(217,48,37,0.4); }
+
+.badge-ready    { background: rgba(26, 158, 92, 0.12); color: var(--green); border: 1px solid rgba(26,158,92,0.25); }
+.badge-notready { background: rgba(217, 48, 37, 0.1);  color: var(--red);   border: 1px solid rgba(217,48,37,0.2); }
 
 /* ============================================================
    Empty state
