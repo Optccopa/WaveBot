@@ -1,7 +1,7 @@
 services:
   app:
     build:
-      context: .
+      context: ..
       dockerfile: docker/bot.Dockerfile
     container_name: myapp
     depends_on:
