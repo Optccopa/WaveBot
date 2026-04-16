@@ -100,19 +100,22 @@ async def _get_user_guilds(request) -> list[dict]:
 
     if user_id == BOT_OWNER_ID:
         raw = await redis.hgetall("bot:guild_info")
-        guilds = []
-        for gid, data in raw.items():
-            meta = json.loads(data)
-            guilds.append({
-                "id": gid,
-                "name": meta.get("name", gid),
-                "icon": meta.get("icon"),
-                "banner": None,
-                "permissions": str(MANAGE_GUILD),
-                "member_count": meta.get("member_count"),
-                "online_count": None,
-            })
-        return sorted(guilds, key=lambda g: g["name"].lower())
+        if raw:
+            guilds = []
+            for gid, data in raw.items():
+                meta = json.loads(data)
+                guilds.append({
+                    "id": gid,
+                    "name": meta.get("name", gid),
+                    "icon": meta.get("icon"),
+                    "banner": None,
+                    "member_count": meta.get("member_count"),
+                    "online_count": None,
+                })
+            return sorted(guilds, key=lambda g: g["name"].lower())
+        # fallback: bot:guild_info not yet populated, use guild_ids set with no metadata
+        guild_ids = await redis.smembers("bot:guild_ids")
+        return [{"id": gid, "name": gid, "icon": None, "banner": None, "member_count": None, "online_count": None} for gid in guild_ids]
 
     cache_key = f"panel:guilds:{user_id}"
     cached = await redis.get(cache_key)
