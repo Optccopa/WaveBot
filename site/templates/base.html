@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}WaveBot Panel{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="nav-brand">WaveBot Panel</a>
+        {% if user %}
+        <div class="nav-user">
+            {% if user.avatar %}
+            <img
+                src="https://cdn.discordapp.com/avatars/{{ user.id }}/{{ user.avatar }}.png?size=32"
+                alt="avatar"
+                class="nav-avatar"
+            >
+            {% endif %}
+            <span class="nav-username">{{ user.username }}</span>
+            <a href="/logout" class="nav-logout">Logout</a>
+        </div>
+        {% endif %}
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

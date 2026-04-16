@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Servers — WaveBot Panel{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Your Servers</h1>
+    <p class="page-subtitle">Servers where you have Manage Server permission and WaveBot is present.</p>
+</div>
+
+{% if guilds %}
+<div class="guild-grid">
+    {% for guild in guilds %}
+    <div class="guild-card">
+        <img src="{{ guild.icon_url }}" alt="{{ guild.name }}" class="guild-icon">
+        <div class="guild-info">
+            <h2 class="guild-name">{{ guild.name }}</h2>
+            {% if guild.is_ready %}
+            <span class="badge badge-ready">Ready</span>
+            {% else %}
+            <span class="badge badge-notready">Not configured</span>
+            {% endif %}
+        </div>
+        <a href="/server/{{ guild.id }}" class="btn btn-configure">Configure</a>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No servers found. Make sure WaveBot is in your server and you have the Manage Server permission.</p>
+</div>
+{% endif %}
+{% endblock %}

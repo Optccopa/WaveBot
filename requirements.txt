@@ -3,3 +3,8 @@ asyncpg
 redis
 anthropic
 pyyaml
+aiohttp
+aiohttp-session
+aiohttp-jinja2
+jinja2
+cryptography

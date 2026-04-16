@@ -107,6 +107,10 @@ class Bot(commands.AutoShardedBot):
         # init config manager
         self.config = ConfigManager(self.db_pool, self.redis)
 
+        # seed guild IDs for the web panel
+        if self.guilds:
+            await self.redis.sadd("bot:guild_ids", *[g.id for g in self.guilds])
+
         await retry_with_backoff(self.tree.sync)
 
     async def start_with_retries(self):
@@ -140,6 +144,9 @@ class Bot(commands.AutoShardedBot):
                 await handler.session.close()
         await super().close()
 
+    async def on_guild_remove(self, guild: discord.Guild):
+        await self.redis.srem("bot:guild_ids", guild.id)
+
     async def on_guild_join(self, guild: discord.Guild):
         if guild.member_count < 50:
             if guild.owner:
@@ -153,6 +160,8 @@ class Bot(commands.AutoShardedBot):
             await guild.leave()
 
             return
+
+        await self.redis.sadd("bot:guild_ids", guild.id)
 
         async with self.db_pool.acquire() as conn:
             row = await conn.fetchrow("SELECT reason FROM blacklists WHERE guild_id = $1", guild.id)
