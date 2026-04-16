@@ -1,5 +1,7 @@
-import asyncio
+import base64
+import hashlib
 import json
+import logging
 import os
 import re
 import secrets
@@ -10,10 +12,16 @@ import aiohttp_session
 import asyncpg
 import jinja2
 from aiohttp import web
-from aiohttp_session.redis_storage import RedisStorage
+from aiohttp_session.cookie_storage import EncryptedCookieStorage
 from redis.asyncio import Redis
 
 from configmanager import ConfigManager
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+log = logging.getLogger(__name__)
 
 DISCORD_API = "https://discord.com/api/v10"
 MANAGE_GUILD = 0x20
@@ -325,14 +333,10 @@ async def on_cleanup(app: web.Application):
 def make_app() -> web.Application:
     app = web.Application(middlewares=[auth_middleware])
 
-    # Sessions backed by Redis
-    redis_for_sessions = Redis(
-        host=os.environ.get("REDIS_HOST", "redis"),
-        port=6379,
-        decode_responses=False,  # aiohttp-session needs bytes
-    )
-    storage = RedisStorage(redis_for_sessions, max_age=86400)
-    aiohttp_session.setup(app, storage)
+    # Sessions stored in encrypted cookie — no Redis dependency
+    raw_key = os.environ["SESSION_SECRET_KEY"].encode()
+    secret_key = hashlib.sha256(raw_key).digest()  # always 32 bytes regardless of input length
+    aiohttp_session.setup(app, EncryptedCookieStorage(secret_key, max_age=86400))
 
     # Jinja2 templates
     aiohttp_jinja2.setup(
