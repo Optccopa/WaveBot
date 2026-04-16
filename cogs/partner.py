@@ -338,6 +338,98 @@ class Partner(commands.Cog):
     async def before_partner_loop(self):
         await self.bot.wait_until_ready()
         
+    @partnerGroup.command(name="status", description="Check why your server may not be receiving partners")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    @discord.app_commands.checks.cooldown(rate=1, per=10)
+    async def partner_status(self, interaction: discord.Interaction):
+        guild = interaction.guild
+        issues = []
+
+        # Blacklist
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT reason FROM blacklists WHERE guild_id = $1", guild.id)
+        if row:
+            await interaction.response.send_message(
+                f"This server is **blacklisted**.\nReason: {row['reason']}",
+                ephemeral=True
+            )
+            return
+
+        # Config
+        config = await self.bot.config.get(guild.id)
+        if not config:
+            await interaction.response.send_message(
+                "No configuration found. Run `/setup` to get started.",
+                ephemeral=True
+            )
+            return
+
+        # Resolve objects
+        partner_channel = guild.get_channel(config.get("partner_channel")) if config.get("partner_channel") else None
+        ad_channel = guild.get_channel(config.get("ad_channel")) if config.get("ad_channel") else None
+        member_role = guild.get_role(config.get("member_role")) if config.get("member_role") else None
+        partner_ping_role = guild.get_role(config.get("partner_ping_role")) if config.get("partner_ping_role") else None
+
+        if not config.get("partner_channel"):
+            issues.append("Partner channel not set, run `/config set`")
+        elif not partner_channel:
+            issues.append("Partner channel id is set but the channel no longer exists, update it with `/config set`")
+
+        if not config.get("ad_channel"):
+            issues.append("Ad channel not set, run `/config set`")
+        elif not ad_channel:
+            issues.append("Ad channel id is set but the channel no longer exists, update it with `/config set`")
+
+        if not config.get("member_role"):
+            issues.append("Member role not set, run `/config set`")
+        elif not member_role:
+            issues.append("Member role id is set but the role no longer exists, update it with `/config set`")
+
+        if not config.get("partner_ping_role"):
+            issues.append("Partner ping role not set, run `/config set`")
+        elif not partner_ping_role:
+            issues.append("Partner ping role id is set but the role no longer exists, update it with `/config set`")
+
+        if not config.get("log_channel"):
+            issues.append("Log channel not set (optional but extremely recommended), run `/config set`")
+
+        # Channel type + perms
+        if partner_channel:
+            if not isinstance(partner_channel, discord.TextChannel):
+                issues.append("Partner channel is not a text channel — select a standard text channel")
+            else:
+                perms = partner_channel.permissions_for(guild.me)
+                if not perms.send_messages:
+                    issues.append(f"Missing **Send Messages** permission in {partner_channel.mention}")
+                if not perms.mention_everyone:
+                    issues.append(f"Missing **Mention Everyone** permission in {partner_channel.mention}")
+
+        # Ad in Redis
+        ad = await self.redis.get(f"ads:{guild.id}")
+        if not ad:
+            if ad_channel:
+                issues.append(f"No ad found in {ad_channel.mention}, post a message containing your `discord.gg` invite link")
+            else:
+                issues.append("No ad cached, set your ad channel and post a message with your `discord.gg` invite link")
+        elif len(ad) > 2000:
+            issues.append("Cached ad exceeds 2000 characters (discord imposed limit), shorten your ad message")
+
+        if issues:
+            lines = "\n".join(f"- {i}" for i in issues)
+            embed = discord.Embed(
+                title="Partner Status - Issues Found",
+                description=lines,
+                color=discord.Color.red()
+            )
+        else:
+            embed = discord.Embed(
+                title="Partner Status - Eligible",
+                description="No issues found.",
+                color=discord.Color.green()
+            )
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
     @partnerGroup.command(name="force")
     @is_owner()
     async def force_partner(self, interaction: discord.Interaction, server_id_1: str, server_id_2: str):
@@ -361,6 +453,7 @@ class Partner(commands.Cog):
         await interaction.followup.send(f"Partnered: {channel1.mention} | {channel2.mention}", ephemeral=True)
 
     @partnerGroup.command(name="loopinfo", description="Get info on the partner loop")
+    @discord.app_commands.checks.cooldown(rate=1, per=10)
     async def loop_info(self, interaction: discord.Interaction):
         loop = self.partner_loop
 
