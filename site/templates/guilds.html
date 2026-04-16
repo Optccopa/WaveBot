@@ -8,13 +8,9 @@
 </div>
 
 {% if guilds %}
-<div class="search-wrap">
-    <input type="text" id="guild-search" class="search-input" placeholder="Search servers…" autocomplete="off" spellcheck="false">
-</div>
-<div class="guild-list" id="guild-list">
+<div class="guild-list">
     {% for guild in guilds %}
     <div class="guild-card {% if guild.banner_url %}has-banner{% endif %}"
-         data-name="{{ guild.name | lower }}"
          {% if guild.banner_url %}style="--banner: url('{{ guild.banner_url }}')"{% endif %}>
         <div class="guild-card-inner">
             <img src="{{ guild.icon_url }}" alt="{{ guild.name }}" class="guild-icon">
@@ -34,34 +30,13 @@
                 </div>
             </div>
             <div class="guild-actions">
-                {% if guild.is_ready %}
-                <span class="badge badge-ready">Ready</span>
-                {% else %}
-                <span class="badge badge-notready">Not configured</span>
-                {% endif %}
+                <span class="status-dot {% if guild.is_ready %}status-ready{% else %}status-notready{% endif %}" title="{% if guild.is_ready %}Ready{% else %}Not configured{% endif %}"></span>
                 <a href="/server/{{ guild.id }}" class="btn btn-configure">Configure</a>
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
-<p class="no-results" id="no-results" style="display:none">No servers match your search.</p>
-
-<script>
-    const input = document.getElementById('guild-search');
-    const cards = document.querySelectorAll('.guild-card');
-    const noResults = document.getElementById('no-results');
-    input.addEventListener('input', () => {
-        const q = input.value.toLowerCase().trim();
-        let visible = 0;
-        cards.forEach(card => {
-            const match = !q || card.dataset.name.includes(q);
-            card.style.display = match ? '' : 'none';
-            if (match) visible++;
-        });
-        noResults.style.display = visible === 0 ? '' : 'none';
-    });
-</script>
 {% else %}
 <div class="empty-state">
     <p>No servers found. Make sure WaveBot is in your server and you have the Manage Server permission.</p>
