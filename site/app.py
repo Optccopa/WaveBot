@@ -63,7 +63,7 @@ async def security_headers_middleware(request, handler):
         "default-src 'self'; "
         "img-src 'self' https://cdn.discordapp.com data:; "
         "style-src 'self'; "
-        "script-src 'none'"
+        "script-src 'unsafe-inline'"
     )
     return response
 
