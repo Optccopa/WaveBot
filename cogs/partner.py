@@ -187,6 +187,9 @@ class Partner(commands.Cog):
 
         channel1 = guild1.get_channel(config1.get("partner_channel"))
         channel2 = guild2.get_channel(config2.get("partner_channel"))
+        if not channel1 or not channel2:
+            logger.warning("[partner] ABORT %d<->%d: channel not found (ch1=%s ch2=%s)", server1_id, server2_id, bool(channel1), bool(channel2))
+            return None, None
         logger.debug("[partner] channels resolved: #%s (%d) <-> #%s (%d)", getattr(channel1, 'name', None), server1_id, getattr(channel2, 'name', None), server2_id)
 
         r = get_req(guild1.member_count, guild2.member_count)
@@ -194,7 +197,10 @@ class Partner(commands.Cog):
 
         raw_ad1 = await self.redis.get(f'ads:{server1_id}')
         raw_ad2 = await self.redis.get(f'ads:{server2_id}')
-        
+        if not raw_ad1 or not raw_ad2:
+            logger.warning("[partner] ABORT %d<->%d: missing ad (ad1=%s ad2=%s)", server1_id, server2_id, bool(raw_ad1), bool(raw_ad2))
+            return None, None
+
         ad1 = f"{raw_ad1}\n\n{r['server_b']} (Testing Placeholder)"
         ad2 = f"{raw_ad2}\n\n{r['server_a']} (Testing Placeholder)"
 
@@ -359,12 +365,12 @@ class Partner(commands.Cog):
         loop = self.partner_loop
 
         if not loop.is_running():
-            await interaction.response.send_message("`ad_loop` is not running.", ephemeral=True)
+            await interaction.response.send_message("`partner_loop` is not running.", ephemeral=True)
             return
 
         next_iter = loop.next_iteration
 
-        embed = discord.Embed(title="Ad Loop Info", color=discord.Color.fuchsia())
+        embed = discord.Embed(title="Partner Loop Info", color=discord.Color.fuchsia())
         embed.add_field(name="Running", value=str(loop.is_running()), inline=True)
         embed.add_field(name="Failed", value=str(loop.failed()), inline=True)
         embed.add_field(name="Next Run", value=f"<t:{int(next_iter.timestamp())}:R>", inline=False)
@@ -375,7 +381,7 @@ class Partner(commands.Cog):
     @is_owner()
     async def forceloop(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        logging.debug("Forcing partner loop")
+        logger.debug("Forcing partner loop")
         await self.redis.delete("last_partner_run")
         await self.partner_loop()
         await interaction.followup.send("Partner loop complete", ephemeral=True)

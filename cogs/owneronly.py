@@ -175,8 +175,7 @@ class OwnerOnly(commands.Cog):
             )
             for name, value in chunk:
                 embed.add_field(name=name, value=value, inline=False)
-            if not fields:
-                embed.description = "No servers."
+
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @serversGroup.command(name="debug")

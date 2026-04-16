@@ -1,6 +1,6 @@
 cache:
   cache_version: v1
-  claude_cache_version: v4
+  claude_cache_version: v5
   pipeline_batch: 250
 
 times:

@@ -3,6 +3,7 @@ References to Millions (M) likely mean ingame money.
 
 LEGITIMATE -- do NOT flag these:
 - Large in-game currency amounts ("200M", "20B") -- normal in-game money
+- Irl giveaways (giving away irl money inside of discord servers, completely allowed)
 - Giveaways of in-game items
 - Selling in-game services (building, digging, regear, skellys, schematics)
 - Urgency language ("ending soon", "limited spots")
@@ -10,7 +11,7 @@ LEGITIMATE -- do NOT flag these:
 - discord.gg invite links
 - Voice call gambling between players
 - Join for a chance to win money (not invite rewards, normal giveaway)
-- "Pings" being exchanged for things like invites or irl money
+- "Pings" being exchanged for things like invites or irl money, allowed
 
 VIOLATIONS -- flag these exactly:
 
