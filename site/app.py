@@ -331,12 +331,14 @@ async def on_cleanup(app: web.Application):
 
 
 def make_app() -> web.Application:
-    app = web.Application(middlewares=[auth_middleware])
-
-    # Sessions stored in encrypted cookie — no Redis dependency
+    # Session middleware must be registered before auth_middleware so get_session() works
     raw_key = os.environ["SESSION_SECRET_KEY"].encode()
-    secret_key = hashlib.sha256(raw_key).digest()  # always 32 bytes regardless of input length
-    aiohttp_session.setup(app, EncryptedCookieStorage(secret_key, max_age=86400))
+    secret_key = hashlib.sha256(raw_key).digest()
+    storage = EncryptedCookieStorage(secret_key, max_age=86400)
+
+    app = web.Application()
+    aiohttp_session.setup(app, storage)  # adds session middleware first
+    app.middlewares.append(auth_middleware)
 
     # Jinja2 templates
     aiohttp_jinja2.setup(
