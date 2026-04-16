@@ -1,1 +1,11 @@
-running: true
+cache:
+  cache_version: v1
+  claude_cache_version: v4
+  pipeline_batch: 250
+
+times:
+  redis_lock_ttl: 10800
+  partner_cooldown_ttl: 604800
+
+bot:
+  support_invite: https://discord.gg/uacMXzbAfg

@@ -6,9 +6,7 @@ import re, discord, os, json, hashlib, asyncio, logging
 
 log = logging.getLogger(__name__)
 
-CACHE_VER_CLAUDE = "v4"
 LINK_REGEX = re.compile(r"https?://\S+")
-_PIPELINE_BATCH = 500
 
 class AdLooper(commands.Cog):
     def __init__(self, bot):
@@ -107,14 +105,14 @@ class AdLooper(commands.Cog):
                         ad_message = ad_message.replace(link, "")
                     ad_hash = hashlib.sha256(ad_message.encode()).hexdigest()[:12]
 
-                    cached = await self.redis.get(f"{CACHE_VER_CLAUDE}:claude:{ad_hash}")
+                    cached = await self.redis.get(f"{self.bot.yaml_config['cache']['claude_cache_version']}:claude:{ad_hash}")
                     if not cached:
                         try:
                             scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=30.0)
                         except asyncio.TimeoutError:
                             scan_result = {"sus": False, "confidence": .5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
                         response = json.dumps(scan_result, indent=2)
-                        await self.redis.set(f"{CACHE_VER_CLAUDE}:claude:{ad_hash}", response, ex=2592000)
+                        await self.redis.set(f"{self.bot.yaml_config['cache']['claude_cache_version']}:claude:{ad_hash}", response, ex=2592000)
                     else:
                         response = cached
 
@@ -130,8 +128,8 @@ class AdLooper(commands.Cog):
                     except discord.Forbidden:
                         pass
 
-        for i in range(0, max(len(pending), 1), _PIPELINE_BATCH):
-            chunk = pending[i:i + _PIPELINE_BATCH]
+        for i in range(0, max(len(pending), 1), self.bot.config['cache']['pipeline_batch']):
+            chunk = pending[i:i + self.bot.yaml_config['cache']['pipeline_batch']]
             if not chunk:
                 break
             async with self.redis.pipeline() as pipe:

@@ -4,8 +4,6 @@ from redis.asyncio import Redis
 from asyncpg import Pool
 import discord, random, logging
 
-COOLDOWN_REDIS_VER = "v1"
-
 logger = logging.getLogger(__name__)
 
 class AddBotView(discord.ui.View):
@@ -21,7 +19,7 @@ class AddBotView(discord.ui.View):
         )
         embed.add_field(
             name="Invite the bot",
-            value='[Click Here](https://discord.com/oauth2/authorize?client_id=1487962334138863666) and click "Add to server"',
+            value=f'[Click Here](https://discord.com/oauth2/authorize?client_id=1487962334138863666) and click "Add to server"',
             inline=False
         )
         embed.add_field(
@@ -121,14 +119,14 @@ class Partner(commands.Cog):
     )
 
     async def has_cooldown(self, a: int, b: int) -> bool:
-        key = f"{COOLDOWN_REDIS_VER}:partner_cooldown:{min(a,b)}:{max(a,b)}"
+        key = f"{self.bot.yaml_config['cache']['cache_version']}:partner_cooldown:{min(a,b)}:{max(a,b)}"
         result = bool(await self.redis.exists(key))
         logger.debug("[cooldown] %s -> %s", key, "HIT" if result else "MISS")
         return result
 
     async def set_cooldown(self, a: int, b: int):
-        key = f"{COOLDOWN_REDIS_VER}:partner_cooldown:{min(a,b)}:{max(a,b)}"
-        await self.redis.set(key, 1, ex=60 * 60 * 24 * 7)
+        key = f"{self.bot.yaml_config['cache']['cache_version']}:partner_cooldown:{min(a,b)}:{max(a,b)}"
+        await self.redis.set(key, 1, ex=self.bot.yaml_config['times']['partner_cooldown_ttl'])
         logger.debug("[cooldown] SET %s (7d)", key)
 
     async def match_servers(self, guilds: list[tuple[int, int]]) -> list[tuple[int, int]]:
@@ -226,10 +224,10 @@ class Partner(commands.Cog):
         else:
             logger.debug("[on_ready] partner_loop already running")
 
-    @tasks.loop(seconds=21600)
+    @tasks.loop(seconds=21600) # cant be in config
     async def partner_loop(self):
         logger.info("[loop] tick #%d fired", self.partner_loop.current_loop)
-        acquired = await self.redis.set("last_partner_run", 1, nx=True, ex=10800)
+        acquired = await self.redis.set("last_partner_run", 1, nx=True, ex=self.bot.yaml_config['times']['redis_lock_ttl'])
         if not acquired:
             logger.info("[loop] skipping — another instance already running (last_partner_run key exists)")
             return
