@@ -191,8 +191,8 @@ class Partner(commands.Cog):
             logger.warning("[partner] ABORT %d<->%d: missing config (config1=%s config2=%s)", server1_id, server2_id, bool(config1), bool(config2))
             return None, None
 
-        guild1 = self.bot.get_guild(server1_id)
-        guild2 = self.bot.get_guild(server2_id)
+        guild1: discord.Guild = self.bot.get_guild(server1_id)
+        guild2: discord.Guild = self.bot.get_guild(server2_id)
         if not guild1 or not guild2:
             logger.warning("[partner] ABORT %d<->%d: guild not in cache (guild1=%s guild2=%s)", server1_id, server2_id, bool(guild1), bool(guild2))
             return None, None
@@ -225,14 +225,14 @@ class Partner(commands.Cog):
 
         logger.info("[partner] sending ad2 -> #%s in %s (%d)", channel1.name, guild1.name, server1_id)
         try:
-            await channel1.send(ad2, view=AddBotView(), allowed_mentions=discord.AllowedMentions(everyone=False))
+            await channel1.send(ad2, view=AddBotView())
             logger.info("[partner] sent ad2 -> %d #%s OK", server1_id, channel1.name)
         except Exception as e:
             logger.error("[partner] FAILED sending to %d #%s: %s", server1_id, channel1.name, e)
             return None, None
         logger.info("[partner] sending ad1 -> #%s in %s (%d)", channel2.name, guild2.name, server2_id)
         try:
-            await channel2.send(ad1, view=AddBotView(), allowed_mentions=discord.AllowedMentions(everyone=False))
+            await channel2.send(ad1, view=AddBotView())
             logger.info("[partner] sent ad1 -> %d #%s OK", server2_id, channel2.name)
         except Exception as e:
             logger.error("[partner] FAILED sending to %d #%s: %s", server2_id, channel2.name, e)

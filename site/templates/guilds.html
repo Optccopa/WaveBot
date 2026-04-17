@@ -30,7 +30,7 @@
                 </div>
             </div>
             <div class="guild-actions">
-                <span class="badge {% if guild.is_ready %}badge-ready{% else %}badge-notready{% endif %}">{% if guild.is_ready %}Ready{% else %}Not configured{% endif %}</span>
+                <span class="status-dot {% if guild.is_ready %}status-ready{% else %}status-notready{% endif %}" title="{% if guild.is_ready %}Ready{% else %}Not configured{% endif %}"></span>
                 <a href="/server/{{ guild.id }}" class="btn btn-configure">Configure</a>
             </div>
         </div>
