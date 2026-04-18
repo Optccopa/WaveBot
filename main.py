@@ -21,19 +21,43 @@ class WebhookHandler(logging.Handler):
         self.url = url
         self.loop = loop
         self.session = aiohttp.ClientSession()
+        self._queue: asyncio.Queue[str] = asyncio.Queue(maxsize=500)
+        self._task = loop.create_task(self._worker())
+
+    def _enqueue(self, msg: str):
+        try:
+            self._queue.put_nowait(msg)
+        except asyncio.QueueFull:
+            pass
 
     def emit(self, record: logging.LogRecord):
         msg = self.format(record)
         try:
-            asyncio.run_coroutine_threadsafe(self._send(msg), self.loop)
-        except Exception:
+            self.loop.call_soon_threadsafe(self._enqueue, msg)
+        except RuntimeError:
             pass
 
-    async def _send(self, msg: str):
-        try:
-            await self.session.post(self.url, json={"content": f"```\n{msg[:1990]}\n```"})
-        except Exception:
-            pass
+    async def _worker(self):
+        while True:
+            msg = await self._queue.get()
+            try:
+                for _ in range(3):
+                    try:
+                        resp = await self.session.post(self.url, json={"content": f"```\n{msg[:1990]}\n```"})
+                        if resp.status == 429:
+                            data = await resp.json()
+                            await asyncio.sleep(data.get("retry_after", 1))
+                            continue
+                        break
+                    except Exception:
+                        await asyncio.sleep(1)
+            finally:
+                self._queue.task_done()
+
+    async def close_async(self):
+        await self._queue.join()
+        self._task.cancel()
+        await self.session.close()
 
 class Bot(commands.AutoShardedBot):
     def __init__(self):
@@ -155,7 +179,7 @@ class Bot(commands.AutoShardedBot):
         if self.redis: await self.redis.aclose()
         for handler in logging.getLogger().handlers:
             if isinstance(handler, WebhookHandler):
-                await handler.session.close()
+                await handler.close_async()
         await super().close()
 
     async def on_guild_remove(self, guild: discord.Guild):
