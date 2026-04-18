@@ -9,3 +9,8 @@ times:
 
 bot:
   support_invite: https://discord.gg/uacMXzbAfg
+
+requirements:
+  member_role_min_coverage: 0.85
+  channel_visibility_min: 0.95
+  partner_role_min_coverage: 0.08

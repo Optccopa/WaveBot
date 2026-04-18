@@ -53,6 +53,15 @@ class Setup(commands.Cog):
         if partner_ping_role:
             fields["partner_ping_role"] = partner_ping_role.id
 
+        current = await self.bot.config.get(interaction.guild.id) or {}
+        merged = {**current, **fields}
+        if all(merged.get(f) for f in ("member_role", "partner_ping_role", "partner_channel")):
+            partner_cog = self.bot.cogs.get('Partner')
+            if partner_cog:
+                reason = await partner_cog.validate_server(interaction.guild, merged)
+                if reason:
+                    return await interaction.response.send_message(reason, ephemeral=True)
+
         await self.bot.config.set(
             interaction.guild.id,
             **fields

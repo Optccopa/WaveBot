@@ -327,6 +327,7 @@ async def handle_server_get(request: web.Request) -> web.Response:
         "config": config,
         "saved": saved,
         "errors": {},
+        "validation_error": None,
         "labels": FIELD_LABELS,
         "csrf_token": _csrf_token(session),
     })
@@ -394,6 +395,38 @@ async def handle_server_post(request: web.Request) -> web.Response:
 
     if fields:
         cm: ConfigManager = request.app["config_manager"]
+        current = await cm.get(guild_id) or {}
+        merged = {**current, **fields}
+        if all(merged.get(f) for f in ("member_role", "partner_ping_role", "partner_channel")):
+            validation_error = None
+            try:
+                bot_url = os.environ.get("BOT_INTERNAL_URL", "http://bot:8081")
+                http: aiohttp.ClientSession = request.app["http_session"]
+                async with http.post(
+                    f"{bot_url}/validate/{guild_id}",
+                    json={"config": merged},
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as resp:
+                    data = await resp.json()
+                    validation_error = data.get("reason")
+            except Exception:
+                pass
+            if validation_error:
+                config = await cm.get(guild_id) or {}
+                for f, v in fields.items():
+                    config[f] = v
+                return aiohttp_jinja2.render_template("server.html", request, {
+                    "user": user,
+                    "guild_id": guild_id_str,
+                    "guild_name": guild["name"],
+                    "guild_icon_url": _icon_url(guild["id"], guild.get("icon")),
+                    "config": config,
+                    "saved": False,
+                    "errors": {},
+                    "validation_error": validation_error,
+                    "labels": FIELD_LABELS,
+                    "csrf_token": _csrf_token(session),
+                }, status=422)
         await cm.set(guild_id, **fields)
 
     raise web.HTTPFound(f"/server/{guild_id_str}?saved=1")

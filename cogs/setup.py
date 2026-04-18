@@ -215,6 +215,24 @@ class ConfirmView(discord.ui.View):
 
     @discord.ui.button(label="Confirm & Save", style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        partner_cog = self.bot.cogs.get("Partner")
+        if partner_cog:
+            config = {
+                "log_channel": self.state.log_channel,
+                "partner_channel": self.state.partner_channel,
+                "ad_channel": self.state.ad_channel,
+                "member_role": self.state.member_role,
+                "partner_ping_role": self.state.partner_ping_role,
+            }
+            reason = await partner_cog.validate_server(self.guild, config)
+            if reason:
+                embed = discord.Embed(
+                    title="Setup Failed",
+                    description=reason,
+                    color=discord.Color.red()
+                )
+                await interaction.response.edit_message(embed=embed, view=None)
+                return
         await self.bot.config.set(
             self.guild.id,
             log_channel=self.state.log_channel,

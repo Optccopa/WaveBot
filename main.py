@@ -1,4 +1,5 @@
 import discord, os, asyncio, asyncpg, sys, logging, aiohttp, yaml, json
+from aiohttp import web
 from redis.asyncio import Redis
 from discord.ext import commands
 from src.configmanager import ConfigManager
@@ -202,9 +203,31 @@ bot = Bot()
 async def pinger(ctx):
     await ctx.reply("Donut")
 
+async def handle_validate(request: web.Request) -> web.Response:
+    try:
+        guild_id = int(request.match_info["guild_id"])
+    except ValueError:
+        return web.json_response({"reason": None})
+    config = (await request.json()).get("config", {})
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        return web.json_response({"reason": None})
+    partner_cog = bot.cogs.get("Partner")
+    if not partner_cog:
+        return web.json_response({"reason": None})
+    reason = await partner_cog.validate_server(guild, config)
+    return web.json_response({"reason": reason})
+
 async def main():
+    internal_app = web.Application()
+    internal_app.router.add_post("/validate/{guild_id}", handle_validate)
+    runner = web.AppRunner(internal_app)
+    await runner.setup()
+    await web.TCPSite(runner, "0.0.0.0", int(os.getenv("BOT_INTERNAL_PORT", 8081))).start()
+    log.info("Internal validation server listening on :8081")
     async with bot:
         await bot.start_with_retries()
+    await runner.cleanup()
 
 if __name__ == "__main__":
     asyncio.run(main())

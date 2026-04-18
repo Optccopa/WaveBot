@@ -75,7 +75,7 @@ async def check_partner_requirements(guild: discord.Guild, channel: discord.Text
 
     logger.debug("[req] %d: all checks passed", guild.id)
     return True, None
- 
+
 def get_req(count_a: int, count_b: int) -> dict:
     if count_a >= count_b:
         host, guest = count_a, count_b
@@ -128,6 +128,45 @@ class Partner(commands.Cog):
         key = f"{self.bot.yaml_config['cache']['cache_version']}:partner_cooldown:{min(a,b)}:{max(a,b)}"
         await self.redis.set(key, 1, ex=self.bot.yaml_config['times']['partner_cooldown_ttl'])
         logger.debug("[cooldown] SET %s (7d)", key)
+
+    async def validate_server(self, guild: discord.Guild, config: dict | None = None) -> str | None:
+        if config is None:
+            config = await self.bot.config.get(guild.id)
+        if not config:
+            return "No configuration found"
+        reqs = self.bot.yaml_config['requirements']
+
+        member_role = guild.get_role(config.get("member_role"))
+        partner_role = guild.get_role(config.get("partner_ping_role"))
+        partner_channel = guild.get_channel(config.get("partner_channel"))
+
+        if not member_role:
+            return "Member role not configured"
+        if not partner_role:
+            return "Partner role not configured"
+        if not partner_channel:
+            return "Partner channel not configured"
+
+        total = guild.member_count or 1
+        min_member = reqs['member_role_min_coverage']
+        min_visible = reqs['channel_visibility_min']
+        min_partner = reqs['partner_role_min_coverage']
+
+        member_pct = len(member_role.members) / total
+        if member_pct < min_member:
+            return f"Less than {round(min_member * 100)}% of server members have the member role, make sure your member role is assigned to everyone"
+
+        role_members = member_role.members
+        visible = sum(1 for m in role_members if partner_channel.permissions_for(m).view_channel)
+        visible_pct = visible / len(role_members) if role_members else 1.0
+        if role_members and visible_pct < min_visible:
+            return f"Less than {round(min_visible * 100)}% of members can see the partner channel, make sure your partner channel is visible to everyone"
+
+        partner_pct = len(partner_role.members) / total
+        if partner_pct < min_partner:
+            return f"Less than {round(min_partner * 100)}% of members have the partner ping role"
+
+        return None
 
     async def match_servers(self, guilds: list[tuple[int, int]]) -> tuple[list[tuple[int, int]], list[int]]:
         logger.info("[match] starting with %d servers", len(guilds))
@@ -321,9 +360,9 @@ class Partner(commands.Cog):
                 logger.info("[loop] SKIP %s (%d): no ad in redis", guild.name, guild.id)
                 continue
 
-            passed, reason = await check_partner_requirements(guild, partner_channel, config)
-            if not passed:
-                logger.info("[loop] SKIP %s (%d): req failed — %s", guild.name, guild.id, reason)
+            reason = await self.validate_server(guild, config)
+            if reason:
+                logger.info("[loop] SKIP %s (%d): validation failed — %s", guild.name, guild.id, reason)
                 log_channel = guild.get_channel(config.get("log_channel"))
                 if log_channel:
                     try:

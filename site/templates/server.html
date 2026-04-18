@@ -14,6 +14,9 @@
 {% if saved %}
 <div class="alert alert-success">Configuration saved.</div>
 {% endif %}
+{% if validation_error %}
+<div class="alert alert-error">{{ validation_error }}</div>
+{% endif %}
 
 <div class="config-card">
     <form method="POST" action="/server/{{ guild_id }}">
