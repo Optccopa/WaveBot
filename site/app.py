@@ -449,7 +449,7 @@ async def on_startup(app: web.Application):
         decode_responses=True,
     )
     app["config_manager"] = ConfigManager(app["db_pool"], app["redis"])
-    app["http_session"] = aiohttp.ClientSession()
+    app["http_session"] = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10))
 
 
 async def on_cleanup(app: web.Application):

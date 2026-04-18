@@ -68,7 +68,7 @@ class Setup(commands.Cog):
         )
         config = await self.bot.config.get(interaction.guild.id)
         channel = interaction.guild.get_channel(config.get('log_channel'))
-        if channel: channel.mention
+        if channel: channel = channel.mention
         else: channel = "<Unconfigured>"
 
         await interaction.response.send_message(

@@ -14,7 +14,10 @@ class ConfigManager:
 
         cached = await self.redis.get(key)
         if cached:
-            return json.loads(cached)
+            try:
+                return json.loads(cached)
+            except (json.JSONDecodeError, ValueError):
+                await self.redis.delete(key)
 
         async with self.db.acquire() as conn:
             row = await conn.fetchrow(

@@ -57,6 +57,10 @@ class WebhookHandler(logging.Handler):
     async def close_async(self):
         await self._queue.join()
         self._task.cancel()
+        try:
+            await self._task
+        except asyncio.CancelledError:
+            pass
         await self.session.close()
 
 class Bot(commands.AutoShardedBot):

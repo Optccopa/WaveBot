@@ -119,6 +119,23 @@ class Partner(commands.Cog):
         description="Partner commands"
     )
 
+    async def parse_ping(self, guild_id: int, ping: str = "none") -> str:
+        config = await self.bot.config.get(guild_id)
+        
+        if ping == "member":
+            return f"<@&{config.get('member_role')}>"
+        
+        elif ping == "partner":
+            return f"<@&{config.get('partner_ping_role')}>"
+        
+        elif ping == "here":
+            return "@here"
+        
+        elif ping == "partnerhere":
+            return f"@here <@&{config.get('partner_ping_role')}>"
+        else: # none
+            return ""
+
     async def has_cooldown(self, a: int, b: int) -> bool:
         key = f"{self.bot.yaml_config['cache']['cache_version']}:partner_cooldown:{min(a,b)}:{max(a,b)}"
         result = bool(await self.redis.exists(key))
@@ -255,8 +272,8 @@ class Partner(commands.Cog):
             logger.warning("[partner] ABORT %d<->%d: missing ad (ad1=%s ad2=%s)", server1_id, server2_id, bool(raw_ad1), bool(raw_ad2))
             return None, None
 
-        ad1 = f"{raw_ad1}\n\n{r['server_b']} (Testing Placeholder)"
-        ad2 = f"{raw_ad2}\n\n{r['server_a']} (Testing Placeholder)"
+        ad1 = f"{raw_ad1}\n\n{await self.parse_ping(server2_id, r['server_b'])}"
+        ad2 = f"{raw_ad2}\n\n{await self.parse_ping(server1_id, r['server_a'])}"
 
         logger.debug("[partner] ad lengths: server1_ad=%d server2_ad=%d (ad1 sent to ch2, ad2 sent to ch1)", len(ad1), len(ad2))
         if len(ad1) > 2000 or len(ad2) > 2000:
