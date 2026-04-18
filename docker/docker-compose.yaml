@@ -7,6 +7,8 @@ services:
     depends_on:
       - redis
       - postgres
+    expose:
+      - "8081"
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_DB: appdb
@@ -35,6 +37,7 @@ services:
       DISCORD_REDIRECT_URI: https://${DOMAIN}/callback
       SESSION_SECRET_KEY: ${SESSION_SECRET_KEY}
       PRODUCTION: "true"
+      BOT_INTERNAL_URL: http://app:8081
 
   redis:
     image: redis:7-alpine
