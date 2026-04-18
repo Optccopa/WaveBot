@@ -336,7 +336,22 @@ class Partner(commands.Cog):
             available.append((guild.id, guild.member_count))
 
         logger.info("[loop] %d eligible servers going into matching", len(available))
-        pairs, cooldown = await self.match_servers(available)
+        available_map = {gid: mc for gid, mc in available}
+        pairs, sat_out = await self.match_servers(available)
+
+        if len(sat_out) >= 2:
+            ver = self.bot.yaml_config['cache']['cache_version']
+            sat_pairs = [(min(a, b), max(a, b)) for i, a in enumerate(sat_out) for b in sat_out[i + 1:]]
+            if sat_pairs:
+                async with self.redis.pipeline(transaction=False) as pipe:
+                    for a, b in sat_pairs:
+                        pipe.delete(f"{ver}:partner_cooldown:{a}:{b}")
+                    await pipe.execute()
+                logger.info("[loop] cleared %d cooldowns for %d sat-out servers, retrying match", len(sat_pairs), len(sat_out))
+                retry_pairs, still_out = await self.match_servers([(s, available_map[s]) for s in sat_out])
+                pairs.extend(retry_pairs)
+                if still_out:
+                    logger.warning("[loop] %d servers still unmatched after cooldown reset: %s", len(still_out), still_out)
 
         for a, b in pairs:
             guild_a = self.bot.get_guild(a)
