@@ -2,7 +2,7 @@ from discord.ext import tasks, commands
 from src.checks import is_owner
 from redis.asyncio import Redis
 from asyncpg import Pool
-import discord, random, logging
+import discord, random, logging, asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +112,7 @@ class Partner(commands.Cog):
         self.bot = bot
         self.redis: Redis = bot.redis
         self.db_pool: Pool = bot.db_pool
+        self._partner_lock = asyncio.Lock()
 
     partnerGroup = discord.app_commands.Group(
         name="partner",
@@ -298,14 +299,7 @@ class Partner(commands.Cog):
         else:
             logger.debug("[on_ready] partner_loop already running")
 
-    @tasks.loop(seconds=21600) # cant be in config
-    async def partner_loop(self):
-        logger.info("[loop] tick #%d fired", self.partner_loop.current_loop)
-        acquired = await self.redis.set("last_partner_run", 1, nx=True, ex=self.bot.yaml_config['times']['redis_lock_ttl'])
-        if not acquired:
-            logger.info("[loop] skipping — another instance already running (last_partner_run key exists)")
-            return
-        logger.info("[loop] acquired lock, proceeding")
+    async def _run_partner_round(self):
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch("SELECT guild_id FROM blacklists")
             blacklisted_ids = {row[0] for row in rows}
@@ -401,6 +395,20 @@ class Partner(commands.Cog):
                 logger.info("[loop] SUCCESS: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             else:
                 logger.warning("[loop] FAILED pair: %s <-> %s — see reason above", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
+
+    @tasks.loop(seconds=21600) # cant be in config
+    async def partner_loop(self):
+        logger.info("[loop] tick #%d fired", self.partner_loop.current_loop)
+        if self._partner_lock.locked():
+            logger.info("[loop] skipping — already running in this process")
+            return
+        async with self._partner_lock:
+            acquired = await self.redis.set("last_partner_run", 1, nx=True, ex=self.bot.yaml_config['times']['redis_lock_ttl'])
+            if not acquired:
+                logger.info("[loop] skipping — another instance already running (last_partner_run key exists)")
+                return
+            logger.info("[loop] acquired lock, proceeding")
+            await self._run_partner_round()
 
     @partner_loop.before_loop
     async def before_partner_loop(self):
@@ -551,9 +559,13 @@ class Partner(commands.Cog):
     @is_owner()
     async def forceloop(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        logger.debug("Forcing partner loop")
-        await self.redis.delete("last_partner_run")
-        await self.partner_loop()
+        if self._partner_lock.locked():
+            await interaction.followup.send("Already running, wait for it to finish.", ephemeral=True)
+            return
+        async with self._partner_lock:
+            logger.info("[forceloop] force-acquired lock, proceeding")
+            await self.redis.set("last_partner_run", 1, ex=self.bot.yaml_config['times']['redis_lock_ttl'])
+            await self._run_partner_round()
         await interaction.followup.send("Partner loop complete", ephemeral=True)
 
 async def setup(bot: commands.Bot):
