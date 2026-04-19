@@ -50,6 +50,8 @@ See [validation.md](validation.md) for thresholds and logic.
 
 `cogs/config.py`. Requires `Manage Guild`. Accepts any subset of the five config fields as Discord channel/role pickers. Merges submitted fields with existing config, validates if all three key fields are present, saves if valid.
 
+If `ad_channel` is in the updated fields, `partner_cog.index_ad(guild_id)` is called after saving. The confirmation message indicates whether the ad was cached successfully or not found.
+
 ## Site
 
 See [web-panel.md](web-panel.md) for site-side config management.

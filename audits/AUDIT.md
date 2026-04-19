@@ -6,7 +6,7 @@ _Generated: 2026-04-18_
 ## CRITICAL
 
 ### 1. @everyone/@here ping scan gap
-**File:** `cogs/cache_ads.py:112,124`
+**File:** `cogs/partner.py`, `scan_ad()` / `index_ad()`
 
 `scan_ad()` is called on `ad_message` which still contains raw pings. `SCAN_PROMPT` has no rule flagging `@everyone`/`@here` in ad text, so ping-containing ads pass with `sus: false`. Pings are stripped at line 124 before Redis storage, so they won't be delivered — but the server owner is never flagged or penalized for the attempt. Bot holds `mention_everyone` permission in every partner channel. If `PING_RE` ever misses a format variant, delivery becomes possible.
 
@@ -44,7 +44,7 @@ Two separate copies with different cache invalidation behavior. `src` version de
 ---
 
 ### 5. N+1 Redis config reads in ad loop
-**File:** `cogs/cache_ads.py:86`
+**File:** `cogs/partner.py`, `index_ads()`
 
 Same pattern as above. `await self.bot.config.get(guild.id)` per guild in `index_ads()`.
 
@@ -61,12 +61,10 @@ Same pattern as above. `await self.bot.config.get(guild.id)` per guild in `index
 
 ---
 
-### 7. `IndexError` uncaught in Claude response parse
+### ~~7. `IndexError` uncaught in Claude response parse~~ — Fixed
 **File:** `cogs/partner.py`, `scan_ad()`
 
-`message.content[0].text` — if Anthropic returns an empty `content` list, this raises `IndexError`. The `except` on line 54 only catches `json.JSONDecodeError`. Unhandled `IndexError` propagates up, breaking the entire `index_ads()` loop for all subsequent guilds.
-
-**Impact:** Single malformed API response halts ad indexing for all guilds that round.
+`except (json.JSONDecodeError, IndexError)` now catches both cases.
 
 ---
 
@@ -100,7 +98,7 @@ Same pattern as above. `await self.bot.config.get(guild.id)` per guild in `index
 ---
 
 ### 11. Claude parse failure returns ambiguous `sus: true`
-**File:** `cogs/cache_ads.py:54-56`
+**File:** `cogs/partner.py`, `scan_ad()`
 
 `json.JSONDecodeError` fallback sets `sus: True, confidence: 0.5`. Indistinguishable in logs from a genuine moderate-confidence flag. Parse failures look like suspicious ads.
 
@@ -120,9 +118,9 @@ Same pattern as above. `await self.bot.config.get(guild.id)` per guild in `index
 ## LOW
 
 ### 13. Full scan JSON logged per ad
-**File:** `cogs/cache_ads.py:120`
+**File:** `cogs/partner.py`, `index_ad()` / `index_ads()`
 
-`log.info("... scan result: %s", ..., response)` dumps the full JSON response for every ad every 3 hours. High log volume at scale.
+`logger.info("[cache_ads] guild %s scan result: %s", ...)` dumps full JSON per ad on every cache. High log volume at scale.
 
 ---
 

@@ -2,18 +2,32 @@
 
 ## Overview
 
-`cogs/cache_ads.py` runs every 3 hours (`@tasks.loop(seconds=10800)`). It scans each guild's ad channel, finds the most recent message containing a URL, scans it for policy violations, and caches the cleaned ad text in Redis.
+Ad scanning lives in `cogs/partner.py` (Partner cog). There is no dedicated scanning loop — ads are cached on demand when a guild's `ad_channel` is configured, and re-checked from Redis during partner rounds.
 
-## Ad Discovery
+## Entry Points
 
-For each guild with a config:
+| Caller | Function | When |
+|--------|----------|------|
+| `/config set` | `index_ad(guild_id)` | When `ad_channel` is in the updated fields |
+| `/setup` confirm | `index_ad(guild_id)` | After full config is saved |
+| `/partner ad` | `index_ad(guild_id)` | On cache miss before returning ad |
+| `_run_partner_round()` | `index_ads()` | Start of every partner round (every 6h) |
 
-1. Reads the last 10 messages from `ad_channel`
-2. Takes the first message matching `https?://\S+`
-3. Strips whitelisted links (stored in Redis set `whitelisted_links`, seeded from Postgres `whitelisted_links` table on cog load)
-4. Computes a SHA-256 hash (first 12 chars) for cache keying
+`index_ads()` runs at the top of every partner round before eligibility checks, ensuring ads are fresh before matching. Also callable directly by owner tooling.
 
-If no ad is found, an embed is sent to `log_channel`.
+## Ad Discovery (`index_ad`)
+
+For a single guild:
+
+1. Resolves guild and config from Redis/Postgres
+2. Gets `ad_channel` from config
+3. Reads last 10 messages from `ad_channel`
+4. Takes the first message matching `https?://\S+`
+5. Strips whitelisted links (Redis set `whitelisted_links`)
+6. Computes SHA-256 hash (first 12 chars) for scan cache keying
+7. Scans via `scan_ad()` if not already cached
+8. Strips pings via `PING_RE`, stores at `ads:{guild_id}` (no TTL)
+9. Returns `True` if ad was stored, `False` if no ad found or channel missing
 
 ## Scanning Pipeline
 
@@ -23,32 +37,32 @@ If no ad is found, an embed is sent to `log_channel`.
 
 ### Step 2 — Claude Haiku
 
-If regex passes, the ad is sent to `claude-haiku-4-5-20251001` with prompt caching enabled (`cache_control: ephemeral` on the system prompt). The model responds in JSON format (prefilled with `{` to force JSON output).
+If regex passes, the ad is sent to `claude-haiku-4-5-20251001` with prompt caching (`cache_control: ephemeral` on system prompt). Model responds in JSON format (prefilled with `{` to force JSON output).
 
-Cache key: `{claude_cache_version}:claude:{ad_hash}` — TTL 30 days. Scan results are reused until the ad content changes.
+Scan cache key: `{claude_cache_version}:claude:{ad_hash}` — TTL 30 days. Results reused until ad content changes.
 
-Timeout: 30 seconds per scan via `asyncio.wait_for`. On timeout, `sus=False` with confidence 0.5 is returned to avoid blocking the loop.
+Timeout: 30 seconds via `asyncio.wait_for`. On timeout, `sus=False` confidence 0.5 is stored — ad passes through. This is a known gap (see AUDIT.md).
 
 ### Scan Result
 
-The scan result is logged and cached in Redis, but **does not gate ad distribution**. Whether an ad is flagged or not, it is still stored and will be sent during partner rounds. This is intentional — moderation is informational only at this stage.
+Scan result is logged and cached but **does not gate ad distribution**. `sus: true` ads are still stored and sent during partner rounds. Moderation is informational only at this stage.
 
 ## Ping Stripping
 
-Before storing the ad, all pings (`@everyone`, `@here`, `<@&...>`) are removed via `PING_RE`. The correct ping is re-added at send time by `parse_ping` based on the receiving server's config and the size-based ping tier.
+Before storing, all pings (`@everyone`, `@here`, `<@&...>`) are removed via `PING_RE`. The correct ping is re-added at send time by `parse_ping` based on the receiving server's config and size-based ping tier.
 
 ## Storage
 
-Cleaned ads stored at `ads:{guild_id}` with no TTL — overwritten each 3-hour cycle. If the cycle misses a guild (no ad found), the old ad remains in Redis and will continue to be used.
+`ads:{guild_id}` — string, no TTL. Overwritten each time `index_ad` runs successfully. If a guild's ad channel has no qualifying message, the old cached ad remains and continues to be used in partner rounds.
 
-## Redis Pipeline Batching
+## Bulk Indexing (`index_ads`)
 
-Ads are written in batches of `cache.pipeline_batch` (250) using `redis.pipeline()` to avoid per-guild round-trips.
+`index_ads()` iterates all guilds, runs the same discovery pipeline, and writes ads via Redis pipeline batches (`cache.pipeline_batch`, default 250). Sends `"Ad channel missing"` or `"Ad message missing"` embeds to `log_channel` on failure. Not called automatically — can be invoked by owner tooling.
 
 ## Whitelisted Links
 
-Managed via Postgres `whitelisted_links` table. On cog load, all links are copied to Redis set `whitelisted_links`. Whitelisted links are stripped from ad text before scanning and storage.
+Managed via Postgres `whitelisted_links` table. On Partner cog load, all links are synced to Redis set `whitelisted_links`. Stripped from ad text before scanning and before storage. Owner commands in `cogs/owneronly.py` update both Postgres and Redis in sync.
 
 ## Updating the Claude Cache Version
 
-If `src/prompts.py` changes, the `claude_cache_version` in `config.yaml` must be bumped. Stale scan results keyed on the old version will continue to be served until they expire (30 days) unless the version is incremented.
+If `src/prompts.py` changes, bump `claude_cache_version` in `config.yaml`. Stale scan results on the old version persist up to 30 days unless the version is incremented.

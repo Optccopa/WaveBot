@@ -441,6 +441,7 @@ class Partner(commands.Cog):
             logger.debug("[on_ready] partner_loop already running")
 
     async def _run_partner_round(self):
+        await self.index_ads()
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch("SELECT guild_id FROM blacklists")
             blacklisted_ids = {row[0] for row in rows}
@@ -690,11 +691,20 @@ class Partner(commands.Cog):
     @partnerGroup.command(name="ad", description="Send a server's partner ad")
     @discord.app_commands.checks.cooldown(rate=1, per=10)
     async def send_ad(self, interaction: discord.Interaction, guild_id: str):
-        ad = await self.redis.get(f"ads:{guild_id}")
-        if not ad:
-            await interaction.response.send_message("No ad found for that server.", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        try:
+            gid = int(guild_id)
+        except ValueError:
+            await interaction.followup.send("Invalid guild id", ephemeral=True)
             return
-        await interaction.response.send_message(ad, ephemeral=True)
+        ad = await self.redis.get(f"ads:{gid}")
+        if not ad:
+            await self.index_ad(gid)
+            ad = await self.redis.get(f"ads:{gid}")
+        if not ad:
+            await interaction.followup.send("No ad found for that server.", ephemeral=True)
+            return
+        await interaction.followup.send(ad, ephemeral=True)
 
     @partnerGroup.command(name="loopforce")
     @is_owner()

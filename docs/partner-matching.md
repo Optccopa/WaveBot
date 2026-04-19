@@ -4,7 +4,7 @@
 
 The partner loop runs every 6 hours (`@tasks.loop(seconds=21600)`). It cannot be configured at runtime without a code change — the interval is hardcoded because `tasks.loop` requires a literal at decoration time.
 
-Each run collects eligible servers, matches them in pairs, and sends each server's cached ad to the other server's partner channel.
+Each run first calls `index_ads()` to refresh all cached ads, then collects eligible servers, matches them in pairs, and sends each server's cached ad to the other server's partner channel.
 
 ## Eligibility
 
@@ -78,4 +78,4 @@ Two locks prevent double-runs:
 - `/partner loopinfo` — shows next scheduled run time
 - `/partner loopforce` — bot owner only, runs a loop immediately
 - `/partner force <id1> <id2>` — bot owner only, forces a specific pair
-- `/partner ad <guild_id>` — bot owner only, views a cached ad
+- `/partner ad <guild_id>` — bot owner only, views a cached ad; defers immediately, attempts `index_ad` on cache miss before responding

@@ -20,11 +20,12 @@ Requires `Manage Guild` permission.
 
 Before saving, `validate_server` is called with the full config dict. If it returns a reason, a "Setup Failed" embed is shown and nothing is saved. The user must restart `/setup` to try again.
 
+After saving, `partner_cog.index_ad(guild.id)` is called to immediately attempt to cache the guild's ad. The success embed's step 1 reflects the result — "Ad cached" if found, or a prompt to post an ad if not.
+
 ## State
 
 `SetupState` is an in-memory object passed between views. It holds all five IDs as the user progresses. State is lost if the interaction times out.
 
 ## Notes
 
-- The wizard does not verify that an ad message actually exists in the ad channel — that check happens during the ad scanning loop.
-- The member role coverage warning in step 4 uses a 95% threshold in the UI text, but `validate_server` uses the configurable `requirements.member_role_min_coverage` (currently 80%). These are inconsistent.
+- Member role coverage warning thresholds in steps 4 and 5 read from `requirements.member_role_min_coverage` and `requirements.partner_role_min_coverage` in `config.yaml` — consistent with `validate_server`.
