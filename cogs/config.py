@@ -82,7 +82,7 @@ class Setup(commands.Cog):
         if ad_cached is True:
             msg += "\n\n> Ad cached successfully."
         elif ad_cached is False:
-            msg += "\n\n> No ad found in your ad channel — post a message with your `discord.gg` link."
+            msg += "\n\n> No ad found in your ad channel"
 
         await interaction.response.send_message(msg, ephemeral=True)
 

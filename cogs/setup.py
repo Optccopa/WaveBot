@@ -250,9 +250,9 @@ class ConfirmView(discord.ui.View):
 
         description = "Configuration saved.\n\n**Next steps:**\n"
         if ad_cached:
-            description += "1. Ad cached — you're ready for partner rounds\n"
+            description += "1. Ad cached\n"
         else:
-            description += "1. Post your server ad in your ad channel — it must include your `discord.gg` invite link\n"
+            description += "1. Post your server ad in your ad channel\n"
         description += (
             "2. WaveBot will automatically run partner rounds every 6 hours\n"
             "3. Watch your log channel for any warnings\n\n"
