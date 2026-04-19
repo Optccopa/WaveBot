@@ -1,8 +1,13 @@
 from discord.ext import tasks, commands
 from src.checks import is_owner
+from src.prompts import SCAN_PROMPT, RULE_PATTERNS
+from anthropic import AsyncAnthropic
 from redis.asyncio import Redis
 from asyncpg import Pool
-import discord, random, logging, asyncio
+import discord, random, logging, asyncio, re, os, hashlib, json
+
+LINK_REGEX = re.compile(r"https?://\S+")
+PING_RE = re.compile(r"@everyone|@here|<@&\d+>")
 
 logger = logging.getLogger(__name__)
 
@@ -108,11 +113,12 @@ def get_req(count_a: int, count_b: int) -> dict:
     return result
 
 class Partner(commands.Cog):
-    def __init__(self, bot): 
+    def __init__(self, bot):
         self.bot = bot
         self.redis: Redis = bot.redis
         self.db_pool: Pool = bot.db_pool
         self._partner_lock = asyncio.Lock()
+        self.client: AsyncAnthropic = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
     partnerGroup = discord.app_commands.Group(
         name="partner",
@@ -299,8 +305,126 @@ class Partner(commands.Cog):
         logger.info("[partner] DONE %s (%d) <-> %s (%d)", guild1.name, server1_id, guild2.name, server2_id)
         return channel1, channel2
 
+    async def scan_ad(self, ad: str) -> dict:
+        hits = []
+        lower = ad.lower()
+        for rule, patterns in RULE_PATTERNS.items():
+            for pat in patterns:
+                for m in re.finditer(pat, lower):
+                    hits.append(f"{rule}: {m.group()}")
+        regex_hits = list(set(hits))
+        if regex_hits:
+            return {"sus": True, "confidence": 0.95, "ai_hits": [], "regex_hits": regex_hits, "user_reason": "Your ad was flagged during the regex prescan"}
+        message = await self.client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=256,
+            temperature=0.1,
+            system=[{"type": "text", "text": SCAN_PROMPT, "cache_control": {"type": "ephemeral"}}],
+            messages=[
+                {"role": "user", "content": f"Advertisement:\n{ad}"},
+                {"role": "assistant", "content": "{"},
+            ],
+        )
+        try:
+            raw = "{" + message.content[0].text.strip()
+            result = json.loads(raw)
+        except (json.JSONDecodeError, IndexError):
+            logger.error("[scan_ad] failed to parse claude response for ad: %.100s", ad)
+            result = {"sus": True, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Your ad could not be automatically verified. Please review the server rules and resubmit."}
+        return result
+
+    async def index_ad(self, guild_id: int) -> bool:
+        guild = self.bot.get_guild(guild_id)
+        if not guild:
+            return False
+        config = await self.bot.config.get(guild_id)
+        if not config:
+            return False
+        ad_channel = guild.get_channel(config.get("ad_channel"))
+        if not ad_channel:
+            return False
+        whitelisted = await self.redis.smembers("whitelisted_links")
+        async for message in ad_channel.history(limit=10):
+            if LINK_REGEX.search(message.content):
+                ad_message = message.content
+                for link in whitelisted:
+                    ad_message = ad_message.replace(link, "")
+                ad_hash = hashlib.sha256(ad_message.encode()).hexdigest()[:12]
+                ver = self.bot.yaml_config['cache']['claude_cache_version']
+                cached = await self.redis.get(f"{ver}:claude:{ad_hash}")
+                if not cached:
+                    try:
+                        scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=30.0)
+                    except asyncio.TimeoutError:
+                        scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
+                    cached = json.dumps(scan_result, indent=2)
+                    await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=2592000)
+                logger.info("[cache_ads] guild %s scan result: %s", guild_id, cached)
+                await self.redis.set(f"ads:{guild_id}", PING_RE.sub("", ad_message))
+                return True
+        return False
+
+    async def index_ads(self):
+        whitelisted = await self.redis.smembers("whitelisted_links")
+        missing_channel_embed = discord.Embed(title="Ad channel missing", description="Use `/config set` to set one", color=discord.Color.dark_red())
+        missing_ad_embed = discord.Embed(title="Ad message missing", description="Your ad message was not found in the recent 10 messages in the channel", color=discord.Color.dark_red())
+        pending = []
+        for guild in self.bot.guilds:
+            config = await self.bot.config.get(guild.id)
+            if not config:
+                continue
+            ad_channel = guild.get_channel(config.get("ad_channel"))
+            log_channel = guild.get_channel(config.get("log_channel"))
+            if not ad_channel:
+                if log_channel:
+                    try:
+                        await log_channel.send(embed=missing_channel_embed)
+                    except discord.Forbidden:
+                        pass
+                continue
+            ad_message = None
+            async for message in ad_channel.history(limit=10):
+                if LINK_REGEX.search(message.content):
+                    ad_message = message.content
+                    for link in whitelisted:
+                        ad_message = ad_message.replace(link, "")
+                    ad_hash = hashlib.sha256(ad_message.encode()).hexdigest()[:12]
+                    ver = self.bot.yaml_config['cache']['claude_cache_version']
+                    cached = await self.redis.get(f"{ver}:claude:{ad_hash}")
+                    if not cached:
+                        try:
+                            scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=30.0)
+                        except asyncio.TimeoutError:
+                            scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
+                        cached = json.dumps(scan_result, indent=2)
+                        await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=2592000)
+                    logger.info("[cache_ads] guild %s scan result: %s", guild.id, cached)
+                    break
+            if ad_message:
+                pending.append((f"ads:{guild.id}", PING_RE.sub("", ad_message)))
+            else:
+                if log_channel:
+                    try:
+                        await log_channel.send(embed=missing_ad_embed)
+                    except discord.Forbidden:
+                        pass
+        batch = self.bot.yaml_config['cache']['pipeline_batch']
+        for i in range(0, max(len(pending), 1), batch):
+            chunk = pending[i:i + batch]
+            if not chunk:
+                break
+            async with self.redis.pipeline() as pipe:
+                for key, value in chunk:
+                    pipe.set(key, value)
+                await pipe.execute()
+
     async def cog_load(self):
         self.bot.add_view(AddBotView())
+        async with self.db_pool.acquire() as conn:
+            rows = await conn.fetch("SELECT link FROM whitelisted_links")
+        await self.redis.delete("whitelisted_links")
+        if rows:
+            await self.redis.sadd("whitelisted_links", *[r["link"] for r in rows])
         if self.bot.is_ready() and not self.partner_loop.is_running():
             logger.info("[cog_load] bot already ready, starting partner_loop")
             self.partner_loop.start()
@@ -364,7 +488,7 @@ class Partner(commands.Cog):
                         await log_channel.send(embed=discord.Embed(title="Missing permissions", description="I need `Send Messages` and `Mention Everyone` permissions in the partner channel", color=discord.Color.dark_red()))
                     except discord.Forbidden:
                         pass
-                continue 
+                continue
 
             ad = await self.redis.get(f"ads:{guild.id}")
             if not ad:

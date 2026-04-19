@@ -66,15 +66,25 @@ class Setup(commands.Cog):
             interaction.guild.id,
             **fields
         )
+
+        ad_cached = None
+        if "ad_channel" in fields:
+            partner_cog = self.bot.cogs.get('Partner')
+            if partner_cog:
+                ad_cached = await partner_cog.index_ad(interaction.guild.id)
+
         config = await self.bot.config.get(interaction.guild.id)
         channel = interaction.guild.get_channel(config.get('log_channel'))
         if channel: channel = channel.mention
         else: channel = "<Unconfigured>"
 
-        await interaction.response.send_message(
-            f"Configuration updated, Validity is checked at runtime so Watch {channel} for info on any issues",
-            ephemeral=True
-        )
+        msg = f"Configuration updated, Validity is checked at runtime so Watch {channel} for info on any issues"
+        if ad_cached is True:
+            msg += "\n\n> Ad cached successfully."
+        elif ad_cached is False:
+            msg += "\n\n> No ad found in your ad channel — post a message with your `discord.gg` link."
+
+        await interaction.response.send_message(msg, ephemeral=True)
 
     @config.command(name="view", description="View server configuration")
     @app_commands.checks.has_permissions(manage_guild=True)

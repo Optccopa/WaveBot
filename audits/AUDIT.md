@@ -62,7 +62,7 @@ Same pattern as above. `await self.bot.config.get(guild.id)` per guild in `index
 ---
 
 ### 7. `IndexError` uncaught in Claude response parse
-**File:** `cogs/cache_ads.py:52`
+**File:** `cogs/partner.py`, `scan_ad()`
 
 `message.content[0].text` — if Anthropic returns an empty `content` list, this raises `IndexError`. The `except` on line 54 only catches `json.JSONDecodeError`. Unhandled `IndexError` propagates up, breaking the entire `index_ads()` loop for all subsequent guilds.
 

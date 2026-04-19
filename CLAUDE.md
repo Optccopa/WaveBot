@@ -1,4 +1,4 @@
-- Anytime you update code you must also update docs/
+- Anytime you update code you must also update docs/ and audit files in audits/
 - Always check docs/ before writing code or fixing issues
 - Cache expensive computations and frequent reads in Redis
 - Backup any values that dont fill themselves to postgres

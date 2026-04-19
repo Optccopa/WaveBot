@@ -18,7 +18,7 @@ The function `check_partner_requirements` has `return True, None` as its first s
 
 ## Ad Scan Result Does Not Gate Distribution
 
-**File:** `cogs/cache_ads.py`
+**File:** `cogs/partner.py`, `index_ads()` / `index_ad()`
 
 Ads are scanned by Claude Haiku and the result is cached, but `sus: true` does not prevent the ad from being stored and sent during partner rounds. The scan result is logged only. This is intentional for now but means the moderation system has no enforcement layer.
 

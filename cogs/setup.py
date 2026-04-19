@@ -243,18 +243,22 @@ class ConfirmView(discord.ui.View):
             member_role=self.state.member_role,
             partner_ping_role=self.state.partner_ping_role,
         )
-        embed = discord.Embed(
-            title="Setup Complete",
-            description=(
-                "Configuration saved.\n\n"
-                "**Next steps:**\n"
-                "1. Post your server ad in your ad channel - it must include your `discord.gg` invite link\n"
-                "2. WaveBot will automatically run partner rounds every 6 hours\n"
-                "3. Watch your log channel for any warnings\n\n"
-                "Use `/config view` to review your settings at any time."
-            ),
-            color=discord.Color.green()
+
+        ad_cached = False
+        if partner_cog:
+            ad_cached = await partner_cog.index_ad(self.guild.id)
+
+        description = "Configuration saved.\n\n**Next steps:**\n"
+        if ad_cached:
+            description += "1. Ad cached — you're ready for partner rounds\n"
+        else:
+            description += "1. Post your server ad in your ad channel — it must include your `discord.gg` invite link\n"
+        description += (
+            "2. WaveBot will automatically run partner rounds every 6 hours\n"
+            "3. Watch your log channel for any warnings\n\n"
+            "Use `/config view` to review your settings at any time."
         )
+        embed = discord.Embed(title="Setup Complete", description=description, color=discord.Color.green())
         await interaction.response.edit_message(embed=embed, view=None)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
