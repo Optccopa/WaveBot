@@ -153,10 +153,11 @@ class MemberRoleView(discord.ui.View):
             "- This should be opt-in so members can self-assign it"
         )
 
-        if coverage < 0.95:
+        min_member = self.bot.yaml_config['requirements']['member_role_min_coverage']
+        if coverage < min_member:
             embed.description += (
                 f"\n\n> **{role.name}** only covers {coverage:.0%} of your server. "
-                "The requirement is 95% - you may be skipped in partner rounds until this is resolved."
+                f"The requirement is {round(min_member * 100)}% - you may be skipped in partner rounds until this is resolved."
             )
 
         await interaction.response.edit_message(embed=embed, view=PartnerPingRoleView(self.state, self.bot, self.guild))
@@ -195,11 +196,12 @@ class PartnerPingRoleView(discord.ui.View):
         embed.add_field(name="Member Role", value=member_r.mention if member_r else "Unknown", inline=False)
         embed.add_field(name="Partner Ping Role", value=partner_r.mention if partner_r else "Unknown", inline=False)
 
-        if coverage < 0.08:
+        min_partner = self.bot.yaml_config['requirements']['partner_role_min_coverage']
+        if coverage < min_partner:
             embed.add_field(
                 name="Warning",
                 value=f"**{role.name}** only covers {coverage:.0%} of your server. "
-                      "The requirement is 8% - you'll be skipped in partner rounds until this is fixed.",
+                      f"The requirement is {round(min_partner * 100)}% - you'll be skipped in partner rounds until this is fixed.",
                 inline=False
             )
 

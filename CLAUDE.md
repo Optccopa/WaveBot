@@ -1,6 +1,8 @@
-- Cache in redis when possible
+- Anytime you update code you must also update docs/
+- Always check docs/ before writing code or fixing issues
+- Cache expensive computations and frequent reads in Redis
 - Backup any values that dont fill themselves to postgres
-- Prioritize speed
+- Prioritize runtime speed over code elegance, but not at the cost of changing unrelated code
 - Only abstract functions that are used in multiple places and very long
 - Ignore tests/ the files are temp testing files that are kept around, no bugs in them matter
 - Fixes should be surgical, avoid changing any surrounding code
