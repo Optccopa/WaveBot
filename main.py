@@ -38,21 +38,54 @@ class WebhookHandler(logging.Handler):
             pass
 
     async def _worker(self):
+
         while True:
             msg = await self._queue.get()
+            await asyncio.sleep(2)
+            batch = [msg]
+            while not self._queue.empty():
+                try:
+                    batch.append(self._queue.get_nowait())
+                except asyncio.QueueEmpty:
+                    break
+
+            embeds = []
+            fields, chars = [], 0
+            for entry in batch:
+                value = f"```\n{entry[:1014]}\n```"
+                if fields and (len(fields) >= 25 or chars + len(value) > 5800):
+                    embeds.append({"color": 0xEB459E, "fields": fields})
+                    fields, chars = [], 0
+                fields.append({"name": "\u200b", "value": value, "inline": False})
+                chars += len(value)
+            if fields:
+                embeds.append({"color": 0xEB459E, "fields": fields})
+
             try:
-                for _ in range(3):
-                    try:
-                        resp = await self.session.post(self.url, json={"content": f"```\n{msg[:1990]}\n```"})
-                        if resp.status == 429:
-                            data = await resp.json()
-                            await asyncio.sleep(data.get("retry_after", 1))
-                            continue
-                        break
-                    except Exception:
-                        await asyncio.sleep(1)
+                for i in range(0, len(embeds), 10):
+                    payload = {"embeds": embeds[i:i + 10]}
+                    for attempt in range(3):
+                        try:
+                            resp = await self.session.post(self.url, json=payload)
+                            if resp.status == 429:
+                                data = await resp.json()
+                                wait = data.get("retry_after", 1)
+                                print(f"[WebhookHandler] 429 rate limited, retry_after={wait}s (attempt {attempt+1}/3)", file=sys.stderr)
+                                await asyncio.sleep(wait)
+                                continue
+                            if resp.status >= 400:
+                                print(f"[WebhookHandler] HTTP {resp.status} on attempt {attempt+1}/3, retrying", file=sys.stderr)
+                                await asyncio.sleep(1)
+                                continue
+                            break
+                        except Exception as e:
+                            print(f"[WebhookHandler] Exception on attempt {attempt+1}/3: {e}", file=sys.stderr)
+                            await asyncio.sleep(1)
+                    else:
+                        print(f"[WebhookHandler] Failed to deliver embed group after 3 attempts, dropping {len(embeds[i:i+10])} embeds", file=sys.stderr)
             finally:
-                self._queue.task_done()
+                for _ in batch:
+                    self._queue.task_done()
 
     async def close_async(self):
         await self._queue.join()

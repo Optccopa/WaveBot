@@ -21,12 +21,29 @@ Standard `logging.basicConfig` to stdout. Format: `HH:MM:SS [LEVEL] logger.name:
 
 Records go into an `asyncio.Queue(maxsize=500)`. When full, new records are silently dropped (`put_nowait` with no exception re-raise). A background worker task drains the queue and posts to the webhook.
 
+### Batching
+
+Worker waits for the first record, sleeps 2 seconds, then drains everything currently in the queue into a batch. All records in the batch are packed into embed fields and sent together, reducing webhook traffic and latency.
+
+Limits respected per batch:
+- `FIELD_MAX = 25` fields per embed
+- `EMBED_CHARS = 5800` characters per embed (safe under Discord's 6000 limit)
+- `VALUE_MAX = 1014` characters per field value (1024 − 8 for triple-backtick fences − 2 safety margin)
+- Up to 10 embeds per webhook message (Discord limit)
+
+Each log entry becomes one embed field (`name: \u200b`, `value: ```\n{entry}\n````, `inline: false`). When an embed would exceed field count or char budget, a new embed is started. Messages are sent in groups of 10 embeds.
+
 ### Retry Logic
 
-Each message gets 3 attempts:
-- On 429: reads `retry_after` from Discord's JSON response and sleeps that duration before retrying
-- On other exception: sleeps 1 second before retrying
-- After 3 failures: drops the message and marks the queue task done
+Each webhook POST gets 3 attempts:
+- On 429: reads `retry_after` from Discord JSON, sleeps that duration, logs to stderr, retries
+- On HTTP 4xx/5xx (non-429): logs status + attempt number to stderr, sleeps 1s, retries
+- On exception: logs exception message + attempt number to stderr, sleeps 1s, retries
+- After 3 failures: logs drop notice to stderr (embed count dropped)
+
+Cannot use the normal logger for retry errors — it would recurse back into the webhook handler. All retry/failure output goes to `sys.stderr`.
+
+`task_done()` is called for every record in the batch inside a `finally` block, regardless of send success or failure.
 
 ### Graceful Shutdown
 
@@ -34,10 +51,6 @@ Each message gets 3 attempts:
 1. `await self._queue.join()` — drains all pending records
 2. `self._task.cancel()` + `await self._task` (catching `CancelledError`) — stops the worker
 3. `await self.session.close()` — closes the aiohttp session
-
-### Truncation
-
-Messages are truncated to 1990 characters and wrapped in a code block before posting. Discord's message limit is 2000 chars; the 10-char buffer covers the ` ``` ` fences.
 
 ## Guild Log Channel
 
