@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 class WebhookHandler(logging.Handler):
     def __init__(self, url: str, loop: asyncio.AbstractEventLoop):
-        super().__init__(level=logging.DEBUG)
+        super().__init__(level=logging.INFO)
         self.url = url
         self.loop = loop
         self.session = aiohttp.ClientSession()
