@@ -28,6 +28,9 @@ class ErrorHandler(commands.Cog):
         elif isinstance(error, discord.app_commands.CommandOnCooldown):
             retry_at = int(time() + error.retry_after)
             msg = f"Slow down, Retry at: <t:{retry_at}:R>"
+        elif isinstance(error, discord.Forbidden):
+            log.warning("Forbidden in app command %s: %s", interaction.command, error)
+            return
         else:
             log.error("App command error: %r", error)
             msg = "An unexpected error occurred, if this issue persists please contact support."
@@ -75,6 +78,10 @@ class ErrorHandler(commands.Cog):
         if isinstance(error, commands.BotMissingPermissions):
             await ctx.send("I don't have the required permissions, please contact support", delete_after=3)
             log.warning("Incorrect permissions set")
+            return
+
+        if isinstance(error, discord.Forbidden):
+            log.warning("Forbidden in %s/%s: %s", ctx.guild, ctx.channel, error)
             return
 
         log.error("Prefix command error: %r", error)
