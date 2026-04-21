@@ -1,11 +1,5 @@
 import discord
 
-def _is_owner(interaction: discord.Interaction) -> bool:
-    if interaction.client.owner_id and interaction.user.id == interaction.client.owner_id:
-        return True
-    if interaction.client.owner_ids and interaction.user.id in interaction.client.owner_ids:
-        return True
-    return False
 
 def is_owner():
     async def predicate(interaction) -> bool:
@@ -14,7 +8,7 @@ def is_owner():
 
 def has_management():
     async def predicate(interaction: discord.Interaction) -> bool:
-        if _is_owner(interaction):
+        if await interaction.client.is_owner(interaction.user):
             return True
         perms = interaction.permissions
         if perms.administrator or perms.manage_guild:
