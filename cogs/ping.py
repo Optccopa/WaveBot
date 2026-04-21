@@ -6,6 +6,7 @@ class Ping(commands.Cog):
         self.bot = bot
 
     @commands.command()
+    @commands.cooldown(1, 10)
     async def ping(self, ctx):
         start = time.perf_counter()
 
