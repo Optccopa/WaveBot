@@ -19,10 +19,6 @@ class ErrorHandler(commands.Cog):
 
     # Slash commands
     async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
-        self.last_errors["slash"] = traceback.format_exception(
-            type(error), error, error.__traceback__
-        )
-
         if isinstance(error, discord.app_commands.MissingPermissions):
             msg = "You don't have permission to use this command."
         elif isinstance(error, discord.app_commands.CommandOnCooldown):
@@ -30,8 +26,19 @@ class ErrorHandler(commands.Cog):
             msg = f"Slow down, Retry at: <t:{retry_at}:R>"
         elif isinstance(error, discord.Forbidden):
             log.warning("Forbidden in app command %s: %s", interaction.command, error)
+            try:
+                msg = "I'm missing permissions in this channel"
+                if interaction.response.is_done():
+                    await interaction.followup.send(msg, ephemeral=True)
+                else:
+                    await interaction.response.send_message(msg, ephemeral=True)
+            except (discord.HTTPException, discord.Forbidden):
+                pass
             return
         else:
+            self.last_errors["slash"] = traceback.format_exception(
+                type(error), error, error.__traceback__
+            )
             log.error("App command error: %r", error)
             msg = "An unexpected error occurred, if this issue persists please contact support."
 
@@ -71,10 +78,6 @@ class ErrorHandler(commands.Cog):
             _cooldown_notified.discard(ctx.author.id)
             return
         
-        self.last_errors["prefix"] = traceback.format_exception(
-            type(error), error, error.__traceback__
-        )
-        
         if isinstance(error, commands.BotMissingPermissions):
             await ctx.send("I don't have the required permissions, please contact support", delete_after=3)
             log.warning("Incorrect permissions set")
@@ -82,8 +85,15 @@ class ErrorHandler(commands.Cog):
 
         if isinstance(error, discord.Forbidden):
             log.warning("Forbidden in %s/%s: %s", ctx.guild, ctx.channel, error)
+            try:
+                await ctx.send("I'm missing permissions in this channel. Make sure I have **Send Messages** and **Embed Links**.", delete_after=10)
+            except discord.Forbidden:
+                pass
             return
 
+        self.last_errors["prefix"] = traceback.format_exception(
+            type(error), error, error.__traceback__
+        )
         log.error("Prefix command error: %r", error)
 
         await ctx.send("An unexpected error occurred, if this issue persists please contact support", delete_after=3)
