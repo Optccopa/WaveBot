@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from src.checks import has_management
 
 class Setup(commands.Cog):
     def __init__(self, bot):
@@ -12,7 +13,7 @@ class Setup(commands.Cog):
     )
 
     @config.command(name="set", description="Configure this bot")
-    @app_commands.checks.has_permissions(manage_guild=True)
+    @has_management()
     @app_commands.describe(
         partner_channel="Channel to send partners",
         ad_channel="The channel with your ad, uses a recent message with a link.",
@@ -87,7 +88,8 @@ class Setup(commands.Cog):
         await interaction.response.send_message(msg, ephemeral=True)
 
     @config.command(name="view", description="View server configuration")
-    @app_commands.checks.has_permissions(manage_guild=True)
+    @app_commands.checks.cooldown(rate=1, per=10)
+    @has_management()
     async def viewconfig(self, interaction: discord.Interaction):
         config = await self.bot.config.get(interaction.guild.id)
 

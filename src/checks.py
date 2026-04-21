@@ -1,10 +1,10 @@
 import discord
 
 def _is_owner(interaction: discord.Interaction) -> bool:
-    if interaction.client.owner_id:
-        return interaction.user.id == interaction.client.owner_id
-    if interaction.client.owner_ids:
-        return interaction.user.id in interaction.client.owner_ids
+    if interaction.client.owner_id and interaction.user.id == interaction.client.owner_id:
+        return True
+    if interaction.client.owner_ids and interaction.user.id in interaction.client.owner_ids:
+        return True
     return False
 
 def is_owner():

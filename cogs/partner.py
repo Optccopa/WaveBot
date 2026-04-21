@@ -521,8 +521,8 @@ class Partner(commands.Cog):
         await self.bot.wait_until_ready()
         
     @partnerGroup.command(name="status", description="Check why your server may not be receiving partners")
-    @has_management()
     @discord.app_commands.checks.cooldown(rate=1, per=10)
+    @has_management()
     async def partner_status(self, interaction: discord.Interaction):
         guild = interaction.guild
         issues = []
