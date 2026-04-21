@@ -1,7 +1,9 @@
-import discord, traceback, logging
+import discord, traceback, logging, asyncio
 from time import time
 from discord.ext import commands
 from src.checks import is_owner
+
+_cooldown_notified: set[int] = set()
 
 log = logging.getLogger(__name__)
 
@@ -58,7 +60,12 @@ class ErrorHandler(commands.Cog):
             return
         
         if isinstance(error, commands.CommandOnCooldown):
+            if ctx.author.id in _cooldown_notified:
+                return
+            _cooldown_notified.add(ctx.author.id)
             await ctx.send(f"Try again in {error.retry_after:.1f}s.", delete_after=3)
+            await asyncio.sleep(error.retry_after)
+            _cooldown_notified.discard(ctx.author.id)
             return
         
         self.last_errors["prefix"] = traceback.format_exception(
