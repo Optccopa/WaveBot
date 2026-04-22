@@ -4,7 +4,7 @@
 
 `/setup` walks a guild admin through all five config fields using Discord's native UI components (channel selects, role selects, buttons). All interaction is ephemeral. Times out after 5 minutes of inactivity.
 
-Requires `Manage Guild` permission.
+Requires `Manage Guild`, `Administrator`, or bot owner (`has_management` check).
 
 ## Steps
 

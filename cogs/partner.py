@@ -144,10 +144,7 @@ class Partner(commands.Cog):
         if member_pct < min_member:
             return f"Less than {round(min_member * 100)}% of server members have the member role, make sure your member role is assigned to everyone"
 
-        role_members = member_role.members
-        visible = sum(1 for m in role_members if partner_channel.permissions_for(m).view_channel)
-        visible_pct = visible / len(role_members) if role_members else 1.0
-        if role_members and visible_pct < min_visible:
+        if not partner_channel.permissions_for(member_role).view_channel:
             return f"Less than {round(min_visible * 100)}% of members can see the partner channel, make sure your partner channel is visible to everyone"
 
         partner_pct = len(partner_role.members) / total
@@ -372,6 +369,7 @@ class Partner(commands.Cog):
                         await log_channel.send(embed=missing_ad_embed)
                     except discord.Forbidden:
                         pass
+            await asyncio.sleep(0)
         batch = self.bot.yaml_config['cache']['pipeline_batch']
         for i in range(0, max(len(pending), 1), batch):
             chunk = pending[i:i + batch]
@@ -473,6 +471,7 @@ class Partner(commands.Cog):
 
             logger.debug("eligible %s (%d) members=%d", guild.name, guild.id, guild.member_count)
             available.append((guild.id, guild.member_count))
+            await asyncio.sleep(0)
 
         logger.info("%d eligible servers going into matching", len(available))
         available_map = {gid: mc for gid, mc in available}

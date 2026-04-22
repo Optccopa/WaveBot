@@ -4,7 +4,7 @@
 
 - `DEBUG` — verbose: cooldown key hits, member counts, ad lengths, guild resolution
 - `INFO` — normal operations: loop ticks, eligible guilds, matched pairs, sent ads
-- `WARNING` — skipped guilds (missing config, sat out), failed sends
+- `WARNING` — skipped guilds (missing config, sat out), failed sends, `discord.Forbidden` from bot permission errors in commands
 - `ERROR` — exceptions: failed extension loads, Claude parse failures, send failures
 
 `discord` and `discord.http` loggers are set to `WARNING` to suppress library noise.
@@ -51,6 +51,18 @@ Cannot use the normal logger for retry errors — it would recurse back into the
 1. `await self._queue.join()` — drains all pending records
 2. `self._task.cancel()` + `await self._task` (catching `CancelledError`) — stops the worker
 3. `await self.session.close()` — closes the aiohttp session
+
+## Error Handler (`cogs/errorhandler.py`)
+
+Handles both prefix (`on_command_error`) and slash (`on_app_command_error`) errors.
+
+- `MissingPermissions` / `CommandOnCooldown` — user-facing message only, not stored in `last_errors`
+- `discord.Forbidden` — logged at `WARNING`, hint message sent to user, not stored in `last_errors`
+- All other errors — logged at `ERROR`, stored in `last_errors`, retrievable via `/error` (owner only)
+
+### Cooldown dedup
+
+Prefix `CommandOnCooldown` sends one message per cooldown window. The user is added to a module-level set on first hit; subsequent triggers are silently dropped until `retry_after` seconds elapse.
 
 ## Guild Log Channel
 
