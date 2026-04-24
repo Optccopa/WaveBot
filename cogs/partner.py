@@ -325,18 +325,21 @@ class Partner(commands.Cog):
                 return True
         return False
 
-    async def index_ads(self):
+    async def index_ads(self) -> dict:
         whitelisted = await self.redis.smembers("whitelisted_links")
         missing_channel_embed = discord.Embed(title="Ad channel missing", description="Use `/config set` to set one", color=discord.Color.dark_red())
         missing_ad_embed = discord.Embed(title="Ad message missing", description="Your ad message was not found in the recent 10 messages in the channel", color=discord.Color.dark_red())
         pending = []
+        summary = {"total": len(self.bot.guilds), "no_config": 0, "missing_channel": 0, "cached": 0, "missing_ad": 0}
         for guild in self.bot.guilds:
             config = await self.bot.config.get(guild.id)
             if not config:
+                summary["no_config"] += 1
                 continue
             ad_channel = guild.get_channel(config.get("ad_channel"))
             log_channel = guild.get_channel(config.get("log_channel"))
             if not ad_channel:
+                summary["missing_channel"] += 1
                 if log_channel:
                     try:
                         await log_channel.send(embed=missing_channel_embed)
@@ -363,7 +366,9 @@ class Partner(commands.Cog):
                     break
             if ad_message:
                 pending.append((f"ads:{guild.id}", PING_RE.sub("", ad_message)))
+                summary["cached"] += 1
             else:
+                summary["missing_ad"] += 1
                 if log_channel:
                     try:
                         await log_channel.send(embed=missing_ad_embed)
@@ -379,6 +384,7 @@ class Partner(commands.Cog):
                 for key, value in chunk:
                     pipe.set(key, value)
                 await pipe.execute()
+        return summary
 
     async def cog_load(self):
         self.bot.add_view(AddBotView())
@@ -668,6 +674,19 @@ class Partner(commands.Cog):
             await interaction.followup.send("No ad found for that server.", ephemeral=True)
             return
         await interaction.followup.send(ad, ephemeral=True)
+
+    @partnerGroup.command(name="indexads", description="Re-index all server ads and show a summary")
+    @is_owner()
+    async def indexads(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        summary = await self.index_ads()
+        embed = discord.Embed(title="Ad Index Summary", color=discord.Color.fuchsia())
+        embed.add_field(name="Total Guilds", value=str(summary["total"]), inline=True)
+        embed.add_field(name="Cached", value=str(summary["cached"]), inline=True)
+        embed.add_field(name="Missing Ad", value=str(summary["missing_ad"]), inline=True)
+        embed.add_field(name="Missing Channel", value=str(summary["missing_channel"]), inline=True)
+        embed.add_field(name="No Config", value=str(summary["no_config"]), inline=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @partnerGroup.command(name="loopforce")
     @is_owner()

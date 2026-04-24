@@ -257,6 +257,9 @@ class Bot(commands.AutoShardedBot):
                 except discord.Forbidden:
                     pass
             await guild.leave() 
+            return
+        
+        log.info(f"Joined a new server: {guild.name} with {guild.member_count} members")
 
 bot = Bot()
 
