@@ -17,7 +17,7 @@ class AddBotView(discord.ui.View):
 
     @discord.ui.button(label="Add WaveBot", style=discord.ButtonStyle.blurple, custom_id="wavebot:add_bot")
     async def add_bot(self, interaction: discord.Interaction, button: discord.ui.Button):
-        logger.info("Add bot view clicked by user: %d guild: %s", interaction.user.id, interaction.guild_id)
+        logger.info("Add bot view clicked by user: %d guild: %s", interaction.user.name, interaction.guild.name)
         embed = discord.Embed(
             title="Add WaveBot to your server!",
             color=discord.Color.fuchsia()
