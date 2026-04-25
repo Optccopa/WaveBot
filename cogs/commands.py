@@ -12,11 +12,11 @@ class BotCommands(commands.Cog):
     )
     
     @botGroup.command(name="info", description="Show info about the bot")
-    @app_commands.Cooldown(1, 10)
+    @app_commands.checks.cooldown(1, 10)
     async def botinfo(self, interaction: discord.Interaction):
         total_members = 0
         for guild in self.bot.guilds:
-            total_members += guild.member_count
+            total_members += guild.member_count or 0
 
         embed = discord.Embed(
             title="Bot info",
