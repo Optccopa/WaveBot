@@ -26,6 +26,72 @@ class OwnerOnly(commands.Cog):
         name="whitelist",
         description="Manage whitelisted links for ad scanning"
     )
+    accessGroup = app_commands.Group(
+        name="earlyaccess",
+        description="Add / remove early access from servers (under 50 members)"
+    )
+
+    @accessGroup.command(name="add", description="Assign early access")
+    @is_owner()
+    async def earlyAccessAdd(self, interaction: discord.Interaction, guild_id: str, user: discord.User, reason: str):
+        try:
+            iguild_id = int(guild_id)
+        except ValueError:
+            await interaction.response.send_message("guild_id must be an int", ephemeral=True)
+            return
+        async with self.db_pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO early_access (guild_id, user_id, reason) VALUES ($1, $2, $3)"
+                " ON CONFLICT (guild_id) DO NOTHING",
+                iguild_id, user.id, reason
+            )
+        await self.redis.sadd("bot:early_access_guilds", iguild_id)
+        embed = discord.Embed(
+            title="Access granted",
+            description=f"`{guild_id}`",
+            color=discord.Color.fuchsia()
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @accessGroup.command(name="remove", description="Remove early access")
+    @is_owner()
+    async def earlyAccessRemove(self, interaction: discord.Interaction, guild_id: str):
+        try:
+            iguild_id = int(guild_id)
+        except ValueError:
+            await interaction.response.send_message("guild_id must be an int", ephemeral=True)
+            return
+        async with self.db_pool.acquire() as conn:
+            await conn.execute("DELETE FROM early_access WHERE guild_id = $1", iguild_id)
+        await self.redis.srem("bot:early_access_guilds", iguild_id)
+        await interaction.response.send_message("Early access removed.", ephemeral=True)
+
+    @accessGroup.command(name="list", description="List all early access servers")
+    @is_owner()
+    async def earlyAccessList(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        async with self.db_pool.acquire() as conn:
+            rows = await conn.fetch("SELECT guild_id, user_id, reason FROM early_access")
+        if not rows:
+            await interaction.followup.send("No early access servers.", ephemeral=True)
+            return
+        for i in range(0, len(rows), 25):
+            chunk = rows[i:i + 25]
+            embed = discord.Embed(
+                title=f"Early Access Servers ({i + 1}-{i + len(chunk)} of {len(rows)})",
+                color=discord.Color.fuchsia()
+            )
+            for row in chunk:
+                guild = self.bot.get_guild(row["guild_id"])
+                guild_name = guild.name if guild else f"Unknown ({row['guild_id']})"
+                member_count = guild.member_count if guild else "N/A"
+                embed.add_field(
+                    name=guild_name,
+                    value=f"- Members: {member_count}\n- Reason: {row['reason'] or 'None'}\n- User: <@{row['user_id']}>",
+                    inline=False
+                )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
 
     @blacklistGroup.command(name="add", description="Blacklist a server")
     @is_owner()

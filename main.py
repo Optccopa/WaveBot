@@ -135,6 +135,7 @@ class Bot(commands.AutoShardedBot):
         
         # create tables
         async with self.db_pool.acquire() as conn:
+            conn: asyncpg.Connection
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS guild_config (
                     guild_id BIGINT PRIMARY KEY,
@@ -157,6 +158,13 @@ class Bot(commands.AutoShardedBot):
                 CREATE TABLE IF NOT EXISTS whitelisted_links (
                     link TEXT PRIMARY KEY,
                     added_by BIGINT NOT NULL
+                )
+            """)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS early_access (
+                    guild_id BIGINT PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    reason TEXT
                 )
             """)
 
@@ -208,6 +216,11 @@ class Bot(commands.AutoShardedBot):
                 for g in self.guilds
             })
         log.info("[on_ready] seeded %d guilds into bot:guild_ids", len(self.guilds))
+        async with self.db_pool.acquire() as conn:
+            ea_rows = await conn.fetch("SELECT guild_id FROM early_access")
+        await self.redis.delete("bot:early_access_guilds")
+        if ea_rows:
+            await self.redis.sadd("bot:early_access_guilds", *[r["guild_id"] for r in ea_rows])
 
     async def on_shard_ready(self, shard_id: int):
         await self.change_presence(
@@ -228,18 +241,19 @@ class Bot(commands.AutoShardedBot):
         await self.redis.hdel("bot:guild_info", guild.id)
 
     async def on_guild_join(self, guild: discord.Guild):
-        if guild.member_count < 50:
-            if guild.owner:
-                try:
-                    await guild.owner.send(
-                        f"**{self.user.name}** has left **{guild.name}** as it is under the minimum membercount `50`\n"
-                        f"Access: You can request access in {self.yaml_config['bot']['support_invite']} , https://discord.com/channels/1491681410111635478/1491709242829307965"
-                    )
-                except discord.Forbidden:
-                    pass
-            await guild.leave()
-
-            return
+        if (guild.member_count or 0) < self.yaml_config['requirements']['minimum_membercount']:
+            has_access = await self.redis.sismember("bot:early_access_guilds", guild.id)
+            if not has_access:
+                if guild.owner:
+                    try:
+                        await guild.owner.send(
+                            f"**{self.user.name}** has left **{guild.name}** as it is under the minimum membercount `{self.yaml_config['requirements']['minimum_membercount']}`\n"
+                            f"Access: You can request access in {self.yaml_config['bot']['support_invite']} , https://discord.com/channels/1491681410111635478/1491709242829307965"
+                        )
+                    except discord.Forbidden:
+                        pass
+                await guild.leave()
+                return
 
         await self.redis.sadd("bot:guild_ids", guild.id)
         await self.redis.hset("bot:guild_info", guild.id, json.dumps({
