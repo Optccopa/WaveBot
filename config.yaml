@@ -4,7 +4,7 @@ cache:
   pipeline_batch: 250
 
 times:
-  redis_lock_ttl: 10800
+  redis_lock_ttl: 19800
   partner_cooldown_ttl: 259200
 
 bot:
