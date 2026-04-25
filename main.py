@@ -99,9 +99,13 @@ class WebhookHandler(logging.Handler):
 class Bot(commands.AutoShardedBot):
     def __init__(self):
 
+        intents = discord.Intents.default()
+        intents.members = True
+        intents.message_content = True
+
         super().__init__(
             command_prefix="p!",
-            intents=discord.Intents.all(),
+            intents=intents,
             chunk_guilds_at_startup=True
         )
 
