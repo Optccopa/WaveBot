@@ -21,7 +21,7 @@ class Setup(commands.Cog):
         log_channel="Channel for WaveBot to send messages / warnings, set this to a private channel",
         member_role=r"A role assigned to > 95% of users in your server",
         partner_ping_role=r"A role pinged only for partners, must be assigned to > 8% of users in your server",
-        partner_delay="Hours to wait between partner rounds (1-168, default 6)"
+        partner_delay="Hours to wait between partners (1-168, default 6)"
     )
     async def setconfig(
         self,
