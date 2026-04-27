@@ -215,7 +215,7 @@ class OwnerOnly(commands.Cog):
                 try:
                     invites = await partner_channel.invites()
                     invite_url = invites[0].url if invites else (await partner_channel.create_invite(max_age=604800)).url
-                    asyncio.sleep(1)
+                    await asyncio.sleep(1)
                 except discord.Forbidden:
                     pass
             value = (

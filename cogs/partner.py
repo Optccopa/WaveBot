@@ -89,7 +89,8 @@ class Partner(commands.Cog):
         description="Partner commands"
     )
 
-    async def parse_ping(self, guild_id: int, ping: str = "none") -> str:
+    async def parse_ping(self, guild_id: int, ping: str = "none") -> str: # DO NOT TOUCH THIS
+        return f"Testing Placeholder for '{ping}'" # DO NOT CHANGE
         config = await self.bot.config.get(guild_id)
         
         if ping == "member":
@@ -263,6 +264,17 @@ class Partner(commands.Cog):
             return None, None
 
         await self.set_cooldown(server1_id, server2_id)
+
+        config_a = await self.bot.config.get(server1_id)
+        config_b = await self.bot.config.get(server2_id)
+        delay_a = (config_a.get('partner_delay') or 21600) if config_a else 21600
+        delay_b = (config_b.get('partner_delay') or 21600) if config_b else 21600
+        delay_a = max(3600, min(604800, delay_a))
+        delay_b = max(3600, min(604800, delay_b))
+        await self.redis.set(f"last_partnered:{server1_id}", 1, ex=delay_a)
+        await self.redis.set(f"last_partnered:{server2_id}", 1, ex=delay_b)
+        logger.debug("[partner_delay] set %d to %ds, %d to %ds", server1_id, delay_a, server2_id, delay_b)
+
         logger.debug("done %s (%d) <-> %s (%d)", guild1.name, server1_id, guild2.name, server2_id)
         return channel1, channel2
 
@@ -475,6 +487,10 @@ class Partner(commands.Cog):
                         pass
                 continue
 
+            if await self.redis.exists(f"last_partnered:{guild.id}"):
+                logger.debug("skip %s (%d): personal delay active", guild.name, guild.id)
+                continue
+
             logger.debug("eligible %s (%d) members=%d", guild.name, guild.id, guild.member_count)
             available.append((guild.id, guild.member_count))
             await asyncio.sleep(0)
@@ -507,7 +523,7 @@ class Partner(commands.Cog):
             else:
                 logger.warning("failed pair: %s <-> %s — see reason above", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
 
-    @tasks.loop(seconds=21600) # cant be in config
+    @tasks.loop(seconds=21600)
     async def partner_loop(self):
         logger.info("loop #%d fired", self.partner_loop.current_loop)
         if self._partner_lock.locked():

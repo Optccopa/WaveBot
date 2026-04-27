@@ -2,7 +2,7 @@ import json
 
 from redis.asyncio import Redis
 
-ALLOWED_COLUMNS = {"partner_channel", "ad_channel", "member_role", "partner_ping_role", "log_channel"}
+ALLOWED_COLUMNS = {"partner_channel", "ad_channel", "member_role", "partner_ping_role", "log_channel", "partner_delay"}
 
 class ConfigManager:
     def __init__(self, db_pool, redis):

@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 class WebhookHandler(logging.Handler):
     def __init__(self, url: str, loop: asyncio.AbstractEventLoop):
-        super().__init__(level=logging.INFO)
+        super().__init__(level=logging.DEBUG)
         self.url = url
         self.loop = loop
         self.session = aiohttp.ClientSession()
@@ -144,7 +144,8 @@ class Bot(commands.AutoShardedBot):
                     member_role BIGINT,
                     partner_ping_role BIGINT,
                     log_channel BIGINT,
-                    premium BOOLEAN DEFAULT FALSE
+                    premium BOOLEAN DEFAULT FALSE,
+                    partner_delay INTEGER DEFAULT 21600
                 )
             """)
             await conn.execute("""
@@ -166,6 +167,10 @@ class Bot(commands.AutoShardedBot):
                     user_id BIGINT NOT NULL,
                     reason TEXT
                 )
+            """)
+            await conn.execute("""
+                ALTER TABLE guild_config
+                ADD COLUMN IF NOT EXISTS partner_delay INTEGER DEFAULT 21600
             """)
 
         # load cogs
