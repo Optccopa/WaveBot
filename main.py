@@ -168,10 +168,6 @@ class Bot(commands.AutoShardedBot):
                     reason TEXT
                 )
             """)
-            await conn.execute("""
-                ALTER TABLE guild_config
-                ADD COLUMN IF NOT EXISTS partner_delay INTEGER DEFAULT 21600
-            """)
 
         # load cogs
         if os.path.isdir("cogs"):
