@@ -21,7 +21,7 @@ class Setup(commands.Cog):
         log_channel="Channel for WaveBot to send messages / warnings, set this to a private channel",
         member_role=r"A role assigned to > 95% of users in your server",
         partner_ping_role=r"A role pinged only for partners, must be assigned to > 8% of users in your server",
-        partner_delay="Seconds between your server receiving partners (default 21600 = 6 hours, min 3600 = 1 hour)"
+        partner_delay="Hours to wait between partner rounds (1-168, default 6)"
     )
     async def setconfig(
         self,
@@ -40,16 +40,17 @@ class Setup(commands.Cog):
                 ephemeral=True
             )
 
-        if partner_delay is not None and partner_delay < 3600:
-            return await interaction.response.send_message(
-                "Partner delay must be at least 3600 seconds (1 hour)",
-                ephemeral=True
-            )
-        if partner_delay is not None and partner_delay > 604800:
-            return await interaction.response.send_message(
-                "Partner delay cannot exceed 604800 seconds (1 week)",
-                ephemeral=True
-            )
+        if partner_delay is not None:
+            if partner_delay < 1:
+                return await interaction.response.send_message(
+                    "Partner delay must be at least 1 hour",
+                    ephemeral=True
+                )
+            if partner_delay > 168:
+                return await interaction.response.send_message(
+                    "Partner delay cannot exceed 168 hours (1 week)",
+                    ephemeral=True
+                )
 
         fields = {}
 
@@ -69,9 +70,9 @@ class Setup(commands.Cog):
             fields["partner_ping_role"] = partner_ping_role.id
 
         if partner_delay is not None:
-            fields["partner_delay"] = partner_delay
+            fields["partner_delay"] = partner_delay * 3600
             import logging
-            logging.getLogger(__name__).debug("[partner_delay] guild %d set to %ds", interaction.guild.id, partner_delay)
+            logging.getLogger(__name__).debug("[partner_delay] guild %d set to %dh (%ds)", interaction.guild.id, partner_delay, partner_delay * 3600)
 
         current = await self.bot.config.get(interaction.guild.id) or {}
         merged = {**current, **fields}
@@ -164,7 +165,7 @@ class Setup(commands.Cog):
         )
         embed.add_field(
             name="Partner Delay",
-            value=f"{config.get('partner_delay', 21600)} seconds ({config.get('partner_delay', 21600) // 3600} hours)",
+            value=f"{config.get('partner_delay', 21600) // 3600}h",
             inline=False
         )
 

@@ -450,12 +450,28 @@ class OwnerOnly(commands.Cog):
                 title="Exec exception",
                 color=discord.Color.fuchsia()
             )
-            
+
             embed.add_field(name="Output", value=f"```\n{tb_body}\n```", inline=False)
             embed.add_field(name="Error", value=f"```\n{exc_line}\n```", inline=False)
 
             await ctx.send(embed=embed)
             return
+
+    @commands.command(name="sql")
+    @commands.is_owner()
+    async def sql_query(self, ctx: commands.Context, *, query: str):
+        try:
+            async with self.db_pool.acquire() as conn:
+                result = await conn.fetch(query)
+            if not result:
+                await ctx.reply("No results.")
+                return
+            rows_text = "\n".join(str(dict(row)) for row in result[:10])
+            if len(result) > 10:
+                rows_text += f"\n... and {len(result) - 10} more rows"
+            await ctx.reply(f"```\n{rows_text}\n```")
+        except Exception as e:
+            await ctx.reply(f"Error: {e}")
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(OwnerOnly(bot))
