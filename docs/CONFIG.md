@@ -36,11 +36,12 @@
 - **Recommendation:** Private channel, restricted to mods
 
 #### partner_delay (optional)
-- **Type:** Integer (seconds)
+- **Type:** Integer (seconds in DB; hours in web panel)
 - **Description:** Time between receiving partners
 - **Minimum:** 3600 seconds (1 hour)
 - **Maximum:** 604800 seconds (7 days)
 - **Default:** 21600 seconds (6 hours)
+- **Web panel:** Displayed and entered in hours (1–168). Converts to/from seconds automatically.
 
 ## View Configuration
 ```

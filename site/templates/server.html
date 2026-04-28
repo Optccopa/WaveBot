@@ -25,6 +25,21 @@
         <div class="form-group {% if errors.get(field) %}has-error{% endif %}">
             <label for="{{ field }}">{{ label }}</label>
             <p class="field-description">{{ description }}</p>
+            {% if field == "partner_delay" %}
+            <div class="input-with-unit">
+                <input
+                    type="number"
+                    id="{{ field }}"
+                    name="{{ field }}"
+                    value="{{ config.get(field) or '' }}"
+                    min="1"
+                    max="168"
+                    placeholder="6"
+                    autocomplete="off"
+                >
+                <span class="input-unit">hours</span>
+            </div>
+            {% else %}
             <input
                 type="text"
                 id="{{ field }}"
@@ -34,6 +49,7 @@
                 autocomplete="off"
                 spellcheck="false"
             >
+            {% endif %}
             {% if errors.get(field) %}
             <span class="field-error">{{ errors[field] }}</span>
             {% endif %}
