@@ -282,13 +282,12 @@ class SetupCog(commands.Cog):
         state = SetupState()
         embed = step_embed(
             "WaveBot Setup Wizard",
-            "This wizard will walk you through configuring WaveBot.\n\n"
             "**You will set up:**\n"
             "- A private log channel for bot messages\n"
             "- Your partner channel (where ads get posted)\n"
             "- Your ad channel (where your server ad lives)\n"
-            "- A member role (assigned to 95%+ of members)\n"
-            "- A partner ping role (assigned to 8%+ of members)\n\n"
+            f"- A member role (assigned to {self.bot.yaml_config['requirements']['member_role_min_coverage']:.0%} of members)\n"
+            f"- A partner ping role (assigned to {self.bot.yaml_config['requirements']['partner_role_min_coverage']:.0%} of members)\n\n"
             "Click **Begin Setup** to start."
         )
         await interaction.response.send_message(

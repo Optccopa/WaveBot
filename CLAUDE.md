@@ -8,7 +8,7 @@
 ### Basic Security
 - Every public command must have a cooldown rate of 1 use / 10 seconds.
 ### Persistance
-- Persist any values that aren't derived or computed at runtime to postgre.
+- Persist any values that aren't derived or computed at runtime to postgres.
 ### Coding Guidelines
 - Prioritize runtime speed over code elegance, but not at the cost of changing unrelated code.
 - Only abstract functions that are used in multiple places and very long.

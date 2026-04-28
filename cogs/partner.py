@@ -611,25 +611,45 @@ class Partner(commands.Cog):
         ad = await self.redis.get(f"ads:{guild.id}")
         if not ad:
             if ad_channel:
-                issues.append(f"No ad found in {ad_channel.mention}, post a message containing your `discord.gg` invite link")
+                issues.append(f"No ad found in {ad_channel.mention}")
             else:
-                issues.append("No ad cached, set your ad channel and post a message with your `discord.gg` invite link")
+                issues.append("No ad cached")
         elif len(ad) > 2000:
-            issues.append("Cached ad exceeds 2000 characters (discord imposed limit), shorten your ad message")
+            issues.append("Cached ad exceeds 2000 characters")
+
+        # Check partner delay
+        delay_ttl = await self.redis.ttl(f"last_partnered:{guild.id}")
+        if delay_ttl > 0:
+            hours = delay_ttl // 3600
+            minutes = (delay_ttl % 3600) // 60
+            delay_text = f"{hours}h {minutes}m remaining"
+        else:
+            delay_text = "No delay active"
+
+        color = discord.Color.red() if issues else discord.Color.green()
+        embed = discord.Embed(
+            title="Partner Status",
+            color=color
+        )
 
         if issues:
-            lines = "\n".join(f"- {i}" for i in issues)
-            embed = discord.Embed(
-                title="Partner Status - Issues Found",
-                description=lines,
-                color=discord.Color.red()
+            embed.add_field(
+                name="Errors",
+                value="\n".join(f"- {i}" for i in issues),
+                inline=False
             )
         else:
-            embed = discord.Embed(
-                title="Partner Status - Eligible",
-                description="No issues found.",
-                color=discord.Color.green()
+            embed.add_field(
+                name="Status",
+                value="Eligible",
+                inline=False
             )
+
+        embed.add_field(
+            name="Partner Delay",
+            value=delay_text,
+            inline=False
+        )
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
