@@ -89,8 +89,7 @@ class Partner(commands.Cog):
         description="Partner commands"
     )
 
-    async def parse_ping(self, guild_id: int, ping: str = "none") -> str: # DO NOT TOUCH THIS
-        return f"Testing Placeholder for '{ping}'" # DO NOT CHANGE
+    async def parse_ping(self, guild_id: int, ping: str = "none") -> str:
         config = await self.bot.config.get(guild_id)
         
         if ping == "member":
@@ -264,17 +263,6 @@ class Partner(commands.Cog):
             return None, None
 
         await self.set_cooldown(server1_id, server2_id)
-
-        config_a = await self.bot.config.get(server1_id)
-        config_b = await self.bot.config.get(server2_id)
-        delay_a = (config_a.get('partner_delay') or 21600) if config_a else 21600
-        delay_b = (config_b.get('partner_delay') or 21600) if config_b else 21600
-        delay_a = max(3600, min(604800, delay_a))
-        delay_b = max(3600, min(604800, delay_b))
-        await self.redis.set(f"last_partnered:{server1_id}", 1, ex=delay_a)
-        await self.redis.set(f"last_partnered:{server2_id}", 1, ex=delay_b)
-        logger.debug("[partner_delay] set %d to %ds, %d to %ds", server1_id, delay_a, server2_id, delay_b)
-
         logger.debug("done %s (%d) <-> %s (%d)", guild1.name, server1_id, guild2.name, server2_id)
         return channel1, channel2
 
@@ -487,10 +475,6 @@ class Partner(commands.Cog):
                         pass
                 continue
 
-            if await self.redis.exists(f"last_partnered:{guild.id}"):
-                logger.debug("skip %s (%d): personal delay active", guild.name, guild.id)
-                continue
-
             logger.debug("eligible %s (%d) members=%d", guild.name, guild.id, guild.member_count)
             available.append((guild.id, guild.member_count))
             await asyncio.sleep(0)
@@ -523,7 +507,7 @@ class Partner(commands.Cog):
             else:
                 logger.warning("failed pair: %s <-> %s — see reason above", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
 
-    @tasks.loop(seconds=21600)
+    @tasks.loop(seconds=21600) # cant be in config
     async def partner_loop(self):
         logger.info("loop #%d fired", self.partner_loop.current_loop)
         if self._partner_lock.locked():
@@ -611,45 +595,25 @@ class Partner(commands.Cog):
         ad = await self.redis.get(f"ads:{guild.id}")
         if not ad:
             if ad_channel:
-                issues.append(f"No ad found in {ad_channel.mention}")
+                issues.append(f"No ad found in {ad_channel.mention}, post a message containing your `discord.gg` invite link")
             else:
-                issues.append("No ad cached")
+                issues.append("No ad cached, set your ad channel and post a message with your `discord.gg` invite link")
         elif len(ad) > 2000:
-            issues.append("Cached ad exceeds 2000 characters")
-
-        # Check partner delay
-        delay_ttl = await self.redis.ttl(f"last_partnered:{guild.id}")
-        if delay_ttl > 0:
-            hours = delay_ttl // 3600
-            minutes = (delay_ttl % 3600) // 60
-            delay_text = f"{hours}h {minutes}m remaining"
-        else:
-            delay_text = "No delay active"
-
-        color = discord.Color.red() if issues else discord.Color.green()
-        embed = discord.Embed(
-            title="Partner Status",
-            color=color
-        )
+            issues.append("Cached ad exceeds 2000 characters (discord imposed limit), shorten your ad message")
 
         if issues:
-            embed.add_field(
-                name="Errors",
-                value="\n".join(f"- {i}" for i in issues),
-                inline=False
+            lines = "\n".join(f"- {i}" for i in issues)
+            embed = discord.Embed(
+                title="Partner Status - Issues Found",
+                description=lines,
+                color=discord.Color.red()
             )
         else:
-            embed.add_field(
-                name="Status",
-                value="Eligible",
-                inline=False
+            embed = discord.Embed(
+                title="Partner Status - Eligible",
+                description="No issues found.",
+                color=discord.Color.green()
             )
-
-        embed.add_field(
-            name="Partner Delay",
-            value=delay_text,
-            inline=False
-        )
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 

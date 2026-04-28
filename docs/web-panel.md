@@ -29,9 +29,7 @@ Implemented with atomic Redis SET NX + INCR to avoid race conditions.
 
 1. CSRF token verified
 2. Rate limit checked
-3. Form fields validated:
-   - Discord snowflakes (15–21 digit integers) for: `partner_channel`, `ad_channel`, `log_channel`, `member_role`, `partner_ping_role`
-   - Integer 1–168 (hours) for: `partner_delay`; converted to seconds before save
+3. Form fields validated as Discord snowflakes (15–21 digit integers)
 4. If all three key fields present in merged config, calls bot's internal validation endpoint
 5. If validation fails, re-renders page with `validation_error` alert
 6. If validation passes, saves via `ConfigManager.set`

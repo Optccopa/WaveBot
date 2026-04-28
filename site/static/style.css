@@ -355,18 +355,6 @@ a:hover { text-decoration: underline; }
 .form-group input::placeholder { color: #aab0bb; }
 .form-group.has-error input { border-color: var(--red); }
 
-.input-with-unit {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.input-unit {
-    color: var(--text-muted);
-    font-size: 0.875rem;
-    flex-shrink: 0;
-}
-
 .field-error {
     display: block;
     font-size: 0.78rem;

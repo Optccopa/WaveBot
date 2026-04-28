@@ -31,7 +31,6 @@ FIELD_LABELS = {
     "log_channel": ("Log Channel ID", "Private channel for WaveBot warnings and status messages"),
     "member_role": ("Member Role ID", "Role assigned to >95% of your server members"),
     "partner_ping_role": ("Partner Ping Role ID", "Role pinged for partner ads, must cover >8% of members"),
-    "partner_delay": ("Partner Delay", "Minimum hours between receiving partner ads (1–168, default 6)"),
 }
 
 SNOWFLAKE_RE = re.compile(r"^\d{15,21}$")
@@ -318,9 +317,6 @@ async def handle_server_get(request: web.Request) -> web.Response:
 
     cm: ConfigManager = request.app["config_manager"]
     config = await cm.get(guild_id) or {}
-    display_config = dict(config)
-    if display_config.get("partner_delay") is not None:
-        display_config["partner_delay"] = display_config["partner_delay"] // 3600
     saved = request.rel_url.query.get("saved") == "1"
 
     return aiohttp_jinja2.render_template("server.html", request, {
@@ -328,7 +324,7 @@ async def handle_server_get(request: web.Request) -> web.Response:
         "guild_id": guild_id_str,
         "guild_name": guild["name"],
         "guild_icon_url": _icon_url(guild["id"], guild.get("icon")),
-        "config": display_config,
+        "config": config,
         "saved": saved,
         "errors": {},
         "validation_error": None,
@@ -375,29 +371,16 @@ async def handle_server_post(request: web.Request) -> web.Response:
         raw = form.get(field, "").strip()
         if raw == "":
             continue
-        if field == "partner_delay":
-            try:
-                hours = int(raw)
-            except ValueError:
-                errors[field] = "Must be a whole number (1–168)."
-                continue
-            if not (1 <= hours <= 168):
-                errors[field] = "Must be between 1 and 168 hours."
-                continue
-            fields[field] = hours * 3600
+        if not SNOWFLAKE_RE.match(raw):
+            errors[field] = "Must be a valid Discord ID (15–21 digits) or leave empty."
         else:
-            if not SNOWFLAKE_RE.match(raw):
-                errors[field] = "Must be a valid Discord ID (15–21 digits) or leave empty."
-            else:
-                fields[field] = int(raw)
+            fields[field] = int(raw)
 
     if errors:
         cm: ConfigManager = request.app["config_manager"]
         config = await cm.get(guild_id) or {}
         for f, v in fields.items():
             config[f] = v
-        if config.get("partner_delay") is not None:
-            config["partner_delay"] = config["partner_delay"] // 3600
         return aiohttp_jinja2.render_template("server.html", request, {
             "user": user,
             "guild_id": guild_id_str,
@@ -432,8 +415,6 @@ async def handle_server_post(request: web.Request) -> web.Response:
                 config = await cm.get(guild_id) or {}
                 for f, v in fields.items():
                     config[f] = v
-                if config.get("partner_delay") is not None:
-                    config["partner_delay"] = config["partner_delay"] // 3600
                 return aiohttp_jinja2.render_template("server.html", request, {
                     "user": user,
                     "guild_id": guild_id_str,

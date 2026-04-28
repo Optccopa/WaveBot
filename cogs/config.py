@@ -13,15 +13,13 @@ class Setup(commands.Cog):
     )
 
     @config.command(name="set", description="Configure this bot")
-    @app_commands.checks.cooldown(rate=1, per=10)
     @has_management()
     @app_commands.describe(
         partner_channel="Channel to send partners",
         ad_channel="The channel with your ad, uses a recent message with a link.",
         log_channel="Channel for WaveBot to send messages / warnings, set this to a private channel",
         member_role=r"A role assigned to > 95% of users in your server",
-        partner_ping_role=r"A role pinged only for partners, must be assigned to > 8% of users in your server",
-        partner_delay="Hours to wait between partners (1-168, default 6)"
+        partner_ping_role=r"A role pinged only for partners, must be assigned to > 8% of users in your server"
     )
     async def setconfig(
         self,
@@ -30,27 +28,14 @@ class Setup(commands.Cog):
         ad_channel: discord.TextChannel | None = None,
         log_channel: discord.TextChannel | None = None,
         member_role: discord.Role | None = None,
-        partner_ping_role: discord.Role | None = None,
-        partner_delay: int | None = None
+        partner_ping_role: discord.Role | None = None
     ):
 
-        if not any([partner_channel, ad_channel, member_role, partner_ping_role, log_channel]) and partner_delay is None:
+        if not any([partner_channel, ad_channel, member_role, partner_ping_role, log_channel]):
             return await interaction.response.send_message(
                 "Set at least one config element to set",
                 ephemeral=True
             )
-
-        if partner_delay is not None:
-            if partner_delay < 1:
-                return await interaction.response.send_message(
-                    "Partner delay must be at least 1 hour",
-                    ephemeral=True
-                )
-            if partner_delay > 168:
-                return await interaction.response.send_message(
-                    "Partner delay cannot exceed 168 hours (1 week)",
-                    ephemeral=True
-                )
 
         fields = {}
 
@@ -68,11 +53,6 @@ class Setup(commands.Cog):
 
         if partner_ping_role:
             fields["partner_ping_role"] = partner_ping_role.id
-
-        if partner_delay is not None:
-            fields["partner_delay"] = partner_delay * 3600
-            import logging
-            logging.getLogger(__name__).debug("[partner_delay] guild %d set to %dh (%ds)", interaction.guild.id, partner_delay, partner_delay * 3600)
 
         current = await self.bot.config.get(interaction.guild.id) or {}
         merged = {**current, **fields}
@@ -161,11 +141,6 @@ class Setup(commands.Cog):
         embed.add_field(
             name="Premium",
             value="Yes" if premium else "No",
-            inline=False
-        )
-        embed.add_field(
-            name="Partner Delay",
-            value=f"{config.get('partner_delay', 21600) // 3600}h",
             inline=False
         )
 
