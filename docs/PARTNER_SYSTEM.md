@@ -1,56 +1,57 @@
-# Partner System
+# Partner System — Overview
 
-## Overview
-WaveBot matches servers on a 6-hour cycle, exchanging ads cross-server. Each server has a configurable personal delay between partnership events (default 6 hours, 1 hour minimum, 1 week maximum).
+This is a quick reference. For detailed execution flow, see `partner-loop-flow.md`. For matching algorithm details, see `partner-matching.md`.
 
-## Loop Interval
-- **Loop frequency:** Every 6 hours (21600 seconds)
-- **Distributed lock TTL:** 25200 seconds (~7 hours) — prevents concurrent runs in multi-shard setups
+## How It Works
 
-## Per-Server Delay
+Every 6 hours, the bot:
+1. Indexes all server ads from Discord channels
+2. Filters eligible servers (valid config, no cooldown, no personal delay)
+3. Pairs servers using greedy maximum matching
+4. Sends each server's ad to their partner's partner channel with an appropriate ping
+5. Sets a 3-day cooldown and per-server delay to prevent rapid re-pairing
 
-Each server can configure how long to wait after receiving a partner before becoming eligible again via `/config set partner_delay <seconds>`.
+## Timing
 
-**Constraints:**
-- Minimum: 3600 seconds (1 hour)
-- Maximum: 604800 seconds (7 days)
-- Default: 21600 seconds (6 hours)
-
-After a successful partnership, Redis keys are set:
-- `last_partnered:{guild_id}` — expires after `partner_delay` seconds
-- Server is ineligible for matching while this key exists
-
-## Sat-Out Server Behavior
-Servers that are eligible but don't find a match (due to pairwise cooldowns) do **not** get a `last_partnered` key set. They remain eligible and are retried in the next 6-hour cycle.
-
-## Pairwise Cooldown
-After servers exchange ads, they are placed on a pairwise cooldown:
-- Redis key: `{cache_version}:partner_cooldown:{min_id}:{max_id}`
-- TTL: 259200 seconds (3 days) — prevents re-pairing too frequently
+- **Loop interval:** 6 hours (21600 seconds) — not configurable without code changes
+- **Pairwise cooldown:** 3 days (259200 seconds) — prevents same pair within 3 days
+- **Per-server delay:** Configurable per server, default 6 hours, range 1 hour–7 days
+- **Distributed lock:** 3 hours (10800 seconds) — blocks other instances if one crashes
 
 ## Configuration
-Server admins can adjust their delay via:
+
 ```
-/config set partner_delay 86400
+/config set partner_channel <#channel>    # Where to post received ads
+/config set ad_channel <#channel>         # Where your ad is posted
+/config set member_role <@role>           # Role for active members (≥80% coverage)
+/config set partner_ping_role <@role>     # Role to ping on new partners (≥8% coverage)
+/config set log_channel <#channel>        # Optional: errors logged here
+/config set partner_delay <seconds>       # Optional: 3600–604800s, default 21600
 ```
 
-View current settings:
-```
-/config view
-```
+## Partnership Requirements
 
-## Matching Algorithm
-1. Hourly loop checks all eligible guilds (no active `last_partnered` key)
-2. Filters out blacklisted, unconfigured, or failing validation
-3. Greedy matching: highest-constrained servers matched first
-4. Pairwise cooldowns prevent recent pairs from re-matching
-5. Sat-out servers stay eligible for next round
+All of these must be true:
+- Config is complete (all required fields set)
+- Member role covers ≥80% of members
+- Partner ping role covers ≥8% of members
+- Partner channel is visible to member role
+- Bot has Send Messages + Mention Everyone in partner channel
+- Server is not blacklisted
+- Server has no active pairwise cooldown with any potential partner
+- Server has no active personal delay (last_partnered key)
 
-## Requirements for Partnership
-- Server has valid config (partner channel, ad channel, member role, partner ping role)
-- At least 80% of members have the member role
-- At least 8% of members have the partner ping role
-- At least 50 members (minimum_membercount from config)
-- Partner channel is visible to the member role
-- No active blacklist, no active pairwise cooldown
-- No active personal delay (`last_partnered:` key)
+## Commands
+
+- `/partner status` — See eligibility issues
+- `/partner loopinfo` — When's next run?
+- `/partner force <id1> <id2>` — Admin: force a pair now
+- `/partner loopforce` — Admin: run loop immediately
+- `/partner ad <guild_id>` — Admin: view cached ad
+
+## See Also
+
+- `partner-loop-flow.md` — Complete execution walkthrough (phases 1–6)
+- `partner-matching.md` — Matching algorithm and cooldown strategy
+- `known-issues.md` — Known limitations
+- `CONFIG.md` — Full config option reference

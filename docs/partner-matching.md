@@ -72,9 +72,17 @@ Two locks prevent double-runs:
 
 `forceloop` acquires the asyncio lock and force-sets the Redis key, bypassing the NX check.
 
+## Atomicity
+
+- Sat-out cooldown operations (clear/restore) use `transaction=True` Redis pipelines for atomic delete and set operations.
+- Ad caching uses batched pipelines (default 250 ads/batch) with per-batch error handling.
+- Cooldown is set BEFORE sending ads to prevent partial-success states where one server receives an ad with no cooldown protection.
+
 ## Commands
 
 - `/partner status` — guild owners see why their server may be skipped
+  - **Errors field:** Lists all configuration or validation issues preventing partnership (empty if eligible)
+  - **Partner Delay field:** Shows remaining time on the server's personal delay (e.g., "6h 0m remaining"), or "No delay active" if the server can partner now
 - `/partner loopinfo` — shows next scheduled run time
 - `/partner loopforce` — bot owner only, runs a loop immediately
 - `/partner force <id1> <id2>` — bot owner only, forces a specific pair

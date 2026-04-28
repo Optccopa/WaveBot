@@ -11,6 +11,7 @@
 | `member_role` | `BIGINT` | Role ID assigned to ≥80% of members |
 | `partner_ping_role` | `BIGINT` | Role ID pinged on partner delivery |
 | `log_channel` | `BIGINT` | Private staff channel for bot messages |
+| `partner_delay` | `INTEGER` | Seconds between partnerships (3600–604800), default 21600 |
 | `premium` | `BOOLEAN` | Default `false` |
 
 ### `blacklists`
@@ -36,8 +37,9 @@
 | `bot:guild_info` | Hash | none | Field = `guild_id`, value = `{"name","icon","member_count"}` JSON | `main.py` on_ready / on_guild_join / on_guild_remove |
 | `config:{guild_id}` | String | 30d | `guild_config` row as JSON | `src/configmanager.py` |
 | `ads:{guild_id}` | String | none | Ping-stripped ad message text | `cogs/cache_ads.py` ad_loop |
-| `{claude_ver}:claude:{sha256_12}` | String | 30d | Claude Haiku scan result JSON `{sus,confidence,ai_hits,regex_hits,user_reason}` | `cogs/cache_ads.py` scan_ad |
+| `{claude_ver}:claude:{sha256_12}` | String | 30d | Claude Haiku scan result JSON `{sus,confidence,ai_hits,regex_hits,user_reason}` | `cogs/partner.py` scan_ad |
 | `{cache_ver}:partner_cooldown:{min_id}:{max_id}` | String | 3d | `1` — signals cooldown active between two guilds | `cogs/partner.py` set_cooldown |
+| `last_partnered:{guild_id}` | String | per-config (1h–7d) | `1` — signals guild recently partnered, on personal delay | `cogs/partner.py` partner() |
 | `last_partner_run` | String | 3h | `1` — distributed lock preventing multi-instance double-run | `cogs/partner.py` partner_loop |
 | `whitelisted_links` | Set | none | Link strings stripped from ads before scan | `cogs/cache_ads.py` cog_load / `cogs/owneronly.py` |
 | `panel:guilds:{user_id}` | String | 5m | JSON list of user's Discord guilds with permissions/counts | `site/app.py` _get_user_guilds |

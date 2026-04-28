@@ -89,6 +89,7 @@ class Partner(commands.Cog):
         description="Partner commands"
     )
 
+
     async def parse_ping(self, guild_id: int, ping: str = "none") -> str: # DO NOT TOUCH THIS
         return f"Testing Placeholder for '{ping}'" # DO NOT CHANGE
         config = await self.bot.config.get(guild_id)
@@ -248,22 +249,18 @@ class Partner(commands.Cog):
             logger.warning("abort: ad too long - server1_ad=%d server2_ad=%d (max 2000)", len(ad1), len(ad2))
             return None, None
 
-        logger.debug("sending ad2 -> #%s in %s (%d)", channel1.name, guild1.name, server1_id)
-        try:
-            await channel1.send(ad2, view=AddBotView())
-            logger.info("sent ad2 -> %d #%s OK", server1_id, channel1.name)
-        except Exception as e:
-            logger.error("failed sending to %d #%s: %s", server1_id, channel1.name, e)
-            return None, None
-        logger.debug("sending ad1 -> #%s in %s (%d)", channel2.name, guild2.name, server2_id)
-        try:
-            await channel2.send(ad1, view=AddBotView())
-            logger.debug("sent ad1 -> %d #%s OK", server2_id, channel2.name)
-        except Exception as e:
-            logger.error("failed sending to %d #%s: %s", server2_id, channel2.name, e)
-            return None, None
-
         await self.set_cooldown(server1_id, server2_id)
+
+        view = AddBotView()
+        logger.debug("sending ad2 -> #%s in %s (%d)", channel1.name, guild1.name, server1_id)
+        if not await self._send_with_backoff(channel1, ad2, view, server1_id, channel1.name):
+            return None, None
+        logger.info("sent ad2 -> %d #%s OK", server1_id, channel1.name)
+
+        logger.debug("sending ad1 -> #%s in %s (%d)", channel2.name, guild2.name, server2_id)
+        if not await self._send_with_backoff(channel2, ad1, view, server2_id, channel2.name):
+            return None, None
+        logger.info("sent ad1 -> %d #%s OK", server2_id, channel2.name)
 
         config_a = await self.bot.config.get(server1_id)
         config_b = await self.bot.config.get(server2_id)
@@ -378,7 +375,6 @@ class Partner(commands.Cog):
                     break
             if ad_message:
                 pending.append((f"ads:{guild.id}", PING_RE.sub("", ad_message)))
-                summary["cached"] += 1
             else:
                 summary["missing_ad"] += 1
                 if log_channel:
@@ -388,14 +384,21 @@ class Partner(commands.Cog):
                         pass
             await asyncio.sleep(0)
         batch = self.bot.yaml_config['cache']['pipeline_batch']
+        if batch < 1:
+            logger.error("invalid pipeline_batch config %d, using default 250", batch)
+            batch = 250
         for i in range(0, max(len(pending), 1), batch):
             chunk = pending[i:i + batch]
             if not chunk:
                 break
-            async with self.redis.pipeline() as pipe:
-                for key, value in chunk:
-                    pipe.set(key, value)
-                await pipe.execute()
+            try:
+                async with self.redis.pipeline() as pipe:
+                    for key, value in chunk:
+                        pipe.set(key, value)
+                    await pipe.execute()
+                summary["cached"] += len(chunk)
+            except Exception as e:
+                logger.error("failed to cache ads batch [%d:%d] (%d items): %s", i, i + len(chunk), len(chunk), e)
         return summary
 
     async def cog_load(self):
@@ -503,13 +506,29 @@ class Partner(commands.Cog):
             ver = self.bot.yaml_config['cache']['cache_version']
             sat_pairs = [(min(a, b), max(a, b)) for i, a in enumerate(sat_out) for b in sat_out[i + 1:]]
             if sat_pairs:
-                async with self.redis.pipeline(transaction=False) as pipe:
-                    for a, b in sat_pairs:
-                        pipe.delete(f"{ver}:partner_cooldown:{a}:{b}")
-                    await pipe.execute()
+                try:
+                    async with self.redis.pipeline(transaction=True) as pipe:
+                        for a, b in sat_pairs:
+                            pipe.delete(f"{ver}:partner_cooldown:{a}:{b}")
+                        await pipe.execute()
+                except Exception as e:
+                    logger.error("failed to clear sat-out cooldowns: %s", e)
+                    return
                 logger.info("cleared %d cooldowns for %d sat-out servers, retrying match", len(sat_pairs), len(sat_out))
                 retry_pairs, still_out = await self.match_servers([(s, available_map[s]) for s in sat_out])
-                pairs.extend(retry_pairs)
+
+                if retry_pairs:
+                    pairs.extend(retry_pairs)
+                else:
+                    try:
+                        async with self.redis.pipeline(transaction=True) as pipe:
+                            for a, b in sat_pairs:
+                                pipe.set(f"{ver}:partner_cooldown:{a}:{b}", 1, ex=self.bot.yaml_config['times']['partner_cooldown_ttl'])
+                            await pipe.execute()
+                    except Exception as e:
+                        logger.error("failed to restore sat-out cooldowns: %s", e)
+                    logger.warning("sat-out retry produced no matches; restored %d cooldowns", len(sat_pairs))
+
                 if still_out:
                     logger.warning("%d servers still unmatched after cooldown reset: %s", len(still_out), still_out)
 

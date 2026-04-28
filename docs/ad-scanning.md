@@ -41,7 +41,7 @@ If regex passes, the ad is sent to `claude-haiku-4-5-20251001` with prompt cachi
 
 Scan cache key: `{claude_cache_version}:claude:{ad_hash}` — TTL 30 days. Results reused until ad content changes.
 
-Timeout: 30 seconds via `asyncio.wait_for`. On timeout, `sus=False` confidence 0.5 is stored — ad passes through. This is a known gap (see AUDIT.md).
+Timeout: 30 seconds via `asyncio.wait_for`. On timeout, `sus=False` confidence 0.5 is stored — ad passes through. This is a safety tradeoff (reject on failure vs. accept on timeout).
 
 ### Scan Result
 

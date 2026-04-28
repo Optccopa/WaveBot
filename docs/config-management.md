@@ -29,7 +29,7 @@ Corrupted cache values (bad JSON) are deleted on read so the next call falls thr
 Only fields in `ALLOWED_COLUMNS` can be set via `ConfigManager.set`:
 
 ```python
-{"partner_channel", "ad_channel", "member_role", "partner_ping_role", "log_channel"}
+{"partner_channel", "ad_channel", "member_role", "partner_ping_role", "log_channel", "partner_delay"}
 ```
 
 `premium` is not settable through the ConfigManager API — it must be set directly in Postgres.

@@ -2,3 +2,6 @@ tests/
 docker/
 *.md
 .gitignore
+.claude/
+audits/
+docs/

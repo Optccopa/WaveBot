@@ -15,3 +15,5 @@
 - Ignore tests/ the files are temp testing files that are kept around.
 - Fixes should be surgical, avoid changing any surrounding code.
 - If anything in src/prompts.py is updated you must also update the claude cache version in config.yaml.
+### The Council
+- If the user asks for code reviews reffer to COUNCIL.md for subagent review guidelines
