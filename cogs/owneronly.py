@@ -215,9 +215,9 @@ class OwnerOnly(commands.Cog):
                 try:
                     invites = await partner_channel.invites()
                     invite_url = invites[0].url if invites else (await partner_channel.create_invite(max_age=604800)).url
-                    asyncio.sleep(1)
                 except discord.Forbidden:
                     pass
+                await asyncio.sleep(self.bot.yaml_config['delays']['invite_fetch'])
             value = (
                 f"Members: `{guild.member_count}`\n"
                 f"Status: {':green_circle:' if all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role]) else ':red_circle:'}\n"
@@ -356,6 +356,7 @@ class OwnerOnly(commands.Cog):
                     invite_url = "Missing permissions"
             elif partner_channel_id and not partner_channel:
                 invite_url = "Channel ID set but not resolved"
+            await asyncio.sleep(1)
 
             def status(val, id_val=None):
                 if val:

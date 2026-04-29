@@ -82,6 +82,7 @@ class Partner(commands.Cog):
         self.redis: Redis = bot.redis
         self.db_pool: Pool = bot.db_pool
         self._partner_lock = asyncio.Lock()
+        self._scan_semaphore = asyncio.Semaphore(3)
         self.client: AsyncAnthropic = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
     partnerGroup = discord.app_commands.Group(
@@ -314,13 +315,14 @@ class Partner(commands.Cog):
                 ver = self.bot.yaml_config['cache']['claude_cache_version']
                 cached = await self.redis.get(f"{ver}:claude:{ad_hash}")
                 if not cached:
-                    try:
-                        scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=30.0)
-                    except asyncio.TimeoutError:
-                        scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
-                    cached = json.dumps(scan_result, indent=2)
-                    await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=2592000)
-                    await asyncio.sleep(0)
+                    async with self._scan_semaphore:
+                        try:
+                            scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=30.0)
+                        except asyncio.TimeoutError:
+                            scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
+                        cached = json.dumps(scan_result, indent=2)
+                        await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=2592000)
+                        await asyncio.sleep(self.bot.yaml_config['delays']['scan_ad'])
                 logger.info("cached: %s scan result: %s", guild_id, cached)
                 await self.redis.set(f"ads:{guild_id}", PING_RE.sub("", ad_message))
                 return True
@@ -344,7 +346,7 @@ class Partner(commands.Cog):
                 if log_channel:
                     try:
                         await log_channel.send(embed=missing_channel_embed)
-                    except discord.Forbidden:
+                    except discord.HTTPException:
                         pass
                 continue
             ad_message = None
@@ -357,13 +359,14 @@ class Partner(commands.Cog):
                     ver = self.bot.yaml_config['cache']['claude_cache_version']
                     cached = await self.redis.get(f"{ver}:claude:{ad_hash}")
                     if not cached:
-                        try:
-                            scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=30.0)
-                        except asyncio.TimeoutError:
-                            scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
-                        cached = json.dumps(scan_result, indent=2)
-                        await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=2592000)
-                        await asyncio.sleep(0)
+                        async with self._scan_semaphore:
+                            try:
+                                scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=30.0)
+                            except asyncio.TimeoutError:
+                                scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
+                            cached = json.dumps(scan_result, indent=2)
+                            await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=2592000)
+                            await asyncio.sleep(self.bot.yaml_config['delays']['scan_ad'])
                     logger.info("cached: %s scan result: %s", guild.id, cached)
                     break
             if ad_message:
@@ -374,7 +377,7 @@ class Partner(commands.Cog):
                 if log_channel:
                     try:
                         await log_channel.send(embed=missing_ad_embed)
-                    except discord.Forbidden:
+                    except discord.HTTPException:
                         pass
             await asyncio.sleep(0)
         batch = self.bot.yaml_config['cache']['pipeline_batch']
@@ -447,7 +450,7 @@ class Partner(commands.Cog):
                 if log_channel:
                     try:
                         await log_channel.send(embed=discord.Embed(title="Partner channel not found", description="Use `/config set` to set one", color=discord.Color.dark_red()))
-                    except discord.Forbidden:
+                    except discord.HTTPException:
                         pass
                 continue
 
@@ -458,7 +461,7 @@ class Partner(commands.Cog):
                 if log_channel:
                     try:
                         await log_channel.send(embed=discord.Embed(title="Missing permissions", description="I need `Send Messages` and `Mention Everyone` permissions in the partner channel", color=discord.Color.dark_red()))
-                    except discord.Forbidden:
+                    except discord.HTTPException:
                         pass
                 continue
 
@@ -474,7 +477,7 @@ class Partner(commands.Cog):
                 if log_channel:
                     try:
                         await log_channel.send(embed=discord.Embed(title="Requirements not met", description=reason, color=discord.Color.dark_red()))
-                    except discord.Forbidden:
+                    except discord.HTTPException:
                         pass
                 continue
 
@@ -505,6 +508,7 @@ class Partner(commands.Cog):
             guild_b = self.bot.get_guild(b)
             logger.info("attempting pair: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             ch1, ch2 = await self.partner(a, b)
+            await asyncio.sleep(self.bot.yaml_config['delays']['partner_pair'])
             if ch1:
                 logger.debug("success: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             else:

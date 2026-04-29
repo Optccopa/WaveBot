@@ -277,6 +277,7 @@ class SetupCog(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="setup", description="Interactive guide to set up WaveBot for your server")
+    @app_commands.checks.cooldown(1, 10)
     @has_management()
     async def setup(self, interaction: discord.Interaction):
         state = SetupState()

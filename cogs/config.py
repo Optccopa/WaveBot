@@ -13,6 +13,7 @@ class Setup(commands.Cog):
     )
 
     @config.command(name="set", description="Configure this bot")
+    @app_commands.checks.cooldown(1, 10)
     @has_management()
     @app_commands.describe(
         partner_channel="Channel to send partners",
