@@ -35,11 +35,12 @@
 | `bot:guild_ids` | Set | none | Guild IDs where bot is present | `main.py` on_ready / on_guild_join / on_guild_remove |
 | `bot:guild_info` | Hash | none | Field = `guild_id`, value = `{"name","icon","member_count"}` JSON | `main.py` on_ready / on_guild_join / on_guild_remove |
 | `config:{guild_id}` | String | 30d | `guild_config` row as JSON | `src/configmanager.py` |
-| `ads:{guild_id}` | String | none | Ping-stripped ad message text | `cogs/cache_ads.py` ad_loop |
-| `{claude_ver}:claude:{sha256_12}` | String | 30d | Claude Haiku scan result JSON `{sus,confidence,ai_hits,regex_hits,user_reason}` | `cogs/cache_ads.py` scan_ad |
+| `ads:{guild_id}` | String | none | Ping-stripped ad message text | `cogs/partner.py` index_ad / index_ads |
+| `{claude_ver}:claude:{sha256_12}` | String | 30d | Claude Haiku scan result JSON `{sus,confidence,ai_hits,regex_hits,user_reason}` | `cogs/partner.py` scan_ad |
 | `{cache_ver}:partner_cooldown:{min_id}:{max_id}` | String | 3d | `1` — signals cooldown active between two guilds | `cogs/partner.py` set_cooldown |
-| `last_partner_run` | String | 3h | `1` — distributed lock preventing multi-instance double-run | `cogs/partner.py` partner_loop |
-| `whitelisted_links` | Set | none | Link strings stripped from ads before scan | `cogs/cache_ads.py` cog_load / `cogs/owneronly.py` |
+| `last_partner_run` | String | 5.5h | `1` — distributed lock preventing multi-instance double-run | `cogs/partner.py` partner_loop |
+| `invite:{channel_id}` | String | 6h | Discord invite URL for a partner channel | `cogs/owneronly.py` list_servers / debug_all_servers |
+| `whitelisted_links` | Set | none | Link strings stripped from ads before scan | `cogs/partner.py` cog_load / `cogs/owneronly.py` |
 | `panel:guilds:{user_id}` | String | 5m | JSON list of user's Discord guilds with permissions/counts | `site/app.py` _get_user_guilds |
 | `ratelimit:get:{user_id}` | String | 60s | Request counter — max 30 GET requests/min | `site/app.py` _check_rate_limit |
 | `ratelimit:config:{user_id}` | String | 60s | Request counter — max 10 config saves/min | `site/app.py` _check_rate_limit |

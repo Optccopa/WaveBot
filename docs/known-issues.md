@@ -44,6 +44,10 @@ If the bot internal HTTP server is unreachable (bot crashed, network issue), the
 
 Related to above: `guild.member_count` at ready time is accurate, but between ready events it is not updated in the Redis hash. The web panel displays stale member counts if the bot has been running for a while without a restart.
 
+## Discord 503 Errors Crash Partner Loop — FIXED
+
+Previously `log_channel.send()` calls in `index_ads()` and `_run_partner_round()` only caught `discord.Forbidden`. A transient `discord.DiscordServerError` (503) would propagate up and abort the entire loop, surfacing as a `CommandInvokeError`. All such calls now catch `discord.HTTPException` (parent of both 403 and 503) so transient Discord errors are silently skipped and the loop continues.
+
 ## No Retry if Partner Send Fails Halfway
 
 **File:** `cogs/partner.py`, `partner()` method

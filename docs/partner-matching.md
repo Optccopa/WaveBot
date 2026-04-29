@@ -33,7 +33,7 @@ This approximates maximum matching without Blossom complexity. It won't always f
 
 ## Cooldowns
 
-Cooldown TTL: `times.partner_cooldown_ttl` in `config.yaml` (currently 259200s = 3 days).
+Cooldown TTL: `cache.partner_cooldown` in `config.yaml` (currently 259200s = 3 days).
 
 Key format: `{cache_version}:partner_cooldown:{min(a,b)}:{max(a,b)}`
 
@@ -63,12 +63,14 @@ Guest always pings `member`.
 
 Pings in the stored ad text are stripped before storage — `parse_ping` adds the correct ping at send time based on each server's config.
 
+After each pair is sent, `asyncio.sleep(delays.partner_pair)` (default 3s) runs unconditionally to pace Discord API calls.
+
 ## Concurrency
 
 Two locks prevent double-runs:
 
 - `asyncio.Lock` (`self._partner_lock`): prevents concurrent runs within the same process instance. Checked before acquiring, not just inside the `async with` block, so the check itself is non-blocking.
-- Redis NX key `last_partner_run` (TTL = `times.redis_lock_ttl`, 10800s): prevents concurrent runs across multiple bot instances (multi-shard / multi-container).
+- Redis NX key `last_partner_run` (TTL = `cache.redis_lock`, 19800s): prevents concurrent runs across multiple bot instances (multi-shard / multi-container).
 
 `forceloop` acquires the asyncio lock and force-sets the Redis key, bypassing the NX check.
 

@@ -48,7 +48,7 @@ See [validation.md](validation.md) for thresholds and logic.
 
 ## Bot Command — `/config set`
 
-`cogs/config.py`. Requires `Manage Guild`, `Administrator`, or bot owner (`has_management` check). Accepts any subset of the five config fields as Discord channel/role pickers. Merges submitted fields with existing config, validates if all three key fields are present, saves if valid.
+`cogs/config.py`. Requires `Manage Guild`, `Administrator`, or bot owner (`has_management` check). Cooldown: 1 use per 10 seconds per user. Accepts any subset of the five config fields as Discord channel/role pickers. Merges submitted fields with existing config, validates if all three key fields are present, saves if valid.
 
 If `ad_channel` is in the updated fields, `partner_cog.index_ad(guild_id)` is called after saving. The confirmation message indicates whether the ad was cached successfully or not found.
 

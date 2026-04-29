@@ -15,6 +15,12 @@ Ad scanning lives in `cogs/partner.py` (Partner cog). There is no dedicated scan
 
 `index_ads()` runs at the top of every partner round before eligibility checks, ensuring ads are fresh before matching. Also callable directly by owner tooling.
 
+## Rate Limiting
+
+`scan_ad()` calls are gated by `self._scan_semaphore` (`asyncio.Semaphore(3)`) — at most 3 concurrent Anthropic API calls across all entry points. The `asyncio.wait_for` timeout is applied inside the semaphore block so the 30s clock starts only after a slot is acquired.
+
+After each scan (whether new or from `index_ads` loop), `asyncio.sleep(delays.scan_ad)` (default 1s) runs to pace sequential calls.
+
 ## Ad Discovery (`index_ad`)
 
 For a single guild:

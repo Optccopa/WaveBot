@@ -70,7 +70,11 @@ Tables are created automatically on bot startup if they don't exist:
 - `cache.cache_version` — prefix for Redis cooldown keys (bump to reset all cooldowns)
 - `cache.claude_cache_version` — prefix for Claude scan result cache (bump to invalidate scan results)
 - `cache.pipeline_batch` — Redis pipeline batch size for ad writes
-- `times.redis_lock_ttl` — TTL for the inter-instance partner loop lock (seconds)
-- `times.partner_cooldown_ttl` — TTL for partner pair cooldowns (seconds)
+- `cache.redis_lock` — TTL for the inter-instance partner loop lock (seconds, default 19800)
+- `cache.partner_cooldown` — TTL for partner pair cooldowns (seconds, default 259200 = 3 days)
+- `cache.invite` — TTL for cached Discord invite URLs in Redis (seconds, default 21600 = 6h)
+- `delays.partner_pair` — sleep between each partner pair send (seconds, default 3)
+- `delays.scan_ad` — sleep after each Anthropic API scan call (seconds, default 1)
+- `delays.invite_fetch` — sleep after each Discord invite API call in owner commands (seconds, default 1)
 - `bot.support_invite` — support server invite URL used in DMs
 - `requirements.*` — validation thresholds for `validate_server`
