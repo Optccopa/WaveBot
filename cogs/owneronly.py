@@ -2,7 +2,6 @@ from redis.asyncio import Redis
 from asyncpg import Pool
 from discord.ext import commands
 from discord import app_commands
-from io import StringIO
 from src.checks import is_owner
 import discord, json, traceback, textwrap, asyncio
 

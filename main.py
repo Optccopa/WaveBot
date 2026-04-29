@@ -106,6 +106,7 @@ class Bot(commands.AutoShardedBot):
         super().__init__(
             command_prefix="p!",
             intents=intents,
+            help_command=None,
             chunk_guilds_at_startup=True
         )
 
