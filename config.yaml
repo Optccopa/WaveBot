@@ -13,9 +13,13 @@ delays:
 
 bot:
   support_invite: https://discord.gg/uacMXzbAfg
+  support_guild: 1491681410111635478
 
 requirements:
   member_role_min_coverage: 0.80
   channel_visibility_min: 0.95
   partner_role_min_coverage: 0.08
   minimum_membercount: 50
+
+roles:
+  bot_user: 1498854384518566060

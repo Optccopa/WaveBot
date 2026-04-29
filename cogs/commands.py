@@ -1,10 +1,10 @@
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 class BotCommands(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: commands.Bot = bot
     
     botGroup = app_commands.Group(
         name="bot",
@@ -72,6 +72,38 @@ class BotCommands(commands.Cog):
         )
 
         await ctx.reply(embed=embed)
+
+    @tasks.loop(minutes=5)
+    async def userloop(self):
+        support_guild = self.bot.get_guild(self.bot.yaml_config['bot']['support_guild'])
+        if not support_guild:
+            return
+        role = support_guild.get_role(self.bot.yaml_config['roles']['bot_user'])
+        if not role:
+            return
+        owner_ids = {g.owner_id for g in self.bot.guilds if g.owner_id}
+        for member in list(role.members):
+            if member.id not in owner_ids:
+                try:
+                    await member.remove_roles(role)
+                except discord.Forbidden:
+                    pass
+        for owner_id in owner_ids:
+            member = support_guild.get_member(owner_id)
+            if member and role not in member.roles:
+                try:
+                    await member.add_roles(role)
+                except discord.Forbidden:
+                    pass
+    @userloop.before_loop
+    async def before_five_minute_loop(self):
+        await self.bot.wait_until_ready()
+
+    async def cog_load(self):
+        self.userloop.start()
+
+    async def cog_unload(self):
+        self.userloop.cancel()
 
 async def setup(bot):
     await bot.add_cog(BotCommands(bot))
