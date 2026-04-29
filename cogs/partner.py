@@ -115,7 +115,7 @@ class Partner(commands.Cog):
 
     async def set_cooldown(self, a: int, b: int):
         key = f"{self.bot.yaml_config['cache']['cache_version']}:partner_cooldown:{min(a,b)}:{max(a,b)}"
-        await self.redis.set(key, 1, ex=self.bot.yaml_config['times']['partner_cooldown_ttl'])
+        await self.redis.set(key, 1, ex=self.bot.yaml_config['cache']['partner_cooldown'])
         logger.debug("SET %s (7d)", key)
 
     async def validate_server(self, guild: discord.Guild, config: dict | None = None) -> str | None:
@@ -521,7 +521,7 @@ class Partner(commands.Cog):
             logger.info("skipping — already running in this process")
             return
         async with self._partner_lock:
-            acquired = await self.redis.set("last_partner_run", 1, nx=True, ex=self.bot.yaml_config['times']['redis_lock_ttl'])
+            acquired = await self.redis.set("last_partner_run", 1, nx=True, ex=self.bot.yaml_config['cache']['redis_lock'])
             if not acquired:
                 logger.info("skipping — another instance already running (last_partner_run key exists)")
                 return
@@ -704,7 +704,7 @@ class Partner(commands.Cog):
             return
         async with self._partner_lock:
             logger.info("[forceloop] force-acquired lock, proceeding")
-            await self.redis.set("last_partner_run", 1, ex=self.bot.yaml_config['times']['redis_lock_ttl'])
+            await self.redis.set("last_partner_run", 1, ex=self.bot.yaml_config['cache']['redis_lock'])
             await self._run_partner_round()
         await interaction.followup.send("Partner loop complete", ephemeral=True)
 
