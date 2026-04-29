@@ -320,6 +320,7 @@ class Partner(commands.Cog):
                         scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
                     cached = json.dumps(scan_result, indent=2)
                     await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=2592000)
+                    await asyncio.sleep(0)
                 logger.info("cached: %s scan result: %s", guild_id, cached)
                 await self.redis.set(f"ads:{guild_id}", PING_RE.sub("", ad_message))
                 return True
@@ -362,6 +363,7 @@ class Partner(commands.Cog):
                             scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
                         cached = json.dumps(scan_result, indent=2)
                         await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=2592000)
+                        await asyncio.sleep(0)
                     logger.info("cached: %s scan result: %s", guild.id, cached)
                     break
             if ad_message:
@@ -384,6 +386,7 @@ class Partner(commands.Cog):
                 for key, value in chunk:
                     pipe.set(key, value)
                 await pipe.execute()
+            await asyncio.sleep(0)
         return summary
 
     async def cog_load(self):
