@@ -70,7 +70,7 @@ class BotCommands(commands.Cog):
             value="\n".join(public_commands),
             inline=False
         )
-
+ 
         await ctx.reply(embed=embed)
 
     @tasks.loop(minutes=5)

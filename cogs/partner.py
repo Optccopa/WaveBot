@@ -258,7 +258,7 @@ class Partner(commands.Cog):
         logger.debug("sending ad1 -> #%s in %s (%d)", channel2.name, guild2.name, server2_id)
         try:
             await channel2.send(ad1, view=AddBotView())
-            logger.debug("sent ad1 -> %d #%s OK", server2_id, channel2.name)
+            logger.info("sent ad1 -> %d #%s OK", server2_id, channel2.name)
         except Exception as e:
             logger.error("failed sending to %d #%s: %s", server2_id, channel2.name, e)
             return None, None
