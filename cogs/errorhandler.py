@@ -24,6 +24,8 @@ class ErrorHandler(commands.Cog):
         elif isinstance(error, discord.app_commands.CommandOnCooldown):
             retry_at = int(time() + error.retry_after)
             msg = f"Slow down, Retry at: <t:{retry_at}:R>"
+        elif isinstance(error, discord.app_commands.CheckFailure):
+            msg = "You don't have permission to use this command."
         elif isinstance(error, discord.Forbidden):
             log.warning("Forbidden in app command %s: %s", interaction.command, error)
             try:
