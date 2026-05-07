@@ -61,6 +61,26 @@ a:hover { text-decoration: underline; }
 }
 .nav-brand:hover { text-decoration: none; opacity: 0.8; }
 
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-left: 1.5rem;
+    flex: 1;
+}
+.nav-link {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+}
+.nav-link:hover {
+    color: var(--text);
+    background: var(--surface2);
+    text-decoration: none;
+}
+
 .nav-user {
     display: flex;
     align-items: center;
@@ -118,6 +138,101 @@ a:hover { text-decoration: underline; }
     color: var(--text-muted);
     margin-top: 0.3rem;
     font-size: 0.875rem;
+}
+
+.legal-doc section { margin-bottom: 1.5rem; }
+.legal-doc h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+}
+.legal-doc p, .legal-doc li {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    line-height: 1.55;
+}
+.legal-doc ul { padding-left: 1.25rem; margin: 0.4rem 0; }
+.legal-doc li { margin-bottom: 0.3rem; }
+.legal-doc code {
+    background: var(--surface2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+.legal-doc a { color: var(--accent); }
+
+.hero {
+    text-align: center;
+    padding: 3rem 1rem 2.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2.5rem;
+}
+.hero-title {
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: var(--accent-dark);
+    margin-bottom: 0.5rem;
+}
+.hero-tagline {
+    font-size: 1.15rem;
+    color: var(--text);
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+}
+.hero-pitch {
+    color: var(--text-muted);
+    max-width: 540px;
+    margin: 0 auto 1.5rem;
+    line-height: 1.5;
+}
+.hero-stats {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    margin-bottom: 1.75rem;
+}
+.stat { display: flex; flex-direction: column; align-items: center; }
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--accent);
+}
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.hero-cta {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.feature {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+}
+.feature h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.4rem;
+}
+.feature p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.5;
 }
 
 /* ============================================================

@@ -4,6 +4,20 @@
 
 `site/app.py` is an aiohttp web application serving the guild configuration dashboard. It is a separate Docker service (`site`) that talks to the bot service (`app`) via an internal HTTP endpoint.
 
+## Routes
+
+| Path | Auth | Purpose |
+|------|------|---------|
+| `/` | public | Landing page — bot pitch, live stats (`bot:guild_ids` count + sum of `bot:guild_info` member_count), invite button, login/manage CTA |
+| `/servers` | login | User's guild list (configurable servers) |
+| `/server/{guild_id}` | login + manage_guild | Per-guild config GET/POST |
+| `/login` | public, IP-rate-limited | Starts OAuth flow |
+| `/callback` | public, IP-rate-limited | OAuth code exchange, redirects to `/servers` |
+| `/logout` | login | CSRF-protected POST |
+| `/tos` | public | Terms of Service |
+| `/privacy` | public | Privacy Policy |
+| `/static/*` | public | CSS/assets (prefix match `/static/` only — `/staticx` is auth-gated) |
+
 ## Authentication
 
 Discord OAuth2 (`identify guilds` scopes). Flow:
@@ -22,8 +36,10 @@ Only guilds where the user has `Manage Guild` AND the bot is present are shown. 
 
 - GET routes: 30 requests/minute per user (`ratelimit:get:{user_id}`)
 - Config save: 10 saves/minute per user (`ratelimit:config:{user_id}`)
+- `/login`: 10 requests/minute per client IP (`ratelimit:login:{ip}`)
+- `/callback`: 10 requests/minute per client IP (`ratelimit:callback:{ip}`)
 
-Implemented with atomic Redis SET NX + INCR to avoid race conditions.
+Client IP is taken from `X-Forwarded-For` (first value) when present, else `request.remote`. Implemented with atomic Redis SET NX + INCR to avoid race conditions.
 
 ## Config Save Flow (`POST /server/{guild_id}`)
 

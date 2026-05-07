@@ -70,8 +70,8 @@ async def security_headers_middleware(request, handler):
 
 @web.middleware
 async def auth_middleware(request, handler):
-    public = {"/login", "/callback"}
-    if request.path not in public and not request.path.startswith("/static"):
+    public = {"/", "/login", "/callback", "/tos", "/privacy"}
+    if request.path not in public and not request.path.startswith("/static/"):
         session = await aiohttp_session.get_session(request)
         if not session.get("user"):
             raise web.HTTPFound("/login")
@@ -164,6 +164,13 @@ async def _discord_get(http: aiohttp.ClientSession, token: str, path: str):
         return await resp.json()
 
 
+def _client_ip(request: web.Request) -> str:
+    fwd = request.headers.get("X-Forwarded-For")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.remote or "unknown"
+
+
 async def _check_rate_limit(redis: Redis, key: str, max_requests: int, window: int):
     # SET NX EX is atomic — eliminates INCR/EXPIRE race
     await redis.set(key, 0, nx=True, ex=window)
@@ -178,6 +185,8 @@ async def _check_rate_limit(redis: Redis, key: str, max_requests: int, window: i
 
 @routes.get("/login")
 async def handle_login(request: web.Request) -> web.Response:
+    redis: Redis = request.app["redis"]
+    await _check_rate_limit(redis, f"ratelimit:login:{_client_ip(request)}", max_requests=10, window=60)
     session = await aiohttp_session.get_session(request)
     state = secrets.token_urlsafe(16)
     session["oauth_state"] = state
@@ -196,6 +205,8 @@ async def handle_login(request: web.Request) -> web.Response:
 
 @routes.get("/callback")
 async def handle_callback(request: web.Request) -> web.Response:
+    redis: Redis = request.app["redis"]
+    await _check_rate_limit(redis, f"ratelimit:callback:{_client_ip(request)}", max_requests=10, window=60)
     session = await aiohttp_session.get_session(request)
 
     code = request.rel_url.query.get("code")
@@ -245,7 +256,7 @@ async def handle_callback(request: web.Request) -> web.Response:
     }
     session["access_token"] = access_token
 
-    raise web.HTTPFound("/")
+    raise web.HTTPFound("/servers")
 
 
 @routes.post("/logout")
@@ -261,6 +272,50 @@ async def handle_logout(request: web.Request) -> web.Response:
 
 
 @routes.get("/")
+async def handle_home(request: web.Request) -> web.Response:
+    session = await aiohttp_session.get_session(request)
+    redis: Redis = request.app["redis"]
+    guild_count = await redis.scard("bot:guild_ids")
+    member_total = 0
+    info = await redis.hgetall("bot:guild_info")
+    for raw in info.values():
+        try:
+            member_total += json.loads(raw).get("member_count") or 0
+        except Exception:
+            pass
+    client_id = os.environ.get("DISCORD_CLIENT_ID", "")
+    invite_url = (
+        f"https://discord.com/oauth2/authorize?client_id={client_id}"
+        f"&scope=bot+applications.commands&permissions=274877992000"
+    ) if client_id else None
+    return aiohttp_jinja2.render_template("home.html", request, {
+        "user": session.get("user"),
+        "guild_count": guild_count,
+        "member_total": member_total,
+        "invite_url": invite_url,
+        "csrf_token": _csrf_token(session) if session.get("user") else None,
+    })
+
+
+@routes.get("/tos")
+async def handle_tos(request: web.Request) -> web.Response:
+    session = await aiohttp_session.get_session(request)
+    return aiohttp_jinja2.render_template("tos.html", request, {
+        "user": session.get("user"),
+        "csrf_token": _csrf_token(session) if session.get("user") else None,
+    })
+
+
+@routes.get("/privacy")
+async def handle_privacy(request: web.Request) -> web.Response:
+    session = await aiohttp_session.get_session(request)
+    return aiohttp_jinja2.render_template("privacy.html", request, {
+        "user": session.get("user"),
+        "csrf_token": _csrf_token(session) if session.get("user") else None,
+    })
+
+
+@routes.get("/servers")
 async def handle_guild_list(request: web.Request) -> web.Response:
     session = await aiohttp_session.get_session(request)
     user = session["user"]

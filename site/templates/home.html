@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}WaveBot{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1 class="hero-title">WaveBot</h1>
+    <p class="hero-tagline">Automated Discord server partnerships.</p>
+    <p class="hero-pitch">Pair with similar servers every six hours. Send your ad. Receive theirs. Hands-off growth with built-in moderation.</p>
+
+    <div class="hero-stats">
+        <div class="stat">
+            <span class="stat-value">{{ guild_count }}</span>
+            <span class="stat-label">servers</span>
+        </div>
+        <div class="stat">
+            <span class="stat-value">{{ member_total }}</span>
+            <span class="stat-label">members</span>
+        </div>
+    </div>
+
+    <div class="hero-cta">
+        {% if invite_url %}
+        <a href="{{ invite_url }}" class="btn btn-configure">Add to Discord</a>
+        {% endif %}
+        {% if user %}
+        <a href="/servers" class="btn">Manage your servers</a>
+        {% else %}
+        <a href="/login" class="btn">Log in</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="features">
+    <div class="feature">
+        <h3>Server pairing</h3>
+        <p>Servers are matched on a 6-hour cycle, optimised so the most-constrained servers always get a partner first.</p>
+    </div>
+    <div class="feature">
+        <h3>Ad scanning</h3>
+        <p>Every ad is scanned by an automated moderator before distribution &mdash; scams, NSFW, and abusive content are flagged.</p>
+    </div>
+    <div class="feature">
+        <h3>Web panel</h3>
+        <p>Configure your partner channel, ad channel, member role, and ping role from a clean web UI &mdash; no slash-command juggling.</p>
+    </div>
+    <div class="feature">
+        <h3>Cooldowns &amp; fairness</h3>
+        <p>Servers that recently partnered are automatically held back for three days so your community sees fresh ads each round.</p>
+    </div>
+</div>
+{% endblock %}

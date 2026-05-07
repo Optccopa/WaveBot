@@ -44,6 +44,8 @@
 | `panel:guilds:{user_id}` | String | 5m | JSON list of user's Discord guilds with permissions/counts | `site/app.py` _get_user_guilds |
 | `ratelimit:get:{user_id}` | String | 60s | Request counter — max 30 GET requests/min | `site/app.py` _check_rate_limit |
 | `ratelimit:config:{user_id}` | String | 60s | Request counter — max 10 config saves/min | `site/app.py` _check_rate_limit |
+| `ratelimit:login:{ip}` | String | 60s | Request counter — max 10 `/login` requests/min per IP | `site/app.py` _check_rate_limit |
+| `ratelimit:callback:{ip}` | String | 60s | Request counter — max 10 `/callback` requests/min per IP | `site/app.py` _check_rate_limit |
 
 ### Key format variables
 - `{cache_ver}` — `config.yaml` → `cache.cache_version` (e.g. `v1`)
