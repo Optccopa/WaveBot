@@ -1,7 +1,7 @@
 import discord, os, asyncio, asyncpg, sys, logging, aiohttp, yaml, json
 from aiohttp import web
 from redis.asyncio import Redis
-from discord.ext import commands
+from discord.ext import commands, tasks
 from src.configmanager import ConfigManager
 from src.utils import retry_with_backoff
 
@@ -112,6 +112,7 @@ class Bot(commands.AutoShardedBot):
 
         self.db_pool = None
         self.redis = None
+        self._event_counts = {"joins": 0, "leaves": 0, "messages": 0, "reactions": 0}
 
         with open("config.yaml", "r") as f:
             self.yaml_config = yaml.safe_load(f)
@@ -186,6 +187,8 @@ class Bot(commands.AutoShardedBot):
 
         await retry_with_backoff(self.tree.sync)
 
+        self.presence_loop.start()
+
     async def start_with_retries(self):
         for i in range(3):
             try:
@@ -225,12 +228,36 @@ class Bot(commands.AutoShardedBot):
             await self.redis.sadd("bot:early_access_guilds", *[r["guild_id"] for r in ea_rows])
 
     async def on_shard_ready(self, shard_id: int):
-        await self.change_presence(
-            activity=discord.CustomActivity(name=f"Shard {shard_id + 1}/{self.shard_count}")
-        )
         log.info("Shard %d ready", shard_id)
 
+    async def on_member_join(self, member: discord.Member):
+        self._event_counts["joins"] += 1
+
+    async def on_member_remove(self, member: discord.Member):
+        self._event_counts["leaves"] += 1
+
+    async def on_message(self, message: discord.Message):
+        self._event_counts["messages"] += 1
+        await self.process_commands(message)
+
+    async def on_reaction_add(self, reaction: discord.Reaction, user):
+        self._event_counts["reactions"] += 1
+
+    @tasks.loop(minutes=1)
+    async def presence_loop(self):
+        c = self._event_counts
+        total = c["joins"] + c["leaves"] + c["messages"] + c["reactions"]
+        await self.change_presence(
+            activity=discord.CustomActivity(name=f"Events / Minute: {total}")
+        )
+        self._event_counts = {"joins": 0, "leaves": 0, "messages": 0, "reactions": 0}
+
+    @presence_loop.before_loop
+    async def before_presence_loop(self):
+        await self.wait_until_ready()
+
     async def close(self):
+        self.presence_loop.cancel()
         if self.db_pool: await self.db_pool.close()
         if self.redis: await self.redis.aclose()
         for handler in logging.getLogger().handlers:
