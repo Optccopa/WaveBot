@@ -1,7 +1,7 @@
 # Project Rules
 
 ### Docs
-- Anytime you update code you must also update docs/ and audit files in audits/ with any updated info, use the same format already present.
+- Anytime you update code you must also update docs/ with any updated info, use the same format already present.
 - Always check docs/ for information before writing code or fixing issues.
 ### Caching
 - Cache expensive computations and frequent reads in Redis.

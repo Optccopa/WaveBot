@@ -53,6 +53,10 @@ Timeout: 30 seconds via `asyncio.wait_for`. On timeout, `sus=False` confidence 0
 
 Scan result is logged and cached but **does not gate ad distribution**. `sus: true` ads are still stored and sent during partner rounds. Moderation is informational only at this stage.
 
+### Staff Notification on Flag
+
+When `sus: true`, an embed is posted to `channels.flagged_ads` in `bot.support_guild` (both from `config.yaml`) pinging `roles.staff`. Embed contains the result JSON and the ad text, each truncated to 1000 chars to stay under Discord's 1024 field cap. If the guild or channel is uncached, the notification is skipped and an error is logged. Send failures are caught and logged with `exc_info`; the scan result is still returned to the caller.
+
 ## Ping Stripping
 
 Before storing, all pings (`@everyone`, `@here`, `<@&...>`) are removed via `PING_RE`. The correct ping is re-added at send time by `parse_ping` based on the receiving server's config and size-based ping tier.

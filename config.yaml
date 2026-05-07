@@ -23,3 +23,7 @@ requirements:
 
 roles:
   bot_user: 1498854384518566060
+  staff: 1491723800830541855
+
+channels:
+  flagged_ads: 1502016332978192565

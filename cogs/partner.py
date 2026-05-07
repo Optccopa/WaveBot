@@ -293,6 +293,38 @@ class Partner(commands.Cog):
         except (json.JSONDecodeError, IndexError):
             logger.error("failed to parse claude response for ad: %.100s", ad)
             result = {"sus": True, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Your ad could not be automatically verified. Please review the server rules and resubmit."}
+
+        if result['sus']:
+            guild: discord.Guild = self.bot.get_guild(self.bot.yaml_config['bot']['support_guild'])
+            channel: discord.TextChannel = guild.get_channel(self.bot.yaml_config['channels']['flagged_ads']) if guild else None
+            if channel:
+                result_str = str(result)
+                if len(result_str) > 1000:
+                    result_str = result_str[:1000] + "..."
+                ad_str = ad if len(ad) <= 1000 else ad[:1000] + "..."
+                embed = discord.Embed(
+                    title="Ad flagged",
+                    color=discord.Color.fuchsia()
+                )
+                embed.add_field(
+                    name="Json",
+                    value=f"```\n{result_str}\n```",
+                    inline=False
+                )
+                embed.add_field(
+                    name="Ad",
+                    value=f"```\n{ad_str}\n```",
+                    inline=False
+                )
+                try:
+                    await channel.send(
+                        f"<@&{self.bot.yaml_config['roles']['staff']}> Flagged Ad, Confidence: {result['confidence']}",
+                        embed=embed
+                    )
+                except Exception:
+                    logger.error("Failed sending Ad scan result to channel", exc_info=True)
+            else:
+                logger.error("flagged_ads channel or support_guild not found")
         return result
 
     async def index_ad(self, guild_id: int) -> bool:
@@ -622,6 +654,45 @@ class Partner(commands.Cog):
                 color=discord.Color.green()
             )
 
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @partnerGroup.command(name="reqs", description="Show partner eligibility requirements and your server's current values")
+    @discord.app_commands.checks.cooldown(rate=1, per=10)
+    @has_management()
+    async def partner_reqs(self, interaction: discord.Interaction):
+        guild = interaction.guild
+        reqs = self.bot.yaml_config['requirements']
+        config = await self.bot.config.get(guild.id)
+
+        min_member = reqs['member_role_min_coverage']
+        min_visible = reqs['channel_visibility_min']
+        min_partner = reqs['partner_role_min_coverage']
+        min_count = reqs['minimum_membercount']
+
+        total = guild.member_count or 1
+        member_role = guild.get_role(config.get("member_role")) if config else None
+        partner_role = guild.get_role(config.get("partner_ping_role")) if config else None
+        partner_channel = guild.get_channel(config.get("partner_channel")) if config else None
+
+        member_pct = (len(member_role.members) / total) if member_role else 0.0
+        partner_pct = (len(partner_role.members) / total) if partner_role else 0.0
+        visible = bool(partner_channel and member_role and partner_channel.permissions_for(member_role).view_channel)
+
+        def mark(ok: bool) -> str:
+            return "✅" if ok else "❌"
+
+        lines = [
+            f"{mark(total >= min_count)} **Member count** — `{total}` / `{min_count}` required",
+            f"{mark(member_pct >= min_member)} **Member role coverage** — `{round(member_pct * 100)}%` / `{round(min_member * 100)}%` required" + ("" if member_role else " *(role not set)*"),
+            f"{mark(visible)} **Partner channel visible to member role** — `{round(min_visible * 100)}%` required" + ("" if partner_channel and member_role else " *(channel/role not set)*"),
+            f"{mark(partner_pct >= min_partner)} **Partner ping role coverage** — `{round(partner_pct * 100)}%` / `{round(min_partner * 100)}%` required" + ("" if partner_role else " *(role not set)*"),
+        ]
+
+        embed = discord.Embed(
+            title="Partner Requirements",
+            description="\n".join(lines),
+            color=discord.Color.fuchsia()
+        )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @partnerGroup.command(name="force")
