@@ -53,7 +53,7 @@ class BotCommands(commands.Cog):
         public_commands = [
             "- `/partner loopinfo` - Shows information on the partner loop like time and status",
             "- `/partner ad <guild_id>` - Pull a servers current cached ad message",
-            "- `/partner reqs <membercount>",
+            "- `/partner reqs <membercount>` - Show partner reqs scaled to a membercount",
             "- `p!ping` - Ping the bot and check status of services",
             "- `p!help` - Get help with commands (this message)"
         ]
