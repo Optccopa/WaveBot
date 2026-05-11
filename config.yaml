@@ -4,7 +4,7 @@ cache:
   pipeline_batch: 250
   invite: 21600
   redis_lock: 19800
-  partner_cooldown: 259200
+  partner_cooldown: 604800
 
 delays:
   partner_pair: 3

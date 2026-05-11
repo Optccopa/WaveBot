@@ -574,11 +574,11 @@ class Partner(commands.Cog):
         c4 = round(2000 * scale)
 
         lines = [
-            f"- 1 - {c1}` - none",
-            f"- {c1 + 1} - {c2} - partner",
-            f"- {c2 + 1} - {c3} - here",
-            f"- {c3 + 1} - {c4} - here + partner",
-            f"- {c4 + 1} - {membercount}`- member",
+            f"- **1 - {c1}** - none",
+            f"- **{c1 + 1} - {c2}** - partner",
+            f"- **{c2 + 1} - {c3}** - here",
+            f"- **{c3 + 1} - {c4}** - here + partner",
+            f"- **{c4 + 1} - {membercount}** - member",
         ]
 
         embed = discord.Embed(

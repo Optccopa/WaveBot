@@ -77,7 +77,7 @@ Two locks prevent double-runs:
 ## Commands
 
 - `/partner status` — guild owners see why their server may be skipped
-- `/partner reqs` — shows the ping-tier ranges from `get_req`, scaled to this guild's member count (which partner sizes trigger no-ping / partner / @here / @here+partner / member)
+- `/partner reqs [membercount]` — shows ping-tier ranges from `get_req` for a given member count (default 1000). Returns which partner sizes trigger no-ping / partner / @here / @here+partner / member, scaled to that count.
 - `/partner loopinfo` — shows next scheduled run time
 - `/partner loopforce` — bot owner only, runs a loop immediately
 - `/partner force <id1> <id2>` — bot owner only, forces a specific pair
