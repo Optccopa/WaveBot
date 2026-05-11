@@ -61,23 +61,6 @@ a:hover { text-decoration: underline; }
 }
 .nav-brand:hover { text-decoration: none; opacity: 0.8; }
 
-.nav-signin {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    padding: 3px 10px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    margin-left: 0.6rem;
-    transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-.nav-signin:hover {
-    color: var(--accent-dark);
-    border-color: var(--accent);
-    background: var(--surface2);
-    text-decoration: none;
-}
-
 .nav-links {
     display: flex;
     align-items: center;
