@@ -12,8 +12,6 @@ It is used in three places:
 
 The site also calls it indirectly via the internal HTTP bridge.
 
-`/partner reqs` surfaces the same thresholds plus the guild's live values for self-diagnosis (does not call `validate_server`; computes inline from the same `requirements` config).
-
 ## Thresholds
 
 All thresholds come from `requirements` in `config.yaml`:
