@@ -578,8 +578,8 @@ class Partner(commands.Cog):
                 logger.debug("success: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             else:
                 logger.warning("failed pair: %s <-> %s — see reason above", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
-        
-        logger.info("Finished partner round with %d servers", len(available))
+            if len(available) >= 2:
+                logger.info("Finished partner round with %d servers", len(available))
 
     @tasks.loop(seconds=60)
     async def partner_loop(self):

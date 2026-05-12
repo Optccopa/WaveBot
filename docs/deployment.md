@@ -36,7 +36,8 @@ All secrets passed via environment. `POSTGRES_PASSWORD` is sourced from `${POSTG
 | `POSTGRES_USER` | no (default: `appuser`) | DB user |
 | `POSTGRES_DB` | no (default: `appdb`) | DB name |
 | `ANTHROPIC_API_KEY` | yes | Claude Haiku for ad scanning |
-| `LOG_WEBHOOK_URL` | no | Discord webhook for log forwarding |
+| `LOG_WEBHOOK_URL` | no | Discord webhook for log forwarding (INFO+) |
+| `BULK_LOG_WEBHOOK_URL` | no | Discord webhook for bulk/debug log forwarding (DEBUG+) |
 | `BOT_INTERNAL_PORT` | no (default: `8081`) | Internal HTTP listen port |
 
 ### Site

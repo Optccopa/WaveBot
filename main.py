@@ -96,31 +96,38 @@ class WebhookHandler(logging.Handler):
             pass
         await self.session.close()
 
+class BulkWebhookHandler(WebhookHandler):
+    def __init__(self, url: str, loop: asyncio.AbstractEventLoop):
+        super().__init__(url, loop)
+        self.setLevel(logging.DEBUG)
+
 class Bot(commands.AutoShardedBot):
     def __init__(self):
+        with open("config.yaml", "r") as f:
+            self.yaml_config = yaml.safe_load(f)
 
         intents = discord.Intents.default()
         intents.members = True
         intents.message_content = True
 
         super().__init__(
-            command_prefix="p!",
+            command_prefix=self.yaml_config['bot']['prefix'],
             intents=intents,
             help_command=None,
-            chunk_guilds_at_startup=True
+            chunk_guilds_at_startup=True,
+            activity=discord.CustomActivity(name=self.yaml_config['bot']['custom_status'])
         )
 
         self.db_pool = None
         self.redis = None
-        self._event_counts = {"joins": 0, "leaves": 0, "messages": 0, "reactions": 0}
-
-        with open("config.yaml", "r") as f:
-            self.yaml_config = yaml.safe_load(f)
 
     async def setup_hook(self):
         url = os.getenv("LOG_WEBHOOK_URL")
         if url:
             logging.getLogger().addHandler(WebhookHandler(url, asyncio.get_running_loop()))
+        bulk_url = os.getenv("BULK_LOG_WEBHOOK_URL")
+        if bulk_url:
+            logging.getLogger().addHandler(BulkWebhookHandler(bulk_url, asyncio.get_running_loop()))
 
         self.redis: Redis = Redis(
             host="redis",
@@ -187,8 +194,6 @@ class Bot(commands.AutoShardedBot):
 
         await retry_with_backoff(self.tree.sync)
 
-        self.presence_loop.start()
-
     async def start_with_retries(self):
         for i in range(3):
             try:
@@ -230,34 +235,7 @@ class Bot(commands.AutoShardedBot):
     async def on_shard_ready(self, shard_id: int):
         log.info("Shard %d ready", shard_id)
 
-    async def on_member_join(self, member: discord.Member):
-        self._event_counts["joins"] += 1
-
-    async def on_member_remove(self, member: discord.Member):
-        self._event_counts["leaves"] += 1
-
-    async def on_message(self, message: discord.Message):
-        self._event_counts["messages"] += 1
-        await self.process_commands(message)
-
-    async def on_reaction_add(self, reaction: discord.Reaction, user):
-        self._event_counts["reactions"] += 1
-
-    @tasks.loop(minutes=1)
-    async def presence_loop(self):
-        c = self._event_counts
-        total = c["joins"] + c["leaves"] + c["messages"] + c["reactions"]
-        await self.change_presence(
-            activity=discord.CustomActivity(name=f"Events / Minute: {total}")
-        )
-        self._event_counts = {"joins": 0, "leaves": 0, "messages": 0, "reactions": 0}
-
-    @presence_loop.before_loop
-    async def before_presence_loop(self):
-        await self.wait_until_ready()
-
     async def close(self):
-        self.presence_loop.cancel()
         if self.db_pool: await self.db_pool.close()
         if self.redis: await self.redis.aclose()
         for handler in logging.getLogger().handlers:

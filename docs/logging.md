@@ -17,6 +17,8 @@ Standard `logging.basicConfig` to stdout. Format: `HH:MM:SS [LEVEL] logger.name:
 
 `WebhookHandler` in `main.py` sends all `INFO`+ log records to a Discord webhook configured via `LOG_WEBHOOK_URL` env var. If not set, no webhook handler is added.
 
+`BulkWebhookHandler` is a subclass of `WebhookHandler` that captures `DEBUG`+ records. Configured via `BULK_LOG_WEBHOOK_URL` env var. Shares all batching, retry, and shutdown logic with `WebhookHandler`. The `isinstance(handler, WebhookHandler)` check in `Bot.close()` covers both handlers.
+
 ### Queue Design
 
 Records go into an `asyncio.Queue(maxsize=500)`. When full, new records are silently dropped (`put_nowait` with no exception re-raise). A background worker task drains the queue and posts to the webhook.
