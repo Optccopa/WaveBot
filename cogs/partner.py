@@ -169,7 +169,6 @@ class Partner(commands.Cog):
         return None
 
     async def match_servers(self, guilds: list[tuple[int, int]]) -> tuple[list[tuple[int, int]], list[int]]:
-        logger.info("[match] starting with %d servers", len(guilds))
         pool = [id for id, _ in guilds]
         random.shuffle(pool)  # randomise before sort so ties break randomly
 
@@ -510,7 +509,7 @@ class Partner(commands.Cog):
                 continue
 
             if not isinstance(partner_channel, discord.TextChannel):
-                logger.info("skip %s (%d): partner_channel is wrong type", guild.name, guild.id)
+                logger.debug("skip %s (%d): partner_channel is wrong type", guild.name, guild.id)
                 log_channel = guild.get_channel(config.get("log_channel"))
                 if log_channel and await self._can_warn(guild.id, "wrong_channel_type"):
                     try:
@@ -532,7 +531,7 @@ class Partner(commands.Cog):
 
             reason = await self.validate_server(guild, config)
             if reason:
-                logger.info("skip %s (%d): validation failed — %s", guild.name, guild.id, reason)
+                logger.debug("skip %s (%d): validation failed — %s", guild.name, guild.id, reason)
                 log_channel = guild.get_channel(config.get("log_channel"))
                 if log_channel and await self._can_warn(guild.id, "validation"):
                     try:
@@ -550,7 +549,8 @@ class Partner(commands.Cog):
             available.append((guild.id, guild.member_count))
             await asyncio.sleep(0)
 
-        logger.info("%d eligible servers going into matching", len(available))
+        if len(available) > 0:
+            logger.debug("%d eligible servers going into matching", len(available))
         available_map = {gid: mc for gid, mc in available}
         pairs, sat_out = await self.match_servers(available)
 
@@ -583,14 +583,14 @@ class Partner(commands.Cog):
 
     @tasks.loop(seconds=60)
     async def partner_loop(self):
-        logger.info("loop #%d fired", self.partner_loop.current_loop)
+        logger.debug("loop #%d fired", self.partner_loop.current_loop)
         if self._partner_lock.locked():
-            logger.info("skipping — already running in this process")
+            logger.debug("skipping — already running in this process")
             return
         async with self._partner_lock:
             acquired = await self.redis.set("last_partner_run", 1, nx=True, ex=self.bot.yaml_config['cache']['redis_lock'])
             if not acquired:
-                logger.info("skipping — another instance already running (last_partner_run key exists)")
+                logger.debug("skipping — another instance already running (last_partner_run key exists)")
                 return
             logger.debug("[loop] acquired lock, proceeding")
             await self._run_partner_round()
