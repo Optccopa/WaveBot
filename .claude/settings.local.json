@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "mcp__my-computer-use__computer"
+      "mcp__my-computer-use__computer",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\Copa\\\\Documents\\\\GitHub\\\\WaveBot\" -Force | Select-Object Name, @{Name='Type';Expression={$_.PSIsContainer ? 'DIR' : 'FILE'}})"
     ]
   }
 }

@@ -47,7 +47,7 @@ If regex passes, the ad is sent to `claude-haiku-4-5-20251001` with prompt cachi
 
 Scan cache key: `{claude_cache_version}:claude:{ad_hash}` — TTL 30 days. Results reused until ad content changes.
 
-Timeout: 30 seconds via `asyncio.wait_for`. On timeout, `sus=False` confidence 0.5 is stored — ad passes through. This is a known gap (see AUDIT.md).
+Timeout: 30 seconds via `asyncio.wait_for`. On timeout, `sus=False` confidence 0.5 is stored — ad passes through.
 
 ### Scan Result
 
@@ -67,7 +67,9 @@ Before storing, all pings (`@everyone`, `@here`, `<@&...>`) are removed via `PIN
 
 ## Bulk Indexing (`index_ads`)
 
-`index_ads()` iterates all guilds, runs the same discovery pipeline, and writes ads via Redis pipeline batches (`cache.pipeline_batch`, default 250). Sends `"Ad channel missing"` or `"Ad message missing"` embeds to `log_channel` on failure. Not called automatically — can be invoked by owner tooling.
+`index_ads()` iterates all guilds, runs the same discovery pipeline, and writes ads via Redis pipeline batches (`cache.pipeline_batch`, default 250). Sends `"Ad channel missing"` or `"Ad message missing"` embeds to `log_channel` on failure.
+
+Called automatically at the start of every partner round (`_run_partner_round`). Also callable on demand via `/partner indexads` (owner only).
 
 ## Whitelisted Links
 

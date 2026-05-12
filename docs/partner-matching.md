@@ -76,9 +76,9 @@ Two locks prevent double-runs:
 
 ## Commands
 
-- `/partner status` — guild owners see why their server may be skipped
-- `/partner reqs [membercount]` — shows ping-tier ranges from `get_req` for a given member count (default 1000). Returns which partner sizes trigger no-ping / partner / @here / @here+partner / member, scaled to that count.
-- `/partner loopinfo` — shows next scheduled run time
-- `/partner loopforce` — bot owner only, runs a loop immediately
-- `/partner force <id1> <id2>` — bot owner only, forces a specific pair
-- `/partner ad <guild_id>` — bot owner only, views a cached ad; defers immediately, attempts `index_ad` on cache miss before responding
+- `/partner reqs [membercount]` — public, shows ping-tier ranges from `get_req` for a given member count (default 1000)
+- `/partner loopinfo` — public, shows next scheduled run time and running/failed state
+- `/partner ad <guild_id>` — public, views the cached ad for a server; attempts `index_ad` on cache miss before responding
+- `/partner force <id1> <id2>` — owner only, forces a partner send between two specific servers
+- `/partner loopforce` — owner only, runs a full partner round immediately (acquires the asyncio lock, skips the NX Redis check)
+- `/partner indexads` — owner only, re-indexes all server ads and returns a summary (total, cached, missing ad, missing channel, no config)

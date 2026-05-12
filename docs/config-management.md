@@ -19,7 +19,7 @@ premium           BOOLEAN DEFAULT FALSE
 `ConfigManager` (`src/configmanager.py`) wraps all access with Redis caching.
 
 - **Get**: checks `config:{guild_id}` in Redis first. On cache miss, reads from Postgres and writes to Redis with 30-day TTL.
-- **Set**: upserts into Postgres, then invalidates the Redis key and immediately re-reads from Postgres to repopulate the cache. This avoids a stale read-merge-write race.
+- **Set**: upserts into Postgres, then calls `get()` to retrieve the current cached config (or reads from Postgres on cache miss), merges the new fields in-memory, and writes the result back to Redis with a fresh 30-day TTL.
 - **Invalidate**: deletes `config:{guild_id}` from Redis.
 
 Corrupted cache values (bad JSON) are deleted on read so the next call falls through to Postgres cleanly.

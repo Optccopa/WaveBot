@@ -15,7 +15,7 @@ Standard `logging.basicConfig` to stdout. Format: `HH:MM:SS [LEVEL] logger.name:
 
 ## Webhook Handler
 
-`WebhookHandler` in `main.py` sends all `DEBUG`+ log records to a Discord webhook configured via `LOG_WEBHOOK_URL` env var. If not set, no webhook handler is added.
+`WebhookHandler` in `main.py` sends all `INFO`+ log records to a Discord webhook configured via `LOG_WEBHOOK_URL` env var. If not set, no webhook handler is added.
 
 ### Queue Design
 

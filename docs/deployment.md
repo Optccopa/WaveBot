@@ -58,6 +58,7 @@ Tables are created automatically on bot startup if they don't exist:
 - `guild_config` — per-guild channel/role config
 - `blacklists` — blacklisted guild IDs with reason
 - `whitelisted_links` — links stripped from ads before scanning/storage
+- `early_access` — guilds granted access below the minimum member count
 
 ## Shard Count
 

@@ -1,8 +1,9 @@
 # Project Rules
 
-### Docs
-- Anytime you update code you must also update docs/ with any updated info, use the same format already present.
-- Always check docs/ for information before writing code or fixing issues.
+### WORKFLOW - FOLLOW EVERY CODE CHANGE
+1. Check docs/ for relevant context before writing anything
+2. Make the code change
+3. Update docs/ to reflect the change before considering the task done
 ### Caching
 - Cache expensive computations and frequent reads in Redis.
 ### Basic Security

@@ -31,7 +31,7 @@ In order:
 2. **partner_ping_role resolves** — same
 3. **partner_channel resolves** — `guild.get_channel(config["partner_channel"])` must return a channel
 4. **Member role coverage** — `len(member_role.members) / guild.member_count >= member_role_min_coverage`
-5. **Channel visibility** — of members with the member role, ≥95% must have `view_channel` permission in `partner_channel`
+5. **Channel visibility** — the member role must have `view_channel` permission in `partner_channel` (binary role-level check, not a per-member percentage)
 6. **Partner ping role coverage** — `len(partner_role.members) / guild.member_count >= partner_role_min_coverage`
 
 The first failing check returns immediately with a reason. Checks are not accumulated.
@@ -53,6 +53,3 @@ The bot calls `partner_cog.validate_server(guild, config)` and returns `{"reason
 
 The site fails open — if the bot is unreachable or times out (10s), the config is saved without validation.
 
-## Dead Code
-
-`check_partner_requirements` in `cogs/partner.py` is an older function that has `return True, None` as its first line. It is never called. It has slightly different thresholds (85% member role, hardcoded) and returns `(bool, reason)` instead of just `reason`. It should be deleted.

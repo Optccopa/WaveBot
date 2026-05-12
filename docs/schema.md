@@ -11,6 +11,7 @@
 | `member_role` | `BIGINT` | Role ID assigned to ≥80% of members |
 | `partner_ping_role` | `BIGINT` | Role ID pinged on partner delivery |
 | `log_channel` | `BIGINT` | Private staff channel for bot messages |
+| `partner_delay` | `INTEGER` | Default `21600` — reserved, not currently used in routing logic |
 | `premium` | `BOOLEAN` | Default `false` |
 
 ### `blacklists`
@@ -26,6 +27,15 @@
 | `link` | `TEXT` | PK — stripped from ads before scan |
 | `added_by` | `BIGINT` | Discord user ID of operator who added it |
 
+### `early_access`
+| Column | Type | Notes |
+|--------|------|-------|
+| `guild_id` | `BIGINT` | PK |
+| `user_id` | `BIGINT` | Discord user ID of operator who granted access |
+| `reason` | `TEXT` | Optional reason |
+
+Grants a guild the ability to add the bot even if it is under `requirements.minimum_membercount` (default 50). See [early-access.md](early-access.md).
+
 ---
 
 ## Redis Keys
@@ -33,6 +43,7 @@
 | Key | Type | TTL | Value | Set by |
 |-----|------|-----|-------|--------|
 | `bot:guild_ids` | Set | none | Guild IDs where bot is present | `main.py` on_ready / on_guild_join / on_guild_remove |
+| `bot:early_access_guilds` | Set | none | Guild IDs with early access (bypass member count minimum) | `main.py` on_ready / `cogs/owneronly.py` earlyaccess commands |
 | `bot:guild_info` | Hash | none | Field = `guild_id`, value = `{"name","icon","member_count"}` JSON | `main.py` on_ready / on_guild_join / on_guild_remove |
 | `config:{guild_id}` | String | 30d | `guild_config` row as JSON | `src/configmanager.py` |
 | `ads:{guild_id}` | String | none | Ping-stripped ad message text | `cogs/partner.py` index_ad / index_ads |

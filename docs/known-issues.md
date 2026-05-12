@@ -1,14 +1,8 @@
 # Known Issues
 
-## check_partner_requirements — Dead Code
-
-**File:** `cogs/partner.py`, lines 44–77
-
-The function `check_partner_requirements` has `return True, None` as its first statement. All code below it is unreachable. The function is never called anywhere. It should be deleted.
-
 ## Partner Loop Interval — Not Configurable at Runtime
 
-**File:** `cogs/partner.py`, line 416
+**File:** `cogs/partner.py`, line 549
 
 ```python
 @tasks.loop(seconds=21600)
@@ -21,6 +15,12 @@ The function `check_partner_requirements` has `return True, None` as its first s
 **File:** `cogs/partner.py`, `index_ads()` / `index_ad()`
 
 Ads are scanned by Claude Haiku and the result is cached, but `sus: true` does not prevent the ad from being stored and sent during partner rounds. The scan result is logged only. This is intentional for now but means the moderation system has no enforcement layer.
+
+## `/partner status` Listed in p!help But Not Implemented
+
+**File:** `cogs/commands.py`, `helpcmd`
+
+`p!help` lists `/partner status` as a management command ("Shows information on why your server may not be getting partnered"), but no such slash command exists in `cogs/partner.py`. The `partnerGroup` has: `reqs`, `loopinfo`, `ad`, `force`, `loopforce`, `indexads`. Either implement the command or remove it from the help text.
 
 ## Sat-Out Reroll Clears Cooldowns Permanently
 
