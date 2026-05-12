@@ -278,9 +278,9 @@ class Partner(commands.Cog):
         if regex_hits:
             return {"sus": True, "confidence": 0.95, "ai_hits": [], "regex_hits": regex_hits, "user_reason": "Your ad was flagged during the regex prescan"}
         message = await self.client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=256,
-            temperature=0.1,
+            model=self.bot.yaml_config['ai']['model'],
+            max_tokens=self.bot.yaml_config['ai']['max_tokens'],
+            temperature=self.bot.yaml_config['ai']['temperature'],
             system=[{"type": "text", "text": SCAN_PROMPT, "cache_control": {"type": "ephemeral"}}],
             messages=[
                 {"role": "user", "content": f"Advertisement:\n{ad}"},
@@ -349,11 +349,11 @@ class Partner(commands.Cog):
                 if not cached:
                     async with self._scan_semaphore:
                         try:
-                            scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=30.0)
+                            scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=self.bot.yaml_config['delays']['scan_timeout'])
                         except asyncio.TimeoutError:
                             scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
                         cached = json.dumps(scan_result, indent=2)
-                        await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=2592000)
+                        await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=self.bot.yaml_config['cache']['scan_result_ttl'])
                         await asyncio.sleep(self.bot.yaml_config['delays']['scan_ad'])
                 await self.redis.set(f"ads:{guild_id}", PING_RE.sub("", ad_message))
                 return True
@@ -392,11 +392,11 @@ class Partner(commands.Cog):
                     if not cached:
                         async with self._scan_semaphore:
                             try:
-                                scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=30.0)
+                                scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=self.bot.yaml_config['delays']['scan_timeout'])
                             except asyncio.TimeoutError:
                                 scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
                             cached = json.dumps(scan_result, indent=2)
-                            await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=2592000)
+                            await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=self.bot.yaml_config['cache']['scan_result_ttl'])
                             await asyncio.sleep(self.bot.yaml_config['delays']['scan_ad'])
                     logger.info("cached: %s scan result: %s", guild.id, cached)
                     break

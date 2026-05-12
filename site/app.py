@@ -429,7 +429,7 @@ async def handle_server_post(request: web.Request) -> web.Response:
         if raw == "":
             continue
         if not SNOWFLAKE_RE.match(raw):
-            errors[field] = "Must be a valid Discord ID (15–21 digits) or leave empty."
+            errors[field] = "Must be a valid Discord ID (15-21 digits) or leave empty."
         else:
             fields[field] = int(raw)
 
