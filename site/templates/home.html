@@ -20,7 +20,10 @@
 
     <div class="hero-cta">
         {% if invite_url %}
-        <a href="{{ invite_url }}" class="btn btn-configure">Add to Server</a>
+        <a href="{{ invite_url }}" class="btn btn-configure" target="_blank" rel="noopener noreferrer">Add to Server</a>
+        {% endif %}
+        {% if support_invite %}
+        <a href="{{ support_invite }}" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">Join Support Server</a>
         {% endif %}
     </div>
 </div>

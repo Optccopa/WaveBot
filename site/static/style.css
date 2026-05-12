@@ -260,6 +260,13 @@ a:hover { text-decoration: underline; }
 }
 .btn-configure:hover { background: var(--accent-dark); color: #fff; }
 
+.btn-secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+}
+.btn-secondary:hover { background: var(--accent); color: #fff; }
+
 .btn-save {
     background: var(--accent);
     color: #fff;

@@ -8,7 +8,7 @@
 
 | Path | Auth | Purpose |
 |------|------|---------|
-| `/` | public | Landing page — bot pitch, live stats (`bot:guild_ids` count + sum of `bot:guild_info` member_count), invite button, login/manage CTA |
+| `/` | public | Landing page — bot pitch, live stats (`bot:guild_ids` count + sum of `bot:guild_info` member_count), invite button, support server button, login/manage CTA |
 | `/servers` | login | User's guild list (configurable servers) |
 | `/server/{guild_id}` | login + manage_guild | Per-guild config GET/POST |
 | `/login` | public, IP-rate-limited | Starts OAuth flow |

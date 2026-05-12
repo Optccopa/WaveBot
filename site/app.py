@@ -7,6 +7,7 @@ import secrets
 
 import aiohttp
 import aiohttp_jinja2
+import yaml
 import aiohttp_session
 import asyncpg
 import jinja2
@@ -293,6 +294,7 @@ async def handle_home(request: web.Request) -> web.Response:
         "guild_count": guild_count,
         "member_total": member_total,
         "invite_url": invite_url,
+        "support_invite": request.app["yaml_config"]["bot"]["support_invite"],
         "csrf_token": _csrf_token(session) if session.get("user") else None,
     })
 
@@ -492,6 +494,9 @@ async def handle_server_post(request: web.Request) -> web.Response:
 # ---------------------------------------------------------------------------
 
 async def on_startup(app: web.Application):
+    config_path = os.path.join(os.path.dirname(__file__), "..", "config.yaml")
+    with open(config_path) as f:
+        app["yaml_config"] = yaml.safe_load(f)
     app["db_pool"] = await asyncpg.create_pool(
         host=os.environ.get("POSTGRES_HOST", "postgres"),
         user=os.environ.get("POSTGRES_USER", "appuser"),
