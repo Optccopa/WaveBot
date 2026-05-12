@@ -70,7 +70,7 @@ async def security_headers_middleware(request, handler):
 
 @web.middleware
 async def auth_middleware(request, handler):
-    public = {"/", "/login", "/callback", "/tos", "/privacy"}
+    public = {"/", "/login", "/callback", "/tos", "/privacy", "/favicon.ico"}
     if request.path not in public and not request.path.startswith("/static/"):
         session = await aiohttp_session.get_session(request)
         if not session.get("user"):
