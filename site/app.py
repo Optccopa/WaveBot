@@ -494,7 +494,7 @@ async def handle_server_post(request: web.Request) -> web.Response:
 # ---------------------------------------------------------------------------
 
 async def on_startup(app: web.Application):
-    config_path = os.path.join(os.path.dirname(__file__), "..", "config.yaml")
+    config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
     with open(config_path) as f:
         app["yaml_config"] = yaml.safe_load(f)
     app["db_pool"] = await asyncpg.create_pool(

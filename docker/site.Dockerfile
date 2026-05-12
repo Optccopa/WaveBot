@@ -6,5 +6,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY site/ .
+COPY config.yaml .
 
 CMD ["python", "-u", "app.py"]
