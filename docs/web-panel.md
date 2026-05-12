@@ -22,8 +22,8 @@
 
 Discord OAuth2 (`identify guilds` scopes). Flow:
 
-1. `/login` — generates CSRF state, redirects to Discord OAuth
-2. `/callback` — exchanges code for token, fetches user info, stores in encrypted cookie session. Session is invalidated and regenerated on login to prevent session fixation.
+1. `/login` — generates OAuth state token, stores it in Redis (`oauth_state:{state}`, 5 min TTL), redirects to Discord OAuth
+2. `/callback` — validates state against Redis (deleted on first use to prevent replay); cross-domain compatible since state travels via URL param, not session cookie. Exchanges code for token, fetches user info, stores in encrypted cookie session. Session is invalidated and regenerated on login to prevent session fixation.
 3. `/logout` — CSRF-protected POST, invalidates session
 
 Sessions use `EncryptedCookieStorage` with a SHA-256 derived key from `SESSION_SECRET_KEY`. Cookie is `HttpOnly`, `SameSite=Lax`, `Secure` when `PRODUCTION=true`.

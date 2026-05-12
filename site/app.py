@@ -187,9 +187,9 @@ async def _check_rate_limit(redis: Redis, key: str, max_requests: int, window: i
 async def handle_login(request: web.Request) -> web.Response:
     redis: Redis = request.app["redis"]
     await _check_rate_limit(redis, f"ratelimit:login:{_client_ip(request)}", max_requests=10, window=60)
-    session = await aiohttp_session.get_session(request)
     state = secrets.token_urlsafe(16)
-    session["oauth_state"] = state
+    # Store initiating IP so callback can verify same client — cross-domain safe since state travels via URL
+    await redis.set(f"oauth_state:{state}", _client_ip(request), ex=300)
 
     client_id = os.environ["DISCORD_CLIENT_ID"]
     redirect_uri = os.environ["DISCORD_REDIRECT_URI"]
@@ -211,13 +211,14 @@ async def handle_callback(request: web.Request) -> web.Response:
 
     code = request.rel_url.query.get("code")
     state = request.rel_url.query.get("state")
-    stored_state = session.get("oauth_state")
 
-    # Clear state immediately after reading — prevents replay
-    if "oauth_state" in session:
-        del session["oauth_state"]
+    # Validate state against Redis — verify same client IP, delete on first use to prevent replay
+    state_valid = False
+    if state:
+        stored_ip = await redis.getdel(f"oauth_state:{state}")
+        state_valid = stored_ip == _client_ip(request)
 
-    if not code or state != stored_state:
+    if not code or not state_valid:
         return aiohttp_jinja2.render_template(
             "error.html", request,
             {"code": 400, "message": "Invalid OAuth2 state. Try logging in again."},
