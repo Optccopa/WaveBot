@@ -20,7 +20,8 @@ class Setup(commands.Cog):
         ad_channel="The channel with your ad, uses a recent message with a link.",
         log_channel="Channel for WaveBot to send messages / warnings, set this to a private channel",
         member_role=r"A role assigned to > 95% of users in your server",
-        partner_ping_role=r"A role pinged only for partners, must be assigned to > 8% of users in your server"
+        partner_ping_role=r"A role pinged only for partners, must be assigned to > 8% of users in your server",
+        partner_delay_hours="How often this server receives a partner (hours)"
     )
     async def setconfig(
         self,
@@ -29,10 +30,20 @@ class Setup(commands.Cog):
         ad_channel: discord.TextChannel | None = None,
         log_channel: discord.TextChannel | None = None,
         member_role: discord.Role | None = None,
-        partner_ping_role: discord.Role | None = None
+        partner_ping_role: discord.Role | None = None,
+        partner_delay_hours: int | None = None
     ):
+        pd_cfg = self.bot.yaml_config['partner_delay']
+        min_h = pd_cfg['min'] // 3600
+        max_h = pd_cfg['max'] // 3600
 
-        if not any([partner_channel, ad_channel, member_role, partner_ping_role, log_channel]):
+        if partner_delay_hours is not None and not (min_h <= partner_delay_hours <= max_h):
+            return await interaction.response.send_message(
+                f"Partner delay must be between {min_h} and {max_h} hours.",
+                ephemeral=True
+            )
+
+        if not any([partner_channel, ad_channel, member_role, partner_ping_role, log_channel, partner_delay_hours]):
             return await interaction.response.send_message(
                 "Set at least one config element to set",
                 ephemeral=True
@@ -54,6 +65,9 @@ class Setup(commands.Cog):
 
         if partner_ping_role:
             fields["partner_ping_role"] = partner_ping_role.id
+
+        if partner_delay_hours is not None:
+            fields["partner_delay"] = partner_delay_hours * 3600
 
         current = await self.bot.config.get(interaction.guild.id) or {}
         merged = {**current, **fields}
@@ -108,6 +122,7 @@ class Setup(commands.Cog):
         member_role = guild.get_role(config.get("member_role"))
         partner_ping_role = guild.get_role(config.get("partner_ping_role"))
         premium = config.get("premium", False)
+        partner_delay_h = (config.get("partner_delay") or self.bot.yaml_config['partner_delay']['default']) // 3600
 
         embed = discord.Embed(
             title="Server Configuration",
@@ -137,6 +152,11 @@ class Setup(commands.Cog):
         embed.add_field(
             name="Partner Ping Role",
             value=partner_ping_role.mention if partner_ping_role else "Not set",
+            inline=False
+        )
+        embed.add_field(
+            name="Partner Cooldown",
+            value=f"{partner_delay_h}h",
             inline=False
         )
         embed.add_field(

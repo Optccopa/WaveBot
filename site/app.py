@@ -375,6 +375,7 @@ async def handle_server_get(request: web.Request) -> web.Response:
     cm: ConfigManager = request.app["config_manager"]
     config = await cm.get(guild_id) or {}
     saved = request.rel_url.query.get("saved") == "1"
+    pd_cfg = request.app["yaml_config"]["partner_delay"]
 
     return aiohttp_jinja2.render_template("server.html", request, {
         "user": user,
@@ -387,6 +388,9 @@ async def handle_server_get(request: web.Request) -> web.Response:
         "validation_error": None,
         "labels": FIELD_LABELS,
         "csrf_token": _csrf_token(session),
+        "partner_delay_hours": (config.get("partner_delay") or pd_cfg["default"]) // 3600,
+        "partner_delay_min": pd_cfg["min"] // 3600,
+        "partner_delay_max": pd_cfg["max"] // 3600,
     })
 
 
@@ -421,6 +425,10 @@ async def handle_server_post(request: web.Request) -> web.Response:
     redis: Redis = request.app["redis"]
     await _check_rate_limit(redis, f"ratelimit:config:{user['id']}", max_requests=10, window=60)
 
+    pd_cfg = request.app["yaml_config"]["partner_delay"]
+    min_h = pd_cfg["min"] // 3600
+    max_h = pd_cfg["max"] // 3600
+
     errors = {}
     fields = {}
 
@@ -432,6 +440,17 @@ async def handle_server_post(request: web.Request) -> web.Response:
             errors[field] = "Must be a valid Discord ID (15-21 digits) or leave empty."
         else:
             fields[field] = int(raw)
+
+    raw_delay = form.get("partner_delay_hours", "").strip()
+    if raw_delay != "":
+        try:
+            hours = int(raw_delay)
+            if not (min_h <= hours <= max_h):
+                errors["partner_delay"] = f"Must be between {min_h} and {max_h} hours."
+            else:
+                fields["partner_delay"] = hours * 3600
+        except ValueError:
+            errors["partner_delay"] = "Must be a whole number of hours."
 
     if errors:
         cm: ConfigManager = request.app["config_manager"]
@@ -448,6 +467,9 @@ async def handle_server_post(request: web.Request) -> web.Response:
             "errors": errors,
             "labels": FIELD_LABELS,
             "csrf_token": _csrf_token(session),
+            "partner_delay_hours": raw_delay,
+            "partner_delay_min": min_h,
+            "partner_delay_max": max_h,
         }, status=422)
 
     if fields:
@@ -483,6 +505,9 @@ async def handle_server_post(request: web.Request) -> web.Response:
                     "validation_error": validation_error,
                     "labels": FIELD_LABELS,
                     "csrf_token": _csrf_token(session),
+                    "partner_delay_hours": (merged.get("partner_delay") or pd_cfg["default"]) // 3600,
+                    "partner_delay_min": min_h,
+                    "partner_delay_max": max_h,
                 }, status=422)
         await cm.set(guild_id, **fields)
 

@@ -8,7 +8,7 @@
 
 | Path | Auth | Purpose |
 |------|------|---------|
-| `/` | public | Landing page — bot pitch, live stats (`bot:guild_ids` count + sum of `bot:guild_info` member_count), invite button, support server button, login/manage CTA |
+| `/` | public | Landing page — bot pitch, live stats, invite + support server buttons |
 | `/servers` | login | User's guild list (configurable servers) |
 | `/server/{guild_id}` | login + manage_guild | Per-guild config GET/POST |
 | `/login` | public, IP-rate-limited | Starts OAuth flow |
@@ -45,7 +45,7 @@ Client IP is taken from `X-Forwarded-For` (first value) when present, else `requ
 
 1. CSRF token verified
 2. Rate limit checked
-3. Form fields validated as Discord snowflakes (15–21 digit integers)
+3. Form fields validated as Discord snowflakes (15–21 digit integers); `partner_delay_hours` validated separately as integer hours (1–168), stored as seconds
 4. If all three key fields present in merged config, calls bot's internal validation endpoint
 5. If validation fails, re-renders page with `validation_error` alert
 6. If validation passes, saves via `ConfigManager.set`

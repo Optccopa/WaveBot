@@ -40,6 +40,24 @@
         </div>
         {% endfor %}
 
+        <div class="form-group {% if errors.get('partner_delay') %}has-error{% endif %}">
+            <label for="partner_delay_hours">Partner Cooldown (hours)</label>
+            <p class="field-description">How often this server receives a partner. Min {{ partner_delay_min }}h, max {{ partner_delay_max }}h.</p>
+            <input
+                type="number"
+                id="partner_delay_hours"
+                name="partner_delay_hours"
+                value="{{ partner_delay_hours }}"
+                min="{{ partner_delay_min }}"
+                max="{{ partner_delay_max }}"
+                step="1"
+                autocomplete="off"
+            >
+            {% if errors.get('partner_delay') %}
+            <span class="field-error">{{ errors['partner_delay'] }}</span>
+            {% endif %}
+        </div>
+
         <div class="form-actions">
             <button type="submit" class="btn btn-save">Save</button>
         </div>
