@@ -646,6 +646,58 @@ class Partner(commands.Cog):
             return
         await interaction.followup.send(ad, ephemeral=True)
 
+    @partnerGroup.command(name="status", description="Check why your server may not be getting partnered")
+    @has_management()
+    @discord.app_commands.checks.cooldown(rate=1, per=10)
+    async def partner_status(self, interaction: discord.Interaction):
+        guild = interaction.guild
+
+        async with self.db_pool.acquire() as conn:
+            bl = await conn.fetchrow("SELECT reason FROM blacklists WHERE guild_id = $1", guild.id)
+        if bl:
+            await interaction.response.send_message(f"Your server is **blacklisted**: {bl['reason']}", ephemeral=True)
+            return
+
+        config = await self.bot.config.get(guild.id)
+        if not config:
+            await interaction.response.send_message("No configuration found. Run `/setup` to get started.", ephemeral=True)
+            return
+
+        partner_channel = guild.get_channel(config.get("partner_channel"))
+        ad_channel = guild.get_channel(config.get("ad_channel"))
+        member_role = guild.get_role(config.get("member_role"))
+        partner_ping_role = guild.get_role(config.get("partner_ping_role"))
+
+        missing = []
+        if not partner_channel: missing.append("partner channel")
+        if not ad_channel: missing.append("ad channel")
+        if not member_role: missing.append("member role")
+        if not partner_ping_role: missing.append("partner ping role")
+        if missing:
+            await interaction.response.send_message(f"Missing config: {', '.join(missing)}. Use `/config set` to fix.", ephemeral=True)
+            return
+
+        if not isinstance(partner_channel, discord.TextChannel):
+            await interaction.response.send_message("Partner channel must be a text channel.", ephemeral=True)
+            return
+
+        perms = partner_channel.permissions_for(guild.me)
+        if not perms.send_messages or not perms.mention_everyone:
+            await interaction.response.send_message(f"Missing permissions in {partner_channel.mention}: need **Send Messages** and **Mention Everyone**.", ephemeral=True)
+            return
+
+        ad = await self.redis.get(f"ads:{guild.id}")
+        if not ad:
+            await interaction.response.send_message("No ad found. Make sure your ad channel has a message with a link, then run `/config set` to re-index.", ephemeral=True)
+            return
+
+        reason = await self.validate_server(guild, config)
+        if reason:
+            await interaction.response.send_message(reason, ephemeral=True)
+            return
+
+        await interaction.response.send_message("Your server is eligible for partnering.", ephemeral=True)
+
     @partnerGroup.command(name="indexads", description="Re-index all server ads and show a summary")
     @is_owner()
     async def indexads(self, interaction: discord.Interaction):

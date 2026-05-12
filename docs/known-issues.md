@@ -16,12 +16,6 @@
 
 Ads are scanned by Claude Haiku and the result is cached, but `sus: true` does not prevent the ad from being stored and sent during partner rounds. The scan result is logged only. This is intentional for now but means the moderation system has no enforcement layer.
 
-## `/partner status` Listed in p!help But Not Implemented
-
-**File:** `cogs/commands.py`, `helpcmd`
-
-`p!help` lists `/partner status` as a management command ("Shows information on why your server may not be getting partnered"), but no such slash command exists in `cogs/partner.py`. The `partnerGroup` has: `reqs`, `loopinfo`, `ad`, `force`, `loopforce`, `indexads`. Either implement the command or remove it from the help text.
-
 ## Sat-Out Reroll Clears Cooldowns Permanently
 
 **File:** `cogs/partner.py`, lines 392–404

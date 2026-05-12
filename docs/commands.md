@@ -23,6 +23,7 @@
 
 | Command | Cooldown | Description |
 |---------|----------|-------------|
+| `/partner status` | 1/10s | Shows why your server may not be getting partnered (blacklist, missing config, missing ad, failed validation) |
 | `/config set [...]` | 1/10s | Set one or more config fields (partner_channel, ad_channel, log_channel, member_role, partner_ping_role). Any subset is valid. Validates before saving if all three key fields are present. Re-indexes ad if `ad_channel` changes |
 | `/config view` | 1/10s | View current server config — all five fields plus premium status |
 | `/setup` | 1/10s | Interactive 5-step setup wizard using Discord UI components |
@@ -54,5 +55,4 @@ All owner commands require `is_owner()` (bot application owner check).
 ## Notes
 
 - All slash command cooldowns are per-user, not per-guild.
-- `p!help` lists `/partner status` as a management command, but that command does not exist. See [known-issues.md](known-issues.md).
 - The `userloop` background task (every 5 minutes) automatically assigns/removes the `bot_user` role in the support server based on whether a member owns a server that has the bot.
