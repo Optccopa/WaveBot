@@ -19,7 +19,7 @@ bot:
   prefix: p!
   support_invite: https://discord.gg/uacMXzbAfg
   support_guild: 1491681410111635478
-  custom_status: https://wavebot.dev/ | p!help
+  custom_status: p!help | wavebot.dev
 
 requirements:
   member_role_min_coverage: 0.80
