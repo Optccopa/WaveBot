@@ -355,7 +355,6 @@ class Partner(commands.Cog):
                         cached = json.dumps(scan_result, indent=2)
                         await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=2592000)
                         await asyncio.sleep(self.bot.yaml_config['delays']['scan_ad'])
-                logger.info("cached: %s scan result: %s", guild_id, cached)
                 await self.redis.set(f"ads:{guild_id}", PING_RE.sub("", ad_message))
                 return True
         return False
@@ -451,12 +450,10 @@ class Partner(commands.Cog):
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch("SELECT guild_id FROM blacklists")
             blacklisted_ids = {row[0] for row in rows}
-        logger.debug("%d blacklisted guilds loaded", len(blacklisted_ids))
 
         available = []
         for guild in self.bot.guilds:
             if guild.id in blacklisted_ids:
-                logger.debug("skip %s (%d): blacklisted", guild.name, guild.id)
                 continue
             config = await self.bot.config.get(guild.id)
             if not config:
@@ -473,7 +470,7 @@ class Partner(commands.Cog):
             if not member_role: missing.append("member_role")
             if not partner_ping_role: missing.append("partner_ping_role")
             if missing:
-                logger.info("skip %s (%d): missing config — %s", guild.name, guild.id, ', '.join(missing))
+                logger.debug("skip %s (%d): missing config — %s", guild.name, guild.id, ', '.join(missing))
                 continue
 
             if not isinstance(partner_channel, discord.TextChannel):
@@ -488,7 +485,7 @@ class Partner(commands.Cog):
 
             perms = partner_channel.permissions_for(guild.me)
             if not perms.send_messages or not perms.mention_everyone:
-                logger.info("skip %s (%d): missing perms in #%s — send=%s mention=%s", guild.name, guild.id, partner_channel.name, perms.send_messages, perms.mention_everyone)
+                logger.debug("skip %s (%d): missing perms in #%s — send=%s mention=%s", guild.name, guild.id, partner_channel.name, perms.send_messages, perms.mention_everyone)
                 log_channel = guild.get_channel(config.get("log_channel"))
                 if log_channel:
                     try:
@@ -499,7 +496,7 @@ class Partner(commands.Cog):
 
             ad = await self.redis.get(f"ads:{guild.id}")
             if not ad:
-                logger.info("skip %s (%d): no ad in redis", guild.name, guild.id)
+                logger.debug("skip %s (%d): no ad in redis", guild.name, guild.id)
                 continue
 
             reason = await self.validate_server(guild, config)
@@ -541,10 +538,12 @@ class Partner(commands.Cog):
             logger.info("attempting pair: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             ch1, ch2 = await self.partner(a, b)
             await asyncio.sleep(self.bot.yaml_config['delays']['partner_pair'])
-            if ch1:
+            if ch1 and ch2:
                 logger.debug("success: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             else:
                 logger.warning("failed pair: %s <-> %s — see reason above", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
+        
+        logger.info("Finished partner round with %d servers", len(available))
 
     @tasks.loop(seconds=21600) # cant be in config
     async def partner_loop(self):
