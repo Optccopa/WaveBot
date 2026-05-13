@@ -1,6 +1,6 @@
 cache:
   cache_version: v1
-  claude_cache_version: v5
+  claude_cache_version: v6
   pipeline_batch: 250
   invite: 21600
   redis_lock: 55
@@ -17,6 +17,7 @@ delays:
 bot:
   prefix: p!
   send_pings: false
+  bot_invite: https://discord.com/oauth2/authorize?client_id=1487962334138863666
   support_invite: https://discord.gg/uacMXzbAfg
   support_guild: 1491681410111635478
   custom_status: p!help | wavebot.dev

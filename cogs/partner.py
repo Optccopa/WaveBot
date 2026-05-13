@@ -4,10 +4,13 @@ from src.prompts import SCAN_PROMPT, RULE_PATTERNS
 from anthropic import AsyncAnthropic
 from redis.asyncio import Redis
 from asyncpg import Pool
-import discord, random, logging, asyncio, re, os, hashlib, json, time
+import discord, random, logging, asyncio, re, os, hashlib, json, time, yaml
 
 LINK_REGEX = re.compile(r"https?://\S+")
 PING_RE = re.compile(r"@everyone|@here|<@&\d+>")
+
+with open("config.yaml", "r") as f:
+    YAML_CONFIG = yaml.safe_load(f)
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +27,7 @@ class AddBotView(discord.ui.View):
         )
         embed.add_field(
             name="Invite the bot",
-            value=f'[Click Here](https://discord.com/oauth2/authorize?client_id=1487962334138863666) and click "Add to server"',
+            value=f'[Click Here]({YAML_CONFIG["bot"]["bot_invite"]}) and click "Add to server"',
             inline=False
         )
         embed.add_field(
@@ -44,7 +47,7 @@ class AddBotView(discord.ui.View):
             value="Click the link sent with this embed",
             inline=False
         )
-        await interaction.response.send_message("https://discord.gg/uacMXzbAfg", embed=embed, ephemeral=True)
+        await interaction.response.send_message(YAML_CONFIG['bot']['support_invite'], embed=embed, ephemeral=True)
 
 def get_req(count_a: int, count_b: int) -> dict:
     if count_a >= count_b:

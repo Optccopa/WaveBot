@@ -74,6 +74,10 @@ class BotCommands(commands.Cog):
  
         await ctx.reply(embed=embed)
 
+    @commands.command(name="support", description="Get the support server invite")
+    async def support(self, ctx: commands.Context):
+        await ctx.reply(self.bot.yaml_config['bot']['support_invite'])
+
     @tasks.loop(minutes=5)
     async def userloop(self):
         support_guild = self.bot.get_guild(self.bot.yaml_config['bot']['support_guild'])

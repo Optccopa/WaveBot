@@ -10,6 +10,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%H:%M:%S"
 )
+
 logging.getLogger("discord").setLevel(logging.WARNING)
 logging.getLogger("discord.http").setLevel(logging.WARNING)
 
@@ -107,8 +108,7 @@ class BulkWebhookHandler(WebhookHandler):
 
 class Bot(commands.AutoShardedBot):
     def __init__(self):
-        with open("config.yaml", "r") as f:
-            self.yaml_config = yaml.safe_load(f)
+        self.yaml_config = YAML_CONFIG
 
         intents = discord.Intents.default()
         intents.members = True
