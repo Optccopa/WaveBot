@@ -427,6 +427,43 @@ class OwnerOnly(commands.Cog):
         await interaction.followup.send(f"Leaving **{guild.name}** (`{guild.id}`).", ephemeral=True)
         await guild.leave()
 
+    @serversGroup.command(name="cooldowns", description="Show next eligible partner time for every server")
+    @is_owner()
+    async def server_cooldowns(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        ver = self.bot.yaml_config['cache']['cache_version']
+        default_delay = self.bot.yaml_config['partner_delay']['default']
+        guilds = list(self.bot.guilds)
+
+        async with self.redis.pipeline(transaction=False) as pipe:
+            for guild in guilds:
+                pipe.get(f"{ver}:server_last_partner:{guild.id}")
+            last_values = await pipe.execute()
+
+        lines = []
+        for guild, last in zip(guilds, last_values):
+            config = await self.bot.config.get(guild.id)
+            partner_delay = (config.get("partner_delay") if config else None) or default_delay
+            if last is None:
+                lines.append(f"**{guild.name}**: eligible now")
+            else:
+                eligible_ts = int(float(last) + partner_delay)
+                lines.append(f"**{guild.name}**: <t:{eligible_ts}:f> (<t:{eligible_ts}:R>)")
+
+        if not lines:
+            await interaction.followup.send("No servers.", ephemeral=True)
+            return
+
+        for i in range(0, len(lines), 20):
+            chunk = lines[i:i + 20]
+            embed = discord.Embed(
+                title=f"Partner Cooldowns ({i + 1}-{i + len(chunk)} of {len(lines)})",
+                description="\n".join(chunk),
+                color=discord.Color.fuchsia()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
     @commands.command(name="exec")
     @commands.is_owner()
     async def exec_code(self, ctx: commands.Context, *, code: str):

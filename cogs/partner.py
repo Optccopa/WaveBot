@@ -554,26 +554,12 @@ class Partner(commands.Cog):
 
         if len(available) > 0:
             logger.debug("%d eligible servers going into matching", len(available))
-        available_map = {gid: mc for gid, mc in available}
         pairs, sat_out = await self.match_servers(available)
-
-        if len(sat_out) >= 2:
-            ver = self.bot.yaml_config['cache']['cache_version']
-            sat_pairs = [(min(a, b), max(a, b)) for i, a in enumerate(sat_out) for b in sat_out[i + 1:]]
-            if sat_pairs:
-                async with self.redis.pipeline(transaction=False) as pipe:
-                    for a, b in sat_pairs:
-                        pipe.delete(f"{ver}:partner_cooldown:{a}:{b}")
-                    await pipe.execute()
-                logger.info("cleared %d cooldowns for %d sat-out servers, retrying match", len(sat_pairs), len(sat_out))
-                retry_pairs, still_out = await self.match_servers([(s, available_map[s]) for s in sat_out])
-                pairs.extend(retry_pairs)
-                if still_out:
-                    logger.warning("%d servers still unmatched after cooldown reset: %s", len(still_out), still_out)
+        logger.info("round: %d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
 
         for a, b in pairs:
-            guild_a = self.bot.get_guild(a)
-            guild_b = self.bot.get_guild(b)
+            guild_a: discord.Guild = self.bot.get_guild(a)
+            guild_b: discord.Guild = self.bot.get_guild(b)
             logger.info("attempting pair: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             ch1, ch2 = await self.partner(a, b)
             await asyncio.sleep(self.bot.yaml_config['delays']['partner_pair'])
