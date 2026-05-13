@@ -188,7 +188,7 @@ class Partner(commands.Cog):
             results = await pipe.execute()
 
         on_cooldown = {pair for pair, hit in zip(all_pairs, results) if hit}
-        logger.info("[match] cooldown check: %d/%d pairs blocked", len(on_cooldown), len(all_pairs))
+        logger.debug("[match] cooldown check: %d/%d pairs blocked", len(on_cooldown), len(all_pairs))
 
         # Build adjacency sets
         neighbors: dict[int, set[int]] = {s: set() for s in pool}
@@ -216,15 +216,15 @@ class Partner(commands.Cog):
             matched.add(partner)
 
         sat_out = [s for s in pool if s not in matched]
-        logger.info("result: %d pairs, %d sat out", len(pairs), len(sat_out))
+        logger.debug("result: %d pairs, %d sat out", len(pairs), len(sat_out))
         for a, b in pairs:
             logger.debug("paired %d <-> %d", a, b)
         for s in sat_out:
-            logger.warning("sat out or all on cooldown: %d", s)
+            logger.debug("sat out or all on cooldown: %s", self.bot.get_guild(s).name if self.bot.get_guild(s) else f"Guild not found: {s}")
         return pairs, sat_out
 
     async def partner(self, server1_id: int, server2_id: int):
-        logger.info("starting partner %d <-> %d", server1_id, server2_id)
+        logger.debug("starting partner %d <-> %d", server1_id, server2_id)
 
         config1 = await self.bot.config.get(server1_id)
         config2 = await self.bot.config.get(server2_id)
@@ -260,6 +260,7 @@ class Partner(commands.Cog):
             ad1 = f"{raw_ad1}\n\n{await self.parse_ping(server2_id, r['server_b'])}"
             ad2 = f"{raw_ad2}\n\n{await self.parse_ping(server1_id, r['server_a'])}"
         else:
+            logger.debug("send_pings is False, sending ads without pings")
             ad1 = f"{raw_ad1}\n\nPlaceholder for {r['server_b']}"
             ad2 = f"{raw_ad2}\n\nPlaceholder for {r['server_a']}"
 
@@ -271,14 +272,14 @@ class Partner(commands.Cog):
         logger.debug("sending ad2 -> #%s in %s (%d)", channel1.name, guild1.name, server1_id)
         try:
             await channel1.send(ad2, view=AddBotView())
-            logger.info("sent ad2 -> %d #%s OK", server1_id, channel1.name)
+            logger.debug("sent ad2 -> %d #%s OK", server1_id, channel1.name)
         except Exception as e:
             logger.error("failed sending to %d #%s: %s", server1_id, channel1.name, e)
             return None, None
         logger.debug("sending ad1 -> #%s in %s (%d)", channel2.name, guild2.name, server2_id)
         try:
             await channel2.send(ad1, view=AddBotView())
-            logger.info("sent ad1 -> %d #%s OK", server2_id, channel2.name)
+            logger.debug("sent ad1 -> %d #%s OK", server2_id, channel2.name)
         except Exception as e:
             logger.error("failed sending to %d #%s: %s", server2_id, channel2.name, e)
             return None, None
@@ -286,6 +287,8 @@ class Partner(commands.Cog):
         await self.set_cooldown(server1_id, server2_id)
         await self.set_server_last_partner(server1_id)
         await self.set_server_last_partner(server2_id)
+
+        logger.info("partner success: %s <-> %s", guild1.name, guild2.name)
         return channel1, channel2
 
     async def scan_ad(self, ad: str) -> dict:
@@ -436,7 +439,6 @@ class Partner(commands.Cog):
                                 cached = json.dumps(scan_result, indent=2)
                                 await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=self.bot.yaml_config['cache']['scan_result_ttl'])
                                 await asyncio.sleep(self.bot.yaml_config['delays']['scan_ad'])
-                        logger.info("cached: %s scan result: %s", guild.id, cached)
                         break
             except discord.HTTPException as e:
                 logger.warning("HTTP error fetching history for %s: %s", guild.name, e)
@@ -561,25 +563,21 @@ class Partner(commands.Cog):
             await asyncio.sleep(0)
 
         pairs, sat_out = await self.match_servers(available)
-        if pairs:
-            logger.info("%d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
-        else:
-            logger.debug("%d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
 
         for a, b in pairs:
             guild_a: discord.Guild = self.bot.get_guild(a)
             guild_b: discord.Guild = self.bot.get_guild(b)
-            logger.info("attempting pair: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
+            logger.debug("attempting pair: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             ch1, ch2 = await self.partner(a, b)
             await asyncio.sleep(self.bot.yaml_config['delays']['partner_pair'])
             if ch1 and ch2:
                 logger.debug("success: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             else:
                 logger.warning("failed pair: %s <-> %s — see reason above", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
-        if pairs:
+        if len(available) >= 2:
             logger.info("Finished partner round with %d servers", len(available))
         else:
-            logger.debug("Finished partner round with %d servers", len(available))
+            logger.debug("Fisnished round with %d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
 
     @tasks.loop(seconds=60)
     async def partner_loop(self):
