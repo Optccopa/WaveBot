@@ -552,10 +552,11 @@ class Partner(commands.Cog):
             available.append((guild.id, guild.member_count))
             await asyncio.sleep(0)
 
-        if len(available) > 0:
-            logger.debug("%d eligible servers going into matching", len(available))
         pairs, sat_out = await self.match_servers(available)
-        logger.info("round: %d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
+        if pairs > 0:
+            logger.info("%d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
+        else:
+            logger.debug("%d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
 
         for a, b in pairs:
             guild_a: discord.Guild = self.bot.get_guild(a)
@@ -567,8 +568,10 @@ class Partner(commands.Cog):
                 logger.debug("success: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             else:
                 logger.warning("failed pair: %s <-> %s — see reason above", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
-            if len(available) >= 2:
-                logger.info("Finished partner round with %d servers", len(available))
+        if pairs > 0:
+            logger.info("Finished partner round with %d servers", len(available))
+        else:
+            logger.debug("Finished partner round with %d servers", len(available))
 
     @tasks.loop(seconds=60)
     async def partner_loop(self):
