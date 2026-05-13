@@ -74,7 +74,7 @@ class WebhookHandler(logging.Handler):
                             resp = await self.session.post(self.url, json=payload)
                             if resp.status == 429:
                                 data = await resp.json()
-                                wait = data.get("retry_after", 1)
+                                wait = min(data.get("retry_after", 1), 60)
                                 print(f"[WebhookHandler] 429 rate limited, retry_after={wait}s (attempt {attempt+1}/3)", file=sys.stderr)
                                 await asyncio.sleep(wait)
                                 continue
@@ -149,38 +149,39 @@ class Bot(commands.AutoShardedBot):
         # create tables
         async with self.db_pool.acquire() as conn:
             conn: asyncpg.Connection
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS guild_config (
-                    guild_id BIGINT PRIMARY KEY,
-                    partner_channel BIGINT,
-                    ad_channel BIGINT,
-                    member_role BIGINT,
-                    partner_ping_role BIGINT,
-                    log_channel BIGINT,
-                    partner_delay INTEGER DEFAULT 21600,
-                    premium BOOLEAN DEFAULT FALSE
-                )
-            """)
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS blacklists (
-                    guild_id BIGINT PRIMARY KEY,
-                    reason TEXT NOT NULL,
-                    added_by BIGINT NOT NULL
-                )
-            """)
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS whitelisted_links (
-                    link TEXT PRIMARY KEY,
-                    added_by BIGINT NOT NULL
-                )
-            """)
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS early_access (
-                    guild_id BIGINT PRIMARY KEY,
-                    user_id BIGINT NOT NULL,
-                    reason TEXT
-                )
-            """)
+            async with conn.transaction():
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS guild_config (
+                        guild_id BIGINT PRIMARY KEY,
+                        partner_channel BIGINT,
+                        ad_channel BIGINT,
+                        member_role BIGINT,
+                        partner_ping_role BIGINT,
+                        log_channel BIGINT,
+                        partner_delay INTEGER DEFAULT 21600,
+                        premium BOOLEAN DEFAULT FALSE
+                    )
+                """)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS blacklists (
+                        guild_id BIGINT PRIMARY KEY,
+                        reason TEXT NOT NULL,
+                        added_by BIGINT NOT NULL
+                    )
+                """)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS whitelisted_links (
+                        link TEXT PRIMARY KEY,
+                        added_by BIGINT NOT NULL
+                    )
+                """)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS early_access (
+                        guild_id BIGINT PRIMARY KEY,
+                        user_id BIGINT NOT NULL,
+                        reason TEXT
+                    )
+                """)
 
         # load cogs
         if os.path.isdir("cogs"):
@@ -218,17 +219,18 @@ class Bot(commands.AutoShardedBot):
     async def on_ready(self):
         async with self.redis.pipeline(transaction=True) as pipe:
             pipe.delete("bot:guild_ids")
+            pipe.delete("bot:guild_info")
             if self.guilds:
                 pipe.sadd("bot:guild_ids", *[g.id for g in self.guilds])
-            await pipe.execute()
-            await self.redis.hset("bot:guild_info", mapping={
-                str(g.id): json.dumps({
-                    "name": g.name,
-                    "icon": str(g.icon) if g.icon else None,
-                    "member_count": g.member_count,
+                pipe.hset("bot:guild_info", mapping={
+                    str(g.id): json.dumps({
+                        "name": g.name,
+                        "icon": str(g.icon) if g.icon else None,
+                        "member_count": g.member_count,
+                    })
+                    for g in self.guilds
                 })
-                for g in self.guilds
-            })
+            await pipe.execute()
         log.info("[on_ready] seeded %d guilds into bot:guild_ids", len(self.guilds))
         async with self.db_pool.acquire() as conn:
             ea_rows = await conn.fetch("SELECT guild_id FROM early_access")
@@ -298,6 +300,9 @@ async def pinger(ctx):
     await ctx.reply("Donut")
 
 async def handle_validate(request: web.Request) -> web.Response:
+    secret = os.getenv("BOT_INTERNAL_SECRET")
+    if not secret or request.headers.get("X-Internal-Secret") != secret:
+        return web.json_response({"reason": None}, status=403)
     try:
         guild_id = int(request.match_info["guild_id"])
     except ValueError:
@@ -313,6 +318,8 @@ async def handle_validate(request: web.Request) -> web.Response:
     return web.json_response({"reason": reason})
 
 async def main():
+    if not os.getenv("BOT_INTERNAL_SECRET"):
+        log.warning("BOT_INTERNAL_SECRET not set — /validate endpoint will reject all requests including the site")
     internal_app = web.Application()
     internal_app.router.add_post("/validate/{guild_id}", handle_validate)
     runner = web.AppRunner(internal_app)

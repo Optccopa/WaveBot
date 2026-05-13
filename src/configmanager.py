@@ -57,5 +57,20 @@ class ConfigManager:
         await self.redis.delete(f"config:{guild_id}")
         await self.get(guild_id)
 
+    async def get_all(self) -> dict[int, dict]:
+        async with self.db.acquire() as conn:
+            rows = await conn.fetch("SELECT * FROM guild_config")
+        if not rows:
+            return {}
+        configs = {}
+        async with self.redis.pipeline(transaction=False) as pipe:
+            for row in rows:
+                data = dict(row)
+                guild_id = data["guild_id"]
+                configs[guild_id] = data
+                pipe.set(f"config:{guild_id}", json.dumps(data), ex=2592000)
+            await pipe.execute()
+        return configs
+
     async def invalidate(self, guild_id: int):
         await self.redis.delete(f"config:{guild_id}")

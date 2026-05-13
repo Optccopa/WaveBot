@@ -315,7 +315,7 @@ class Partner(commands.Cog):
             logger.error("failed to parse claude response for ad: %.100s", ad)
             result = {"sus": True, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Your ad could not be automatically verified. Please review the server rules and resubmit."}
 
-        if result['sus']:
+        if result.get('sus'):
             guild: discord.Guild = self.bot.get_guild(self.bot.yaml_config['bot']['support_guild'])
             channel: discord.TextChannel = guild.get_channel(self.bot.yaml_config['channels']['flagged_ads']) if guild else None
             if channel:
@@ -339,7 +339,7 @@ class Partner(commands.Cog):
                 )
                 try:
                     await channel.send(
-                        f"<@&{self.bot.yaml_config['roles']['staff']}> Flagged Ad, Confidence: {result['confidence']}",
+                        f"<@&{self.bot.yaml_config['roles']['staff']}> Flagged Ad, Confidence: {result.get('confidence', 0.5)}",
                         embed=embed
                     )
                 except Exception:
@@ -348,7 +348,7 @@ class Partner(commands.Cog):
                 logger.error("flagged_ads channel or support_guild not found")
         return result
 
-    async def index_ad(self, guild_id: int, config: dict | None = None) -> bool:
+    async def index_ad(self, guild_id: int, config: dict | None = None, whitelist_pattern: re.Pattern | None = None) -> bool:
         guild = self.bot.get_guild(guild_id)
         if not guild:
             return False
@@ -365,12 +365,14 @@ class Partner(commands.Cog):
                 except discord.HTTPException:
                     pass
             return False
-        whitelisted = await self.redis.smembers("whitelisted_links")
+        if whitelist_pattern is None:
+            whitelisted = await self.redis.smembers("whitelisted_links")
+            whitelist_pattern = re.compile("|".join(re.escape(l) for l in whitelisted)) if whitelisted else None
         async for message in ad_channel.history(limit=10):
             if LINK_REGEX.search(message.content):
                 ad_message = message.content
-                for link in whitelisted:
-                    ad_message = ad_message.replace(link, "")
+                if whitelist_pattern:
+                    ad_message = whitelist_pattern.sub("", ad_message)
                 ad_hash = hashlib.sha256(ad_message.encode()).hexdigest()[:12]
                 ver = self.bot.yaml_config['cache']['claude_cache_version']
                 cached = await self.redis.get(f"{ver}:claude:{ad_hash}")
@@ -393,13 +395,15 @@ class Partner(commands.Cog):
         return False
 
     async def index_ads(self) -> dict:
+        configs = await self.bot.config.get_all()
         whitelisted = await self.redis.smembers("whitelisted_links")
+        whitelist_pattern = re.compile("|".join(re.escape(l) for l in whitelisted)) if whitelisted else None
         missing_channel_embed = discord.Embed(title="Ad channel missing", description="Use `/config set` to set one", color=discord.Color.dark_red())
         missing_ad_embed = discord.Embed(title="Ad message missing", description="Your ad message was not found in the recent 10 messages in the channel", color=discord.Color.dark_red())
         pending = []
         summary = {"total": len(self.bot.guilds), "no_config": 0, "missing_channel": 0, "cached": 0, "missing_ad": 0}
         for guild in self.bot.guilds:
-            config = await self.bot.config.get(guild.id)
+            config = configs.get(guild.id)
             if not config:
                 summary["no_config"] += 1
                 continue
@@ -417,8 +421,8 @@ class Partner(commands.Cog):
             async for message in ad_channel.history(limit=10):
                 if LINK_REGEX.search(message.content):
                     ad_message = message.content
-                    for link in whitelisted:
-                        ad_message = ad_message.replace(link, "")
+                    if whitelist_pattern:
+                        ad_message = whitelist_pattern.sub("", ad_message)
                     ad_hash = hashlib.sha256(ad_message.encode()).hexdigest()[:12]
                     ver = self.bot.yaml_config['cache']['claude_cache_version']
                     cached = await self.redis.get(f"{ver}:claude:{ad_hash}")
@@ -431,7 +435,7 @@ class Partner(commands.Cog):
                             cached = json.dumps(scan_result, indent=2)
                             await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=self.bot.yaml_config['cache']['scan_result_ttl'])
                             await asyncio.sleep(self.bot.yaml_config['delays']['scan_ad'])
-                    logger.info("cached: %s scan result: %s", guild.id, cached)
+                    logger.debug("cached: %s scan result: %s", guild.id, cached)
                     break
             if ad_message:
                 pending.append((f"ads:{guild.id}", PING_RE.sub("", ad_message)))
@@ -483,12 +487,16 @@ class Partner(commands.Cog):
             rows = await conn.fetch("SELECT guild_id FROM blacklists")
             blacklisted_ids = {row[0] for row in rows}
 
+        configs = await self.bot.config.get_all()
+        whitelisted = await self.redis.smembers("whitelisted_links")
+        whitelist_pattern = re.compile("|".join(re.escape(l) for l in whitelisted)) if whitelisted else None
+
         now = time.time()
         available = []
         for guild in self.bot.guilds:
             if guild.id in blacklisted_ids:
                 continue
-            config = await self.bot.config.get(guild.id)
+            config = configs.get(guild.id)
             if not config:
                 continue
 
@@ -543,7 +551,7 @@ class Partner(commands.Cog):
                         pass
                 continue
 
-            indexed = await self.index_ad(guild.id, config=config)
+            indexed = await self.index_ad(guild.id, config=config, whitelist_pattern=whitelist_pattern)
             if not indexed:
                 logger.debug("skip %s (%d): no ad indexed", guild.name, guild.id)
                 continue

@@ -76,8 +76,10 @@ class ErrorHandler(commands.Cog):
                 return
             _cooldown_notified.add(ctx.author.id)
             await ctx.send(f"Try again in {error.retry_after:.1f}s.", delete_after=3)
-            await asyncio.sleep(error.retry_after)
-            _cooldown_notified.discard(ctx.author.id)
+            async def _clear(uid: int, delay: float):
+                await asyncio.sleep(delay)
+                _cooldown_notified.discard(uid)
+            asyncio.create_task(_clear(ctx.author.id, error.retry_after))
             return
         
         if isinstance(error, commands.BotMissingPermissions):

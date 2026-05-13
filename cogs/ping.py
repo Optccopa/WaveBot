@@ -20,23 +20,21 @@ class Ping(commands.Cog):
         api_latency = round(self.bot.latency * 1000)
 
         db_latency = "N/A"
-        if hasattr(self.bot, "db_pool"):
-            try:
-                db_start = time.perf_counter()
-                async with self.bot.db_pool.acquire() as conn:
-                    await conn.execute("SELECT 1")
-                db_latency = f"{round((time.perf_counter() - db_start) * 1000)}ms"
-            except Exception:
-                db_latency = "Error"
+        try:
+            db_start = time.perf_counter()
+            async with self.bot.db_pool.acquire() as conn:
+                await conn.execute("SELECT 1")
+            db_latency = f"{round((time.perf_counter() - db_start) * 1000)}ms"
+        except Exception:
+            db_latency = "Error"
 
         redis_latency = "N/A"
-        if hasattr(self.bot, "redis"):
-            try:
-                redis_start = time.perf_counter()
-                await self.bot.redis.ping()
-                redis_latency = f"{round((time.perf_counter() - redis_start) * 1000)}ms"
-            except Exception:
-                redis_latency = "Error"
+        try:
+            redis_start = time.perf_counter()
+            await self.bot.redis.ping()
+            redis_latency = f"{round((time.perf_counter() - redis_start) * 1000)}ms"
+        except Exception:
+            redis_latency = "Error"
 
         edit_latency = round((time.perf_counter() - start) * 1000)
 

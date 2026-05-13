@@ -245,7 +245,13 @@ async def handle_callback(request: web.Request) -> web.Response:
             )
         token_data = await resp.json()
 
-    access_token = token_data["access_token"]
+    access_token = token_data.get("access_token")
+    if not access_token:
+        return aiohttp_jinja2.render_template(
+            "error.html", request,
+            {"code": 502, "message": "Failed to exchange code with Discord."},
+            status=502
+        )
     user = await _discord_get(http, access_token, "/users/@me")
 
     # Regenerate session to prevent session fixation
@@ -484,6 +490,7 @@ async def handle_server_post(request: web.Request) -> web.Response:
                 async with http.post(
                     f"{bot_url}/validate/{guild_id}",
                     json={"config": merged},
+                    headers={"X-Internal-Secret": os.environ.get("BOT_INTERNAL_SECRET") or ""},
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as resp:
                     data = await resp.json()

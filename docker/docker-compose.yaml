@@ -15,6 +15,12 @@ services:
       POSTGRES_DB: appdb
       POSTGRES_USER: appuser
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      BOT_INTERNAL_SECRET: ${BOT_INTERNAL_SECRET}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
 
   site:
     build:
@@ -39,6 +45,12 @@ services:
       SESSION_SECRET_KEY: ${SESSION_SECRET_KEY}
       PRODUCTION: "true"
       BOT_INTERNAL_URL: http://app:8081
+      BOT_INTERNAL_SECRET: ${BOT_INTERNAL_SECRET}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
 
   redis:
     image: redis:7-alpine
@@ -47,6 +59,11 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
 
   postgres:
     image: postgres:16-alpine
@@ -58,6 +75,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
 
 volumes:
   postgres_data:
