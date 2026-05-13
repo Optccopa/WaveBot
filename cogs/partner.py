@@ -577,7 +577,7 @@ class Partner(commands.Cog):
         if len(available) >= 2:
             logger.info("Finished partner round with %d servers", len(available))
         else:
-            logger.debug("Fisnished round with %d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
+            logger.debug("Finished round with %d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
 
     @tasks.loop(seconds=60)
     async def partner_loop(self):
