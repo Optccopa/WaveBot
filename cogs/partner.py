@@ -366,25 +366,29 @@ class Partner(commands.Cog):
                     pass
             return False
         whitelisted = await self.redis.smembers("whitelisted_links")
-        async for message in ad_channel.history(limit=10):
-            if LINK_REGEX.search(message.content):
-                ad_message = message.content
-                for link in whitelisted:
-                    ad_message = ad_message.replace(link, "")
-                ad_hash = hashlib.sha256(ad_message.encode()).hexdigest()[:12]
-                ver = self.bot.yaml_config['cache']['claude_cache_version']
-                cached = await self.redis.get(f"{ver}:claude:{ad_hash}")
-                if not cached:
-                    async with self._scan_semaphore:
-                        try:
-                            scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=self.bot.yaml_config['delays']['scan_timeout'])
-                        except asyncio.TimeoutError:
-                            scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
-                        cached = json.dumps(scan_result, indent=2)
-                        await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=self.bot.yaml_config['cache']['scan_result_ttl'])
-                        await asyncio.sleep(self.bot.yaml_config['delays']['scan_ad'])
-                await self.redis.set(f"ads:{guild_id}", PING_RE.sub("", ad_message))
-                return True
+        try:
+            async for message in ad_channel.history(limit=10):
+                if LINK_REGEX.search(message.content):
+                    ad_message = message.content
+                    for link in whitelisted:
+                        ad_message = ad_message.replace(link, "")
+                    ad_hash = hashlib.sha256(ad_message.encode()).hexdigest()[:12]
+                    ver = self.bot.yaml_config['cache']['claude_cache_version']
+                    cached = await self.redis.get(f"{ver}:claude:{ad_hash}")
+                    if not cached:
+                        async with self._scan_semaphore:
+                            try:
+                                scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=self.bot.yaml_config['delays']['scan_timeout'])
+                            except asyncio.TimeoutError:
+                                scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
+                            cached = json.dumps(scan_result, indent=2)
+                            await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=self.bot.yaml_config['cache']['scan_result_ttl'])
+                            await asyncio.sleep(self.bot.yaml_config['delays']['scan_ad'])
+                    await self.redis.set(f"ads:{guild_id}", PING_RE.sub("", ad_message))
+                    return True
+        except discord.HTTPException as e:
+            logger.warning("HTTP error fetching history for %d: %s", guild_id, e)
+            return False
         if log_channel and await self._can_warn(guild_id, "ad_missing"):
             try:
                 await log_channel.send(embed=discord.Embed(title="Ad message missing", description="Your ad message was not found in the recent 10 messages in the channel", color=discord.Color.dark_red()))
@@ -414,25 +418,29 @@ class Partner(commands.Cog):
                         pass
                 continue
             ad_message = None
-            async for message in ad_channel.history(limit=10):
-                if LINK_REGEX.search(message.content):
-                    ad_message = message.content
-                    for link in whitelisted:
-                        ad_message = ad_message.replace(link, "")
-                    ad_hash = hashlib.sha256(ad_message.encode()).hexdigest()[:12]
-                    ver = self.bot.yaml_config['cache']['claude_cache_version']
-                    cached = await self.redis.get(f"{ver}:claude:{ad_hash}")
-                    if not cached:
-                        async with self._scan_semaphore:
-                            try:
-                                scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=self.bot.yaml_config['delays']['scan_timeout'])
-                            except asyncio.TimeoutError:
-                                scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
-                            cached = json.dumps(scan_result, indent=2)
-                            await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=self.bot.yaml_config['cache']['scan_result_ttl'])
-                            await asyncio.sleep(self.bot.yaml_config['delays']['scan_ad'])
-                    logger.info("cached: %s scan result: %s", guild.id, cached)
-                    break
+            try:
+                async for message in ad_channel.history(limit=10):
+                    if LINK_REGEX.search(message.content):
+                        ad_message = message.content
+                        for link in whitelisted:
+                            ad_message = ad_message.replace(link, "")
+                        ad_hash = hashlib.sha256(ad_message.encode()).hexdigest()[:12]
+                        ver = self.bot.yaml_config['cache']['claude_cache_version']
+                        cached = await self.redis.get(f"{ver}:claude:{ad_hash}")
+                        if not cached:
+                            async with self._scan_semaphore:
+                                try:
+                                    scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=self.bot.yaml_config['delays']['scan_timeout'])
+                                except asyncio.TimeoutError:
+                                    scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
+                                cached = json.dumps(scan_result, indent=2)
+                                await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=self.bot.yaml_config['cache']['scan_result_ttl'])
+                                await asyncio.sleep(self.bot.yaml_config['delays']['scan_ad'])
+                        logger.info("cached: %s scan result: %s", guild.id, cached)
+                        break
+            except discord.HTTPException as e:
+                logger.warning("HTTP error fetching history for %s: %s", guild.name, e)
+                return False
             if ad_message:
                 pending.append((f"ads:{guild.id}", PING_RE.sub("", ad_message)))
                 summary["cached"] += 1
@@ -636,24 +644,6 @@ class Partner(commands.Cog):
             return
         logger.info("[force_partner] SUCCESS: %s <-> %s", channel1, channel2)
         await interaction.followup.send(f"Partnered: {channel1.mention} | {channel2.mention}", ephemeral=True)
-
-    @partnerGroup.command(name="loopinfo", description="Get info on the partner loop")
-    @discord.app_commands.checks.cooldown(rate=1, per=10)
-    async def loop_info(self, interaction: discord.Interaction):
-        loop = self.partner_loop
-
-        if not loop.is_running():
-            await interaction.response.send_message("`partner_loop` is not running.", ephemeral=True)
-            return
-
-        next_iter = loop.next_iteration
-
-        embed = discord.Embed(title="Partner Loop Info", color=discord.Color.fuchsia())
-        embed.add_field(name="Running", value=str(loop.is_running()), inline=True)
-        embed.add_field(name="Failed", value=str(loop.failed()), inline=True)
-        embed.add_field(name="Next Run", value=f"<t:{int(next_iter.timestamp())}:R>", inline=False)
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
     
     @partnerGroup.command(name="ad", description="Send a server's partner ad")
     @discord.app_commands.checks.cooldown(rate=1, per=10)
