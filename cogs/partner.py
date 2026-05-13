@@ -574,8 +574,8 @@ class Partner(commands.Cog):
                 logger.debug("success: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             else:
                 logger.warning("failed pair: %s <-> %s — see reason above", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
-        if len(available) >= 2:
-            logger.info("Finished partner round with %d servers", len(available))
+        if pairs[0]:
+            logger.info("Finished round with %d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
         else:
             logger.debug("Finished round with %d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
 
