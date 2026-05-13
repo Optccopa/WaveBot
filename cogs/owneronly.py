@@ -448,6 +448,43 @@ class OwnerOnly(commands.Cog):
         await interaction.followup.send(f"Leaving **{guild.name}** (`{guild.id}`).", ephemeral=True)
         await guild.leave()
 
+    @serversGroup.command(name="invite", description="Get an invite to a server")
+    @app_commands.describe(server_id="The server to invite to")
+    @is_owner()
+    async def server_invite(self, interaction: discord.Interaction, server_id: str):
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            gid = int(server_id)
+        except ValueError:
+            await interaction.followup.send("Server ID must be a number.", ephemeral=True)
+            return
+
+        guild = self.bot.get_guild(gid)
+        if not guild:
+            await interaction.followup.send("Guild not found.", ephemeral=True)
+            return
+
+        config = await self.bot.config.get(guild.id)
+        channel = guild.get_channel(config.get("partner_channel")) if config else None
+        if not isinstance(channel, discord.TextChannel):
+            channel = next(
+                (c for c in guild.text_channels if c.permissions_for(guild.me).create_instant_invite),
+                None
+            )
+        if not channel:
+            await interaction.followup.send("No usable channel found to create invite.", ephemeral=True)
+            return
+
+        try:
+            invites = await channel.invites()
+            url = invites[0].url if invites else (await channel.create_invite(max_age=604800)).url
+        except discord.Forbidden:
+            await interaction.followup.send("Missing permissions to create invite.", ephemeral=True)
+            return
+
+        await interaction.followup.send(url, ephemeral=True)
+
     @commands.command(name="exec")
     @commands.is_owner()
     async def exec_code(self, ctx: commands.Context, *, code: str):
