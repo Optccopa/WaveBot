@@ -553,7 +553,7 @@ class Partner(commands.Cog):
             await asyncio.sleep(0)
 
         pairs, sat_out = await self.match_servers(available)
-        if pairs > 0:
+        if pairs:
             logger.info("%d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
         else:
             logger.debug("%d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
@@ -568,7 +568,7 @@ class Partner(commands.Cog):
                 logger.debug("success: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
             else:
                 logger.warning("failed pair: %s <-> %s — see reason above", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
-        if pairs > 0:
+        if pairs:
             logger.info("Finished partner round with %d servers", len(available))
         else:
             logger.debug("Finished partner round with %d servers", len(available))
