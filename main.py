@@ -1,4 +1,4 @@
-import discord, os, asyncio, asyncpg, sys, logging, aiohttp, yaml, json
+import discord, os, asyncio, asyncpg, sys, logging, aiohttp, yaml, json, re
 from aiohttp import web
 from redis.asyncio import Redis
 from discord.ext import commands
@@ -57,7 +57,8 @@ class WebhookHandler(logging.Handler):
             embeds = []
             fields, chars = [], 0
             for entry in batch:
-                value = f"```\n{entry[:1014]}\n```"
+                sanitized = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", entry)[:1014] or "\u200b"
+                value = f"```\n{sanitized}\n```"
                 if fields and (len(fields) >= 25 or chars + len(value) > 5800):
                     embeds.append({"color": 0xEB459E, "fields": fields})
                     fields, chars = [], 0

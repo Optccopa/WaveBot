@@ -494,6 +494,7 @@ class OwnerOnly(commands.Cog):
             "discord": discord,
             "asyncio": asyncio,
             "db_pool": getattr(self.bot, "db_pool", None),
+            "redis": getattr(self.bot, "redis", None),
             "guild": ctx.guild,
             "channel": ctx.channel,
             "author": ctx.author,

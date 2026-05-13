@@ -739,5 +739,39 @@ class Partner(commands.Cog):
             await self._run_partner_round()
         await interaction.followup.send("Partner loop complete", ephemeral=True)
 
+    @partnerGroup.command(name="broadcast", description="Send a server's ad to every partner channel")
+    @is_owner()
+    @discord.app_commands.checks.cooldown(rate=1, per=86400)
+    async def broadcast_ad(self, interaction: discord.Interaction, guild_id: str):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            gid = int(guild_id)
+        except ValueError:
+            await interaction.followup.send("Invalid guild id.", ephemeral=True)
+            return
+
+        ad = await self.redis.get(f"ads:{gid}")
+        if not ad:
+            await interaction.followup.send("No ad found for that server.", ephemeral=True)
+            return
+
+        sent, failed = 0, 0
+        for guild in self.bot.guilds:
+            if guild.id == gid:
+                continue
+            config = await self.bot.config.get(guild.id)
+            if not config:
+                continue
+            channel = guild.get_channel(config.get("partner_channel"))
+            if not isinstance(channel, discord.TextChannel):
+                continue
+            try:
+                await channel.send(ad, view=AddBotView())
+                sent += 1
+            except discord.HTTPException:
+                failed += 1
+
+        await interaction.followup.send(f"Broadcast complete: {sent} sent, {failed} failed.", ephemeral=True)
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(Partner(bot))
