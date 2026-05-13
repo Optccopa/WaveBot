@@ -199,16 +199,10 @@ class OwnerOnly(commands.Cog):
     async def list_servers(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-        configs = await self.bot.config.get_all()
-        guilds = list(self.bot.guilds)
-        async with self.redis.pipeline(transaction=False) as pipe:
-            for guild in guilds:
-                pipe.get(f"ads:{guild.id}")
-            all_ads = await pipe.execute()
-
         fields = []
-        for guild, ad in zip(guilds, all_ads):
-            config = configs.get(guild.id)
+        for guild in self.bot.guilds:
+            config = await self.bot.config.get(guild.id)
+            ad = await self.redis.get(f"ads:{guild.id}")
             partner_channel = guild.get_channel(config.get("partner_channel")) if config else None
             ad_channel = guild.get_channel(config.get("ad_channel")) if config else None
             member_role = guild.get_role(config.get("member_role")) if config else None
@@ -342,15 +336,9 @@ class OwnerOnly(commands.Cog):
     async def debug_all_servers(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-        configs = await self.bot.config.get_all()
-        guilds = list(self.bot.guilds)
-        async with self.redis.pipeline(transaction=False) as pipe:
-            for guild in guilds:
-                pipe.get(f"ads:{guild.id}")
-            all_ads = await pipe.execute()
-
-        for guild, ad in zip(guilds, all_ads):
-            config = configs.get(guild.id)
+        for guild in self.bot.guilds:
+            config = await self.bot.config.get(guild.id)
+            ad = await self.redis.get(f"ads:{guild.id}")
 
             partner_channel_id = config.get("partner_channel") if config else None
             ad_channel_id = config.get("ad_channel") if config else None
@@ -453,10 +441,9 @@ class OwnerOnly(commands.Cog):
                 pipe.get(f"{ver}:server_last_partner:{guild.id}")
             last_values = await pipe.execute()
 
-        configs = await self.bot.config.get_all()
         lines = []
         for guild, last in zip(guilds, last_values):
-            config = configs.get(guild.id)
+            config = await self.bot.config.get(guild.id)
             partner_delay = (config.get("partner_delay") if config else None) or default_delay
             if last is None:
                 lines.append(f"**{guild.name}**: eligible now")

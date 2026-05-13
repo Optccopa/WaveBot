@@ -53,24 +53,11 @@ class ConfigManager:
                 *values
             )
 
-        # Invalidate then re-read from DB — avoids read-merge-write race
-        await self.redis.delete(f"config:{guild_id}")
-        await self.get(guild_id)
+        key = f"config:{guild_id}"
+        config = await self.get(guild_id) or {}
+        config.update(fields)
 
-    async def get_all(self) -> dict[int, dict]:
-        async with self.db.acquire() as conn:
-            rows = await conn.fetch("SELECT * FROM guild_config")
-        if not rows:
-            return {}
-        configs = {}
-        async with self.redis.pipeline(transaction=False) as pipe:
-            for row in rows:
-                data = dict(row)
-                guild_id = data["guild_id"]
-                configs[guild_id] = data
-                pipe.set(f"config:{guild_id}", json.dumps(data), ex=2592000)
-            await pipe.execute()
-        return configs
+        await self.redis.set(key, json.dumps(config), ex=2592000)
 
     async def invalidate(self, guild_id: int):
         await self.redis.delete(f"config:{guild_id}")
