@@ -14,6 +14,7 @@ delays:
   scan_ad: 1
   invite_fetch: 1
   scan_timeout: 30.0
+  logging_webhook: 7
 
 bot:
   prefix: p!
@@ -35,7 +36,7 @@ partner_delay:
 ai:
   model: claude-haiku-4-5-20251001
   max_tokens: 256
-  temperature: 0.1
+  temperature: 0.0
 
 roles:
   bot_user: 1498854384518566060

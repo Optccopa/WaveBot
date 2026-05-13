@@ -1,7 +1,7 @@
 import discord, os, asyncio, asyncpg, sys, logging, aiohttp, yaml, json
 from aiohttp import web
 from redis.asyncio import Redis
-from discord.ext import commands, tasks
+from discord.ext import commands
 from src.configmanager import ConfigManager
 from src.utils import retry_with_backoff
 
@@ -15,12 +15,16 @@ logging.getLogger("discord.http").setLevel(logging.WARNING)
 
 log = logging.getLogger(__name__)
 
+with open("config.yaml", "r") as f:
+    YAML_CONFIG = yaml.safe_load(f) # Global config for non bot code
+
 class WebhookHandler(logging.Handler):
     def __init__(self, url: str, loop: asyncio.AbstractEventLoop):
         super().__init__(level=logging.INFO)
         self.url = url
         self.loop = loop
         self.session = aiohttp.ClientSession()
+        self._batch_delay: float = YAML_CONFIG['delays']['logging_webhook']
         self._queue: asyncio.Queue[str] = asyncio.Queue(maxsize=500)
         self._task = loop.create_task(self._worker())
 
@@ -41,7 +45,7 @@ class WebhookHandler(logging.Handler):
 
         while True:
             msg = await self._queue.get()
-            await asyncio.sleep(2)
+            await asyncio.sleep(self._batch_delay)
             batch = [msg]
             while not self._queue.empty():
                 try:
