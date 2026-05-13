@@ -33,6 +33,8 @@ Limits respected per batch:
 - `VALUE_MAX = 1014` characters per field value (1024 − 8 for triple-backtick fences − 2 safety margin)
 - Up to 10 embeds per webhook message (Discord limit)
 
+Each log entry is sanitized before embedding \u2014 control characters (`\x00\u2013\x08`, `\x0b`, `\x0c`, `\x0e\u2013\x1f`, `\x7f`) are stripped with `re.sub`. If sanitization leaves an empty string, a zero-width space is used as fallback. This prevents Discord 400 rejections caused by invalid characters in embed field values.
+
 Each log entry becomes one embed field (`name: \u200b`, `value: ```\n{entry}\n````, `inline: false`). When an embed would exceed field count or char budget, a new embed is started. Messages are sent in groups of 10 embeds.
 
 ### Retry Logic

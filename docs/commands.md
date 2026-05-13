@@ -37,11 +37,13 @@ All owner commands require `is_owner()` (bot application owner check).
 | `/partner force <id1> <id2>` | Force a partner send between two specific servers immediately |
 | `/partner loopforce` | Run a full partner round immediately. Acquires the asyncio lock; does not skip the Redis NX check |
 | `/partner indexads` | Re-index all server ads. Returns summary: total, cached, missing ad, missing channel, no config |
+| `/partner broadcast <guild_id>` | Send a server's cached ad to every other server's partner channel. 24h command cooldown |
 | `/error` | View the last recorded error for slash commands, prefix commands, and events |
-| `/servers list` | List all servers the bot is in with config/ad/invite status |
+| `/servers overview` | All servers with member count, needs/week, available partners/week, and next eligible timestamp. Paginated in chunks of 25 |
 | `/servers debug <server_id>` | Detailed debug embed for one server: config JSON, channel/role resolution, ad cache, invite |
 | `/servers debugall` | Debug embeds for every server the bot is in |
 | `/servers leave <server_id>` | Force the bot to leave a server |
+| `/servers invite <server_id>` | Get an invite to a server. Uses partner channel first, falls back to any channel the bot can create invites in |
 | `/blacklist add <guild_id> <reason>` | Blacklist a server. Bot leaves immediately if currently in it |
 | `/blacklist remove <guild_id>` | Remove a server from the blacklist |
 | `/blacklist check <guild_id>` | Check whether a server is blacklisted and view the reason |

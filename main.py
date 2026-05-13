@@ -80,7 +80,8 @@ class WebhookHandler(logging.Handler):
                                 await asyncio.sleep(wait)
                                 continue
                             if resp.status >= 400:
-                                print(f"[WebhookHandler] HTTP {resp.status} on attempt {attempt+1}/3, retrying", file=sys.stderr)
+                                body = await resp.text()
+                                print(f"[WebhookHandler] HTTP {resp.status} on attempt {attempt+1}/3: {body[:300]}", file=sys.stderr)
                                 await asyncio.sleep(1)
                                 continue
                             break

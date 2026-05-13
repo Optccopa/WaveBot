@@ -4,14 +4,19 @@ All commands in this file require `is_owner()` — the bot application owner che
 
 ## `/servers` Group
 
-### `/servers list`
+### `/servers overview`
 
 Lists every guild the bot is in. For each guild:
 - Member count
-- Status indicator (green if config, ad, partner channel, ad channel, member role, and partner ping role all resolve; red otherwise)
-- Discord invite URL for the partner channel (cached in Redis at `invite:{channel_id}` for 6h; created if none exists)
+- **Needs X/week** — how many times `partner_delay` fits into a week (`round(604800 / partner_delay)`)
+- **Available X/week** — how many other guilds this server is not on pair-cooldown with (counts all guilds; pair cooldowns fetched in one Redis pipeline)
+- **Next** — Discord relative timestamp for when this server is next eligible (`last_partner + partner_delay`), or "now" if never partnered
 
-Paginated in chunks of 25 guilds per embed. Rate limited by `delays.invite_fetch` (1s) between invite API calls.
+Paginated in chunks of 25 guilds per embed.
+
+### `/servers invite <server_id>`
+
+Gets a Discord invite for a server. Tries the configured partner channel first, then falls back to any text channel where the bot has `Create Instant Invite`. Returns an existing invite if one exists, otherwise creates a 7-day invite. Returns an error if no usable channel is found or the bot is missing permissions.
 
 ### `/servers debug <server_id>`
 
@@ -92,6 +97,16 @@ Lists all rows from `early_access` with guild name (resolved from bot cache), me
 
 ---
 
+## `/partner broadcast <guild_id>` (defined in `cogs/partner.py`)
+
+Sends a server's cached ad to the partner channel of every other guild the bot is in. Skips guilds with no config or no valid partner channel. Reports sent/failed count on completion.
+
+- 24h command cooldown (per user via `@discord.app_commands.checks.cooldown`)
+- Does not set pair cooldowns — broadcast sends are not tracked as partnerships
+- Sleeps 1s between sends to avoid rate limiting
+
+---
+
 ## `p!exec <code>` (prefix command, defined in `cogs/owneronly.py`)
 
 Executes arbitrary async Python code in the bot's context. Available environment:
@@ -103,6 +118,7 @@ Executes arbitrary async Python code in the bot's context. Available environment
     "discord": discord,
     "asyncio": asyncio,
     "db_pool": self.bot.db_pool,
+    "redis": self.bot.redis,
     "guild": ctx.guild,
     "channel": ctx.channel,
     "author": ctx.author,

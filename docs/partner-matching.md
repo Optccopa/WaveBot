@@ -2,9 +2,9 @@
 
 ## Overview
 
-The partner loop runs every 6 hours (`@tasks.loop(seconds=21600)`). It cannot be configured at runtime without a code change — the interval is hardcoded because `tasks.loop` requires a literal at decoration time.
+The partner loop fires every 60 seconds (`@tasks.loop(seconds=60)`), but actual partnership work is gated by a Redis NX key `last_partner_run` with TTL `cache.redis_lock`. Only one run executes per TTL window; subsequent loop ticks that find the key present are skipped silently.
 
-Each run first calls `index_ads()` to refresh all cached ads, then collects eligible servers, matches them in pairs, and sends each server's cached ad to the other server's partner channel.
+Each run calls `index_ad()` per guild inline as it builds the eligible pool, then matches servers in pairs and sends ads.
 
 ## Eligibility
 
@@ -37,11 +37,6 @@ Cooldown TTL: `cache.partner_cooldown` in `config.yaml` (currently 259200s = 3 d
 
 Key format: `{cache_version}:partner_cooldown:{min(a,b)}:{max(a,b)}`
 
-### Sat-Out Reroll
-
-If 2+ servers land in `sat_out` (all their cooldowns were active), their inter-cooldowns are cleared and matching is retried for that subset only. This prevents servers from being silently skipped when everyone in the pool has partnered each other recently.
-
-One sat-out server is normal and not rerolled — it will partner next round.
 
 ## Sending Ads
 
@@ -77,8 +72,9 @@ Two locks prevent double-runs:
 ## Commands
 
 - `/partner reqs [membercount]` — public, shows ping-tier ranges from `get_req` for a given member count (default 1000)
-- `/partner loopinfo` — public, shows next scheduled run time and running/failed state
 - `/partner ad <guild_id>` — public, views the cached ad for a server; attempts `index_ad` on cache miss before responding
+- `/partner status` — management, shows why a server may not be getting partnered
 - `/partner force <id1> <id2>` — owner only, forces a partner send between two specific servers
 - `/partner loopforce` — owner only, runs a full partner round immediately (acquires the asyncio lock, skips the NX Redis check)
 - `/partner indexads` — owner only, re-indexes all server ads and returns a summary (total, cached, missing ad, missing channel, no config)
+- `/partner broadcast <guild_id>` — owner only, sends a server's cached ad to every other server's partner channel; 24h command cooldown, 1s sleep between sends

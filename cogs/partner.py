@@ -768,6 +768,7 @@ class Partner(commands.Cog):
             try:
                 await channel.send(ad, view=AddBotView())
                 sent += 1
+                await asyncio.sleep(self.bot.yaml_config['delays']['partner_pair'])
             except discord.HTTPException:
                 failed += 1
 

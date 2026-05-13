@@ -1,14 +1,10 @@
 # Known Issues
 
-## Partner Loop Interval — Not Configurable at Runtime
+## Effective Partner Interval — Not Configurable at Runtime
 
-**File:** `cogs/partner.py`, line 549
+**File:** `cogs/partner.py`
 
-```python
-@tasks.loop(seconds=21600)
-```
-
-`tasks.loop` requires a literal value at decoration time. The 6-hour interval cannot be read from `config.yaml` without refactoring to use `tasks.loop` with a `seconds=0` and manually sleeping inside the loop body. Currently the only way to change the interval is a code edit and redeploy.
+The loop fires every 60 seconds but the actual work interval is controlled by the Redis NX key `last_partner_run` with TTL `cache.redis_lock`. To change how often partnerships run, `cache.redis_lock` in `config.yaml` must be edited and the bot redeployed. The 60-second tick rate itself is a hardcoded literal and cannot be read from config.
 
 ## Ad Scan Result Does Not Gate Distribution
 
@@ -16,11 +12,6 @@
 
 Ads are scanned by Claude Haiku and the result is cached, but `sus: true` does not prevent the ad from being stored and sent during partner rounds. The scan result is logged only. This is intentional for now but means the moderation system has no enforcement layer.
 
-## Sat-Out Reroll Clears Cooldowns Permanently
-
-**File:** `cogs/partner.py`, lines 392–404
-
-When sat-out servers are rerolled, their pairwise cooldowns are deleted. If the reroll fails to match them (e.g., only one sat-out server, or the two sat-out servers have each other on cooldown for some other reason), the cooldowns are still cleared but no partnership happened. This means servers that were on cooldown for a valid reason (they recently partnered) may partner again sooner than intended.
 
 ## Validation Fails Open on Site
 
