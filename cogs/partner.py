@@ -253,7 +253,7 @@ class Partner(commands.Cog):
             logger.warning("abort %d<->%d: missing ad (ad1=%s ad2=%s)", server1_id, server2_id, bool(raw_ad1), bool(raw_ad2))
             return None, None
         
-        if self.bot.yaml_config.get('send_pings', True):
+        if self.bot.yaml_config['bot']['send_pings'] == True:
             ad1 = f"{raw_ad1}\n\n{await self.parse_ping(server2_id, r['server_b'])}"
             ad2 = f"{raw_ad2}\n\n{await self.parse_ping(server1_id, r['server_a'])}"
         else:

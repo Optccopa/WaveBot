@@ -1,5 +1,3 @@
-send_pings: false
-
 cache:
   cache_version: v1
   claude_cache_version: v5
@@ -10,14 +8,15 @@ cache:
   scan_result_ttl: 2592000
 
 delays:
-  partner_pair: 3
-  scan_ad: 1
-  invite_fetch: 1
+  partner_pair: 10
+  scan_ad: 2
+  invite_fetch: 2
   scan_timeout: 30.0
   logging_webhook: 7
 
 bot:
   prefix: p!
+  send_pings: false
   support_invite: https://discord.gg/uacMXzbAfg
   support_guild: 1491681410111635478
   custom_status: p!help | wavebot.dev
