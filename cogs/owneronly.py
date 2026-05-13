@@ -194,55 +194,76 @@ class OwnerOnly(commands.Cog):
             embed.add_field(name=row["link"], value=f"Added by <@{row['added_by']}>", inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @serversGroup.command(name="list")
+    @serversGroup.command(name="overview", description="Partner stats and availability for all servers")
     @is_owner()
-    async def list_servers(self, interaction: discord.Interaction):
+    async def server_overview(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-        fields = []
-        for guild in self.bot.guilds:
+        ver = self.bot.yaml_config['cache']['cache_version']
+        default_delay = self.bot.yaml_config['partner_delay']['default']
+        guilds = list(self.bot.guilds)
+
+        entries = []
+        for guild in guilds:
             config = await self.bot.config.get(guild.id)
-            ad = await self.redis.get(f"ads:{guild.id}")
-            partner_channel = guild.get_channel(config.get("partner_channel")) if config else None
-            ad_channel = guild.get_channel(config.get("ad_channel")) if config else None
-            member_role = guild.get_role(config.get("member_role")) if config else None
-            partner_ping_role = guild.get_role(config.get("partner_ping_role")) if config else None
+            partner_delay = (config.get("partner_delay") if config else None) or default_delay
+            entries.append({"guild": guild, "delay": partner_delay})
 
-            invite_url = None
+        async with self.redis.pipeline(transaction=False) as pipe:
+            for e in entries:
+                pipe.get(f"{ver}:server_last_partner:{e['guild'].id}")
+            last_values = await pipe.execute()
+        for e, last in zip(entries, last_values):
+            e["last"] = float(last) if last else None
 
-            if isinstance(partner_channel, discord.TextChannel):
-                cache_key = f"invite:{partner_channel.id}"
-                invite_url = await self.redis.get(cache_key)
-                if not invite_url:
-                    try:
-                        invites = await partner_channel.invites()
-                        invite_url = invites[0].url if invites else (await partner_channel.create_invite(max_age=604800)).url
-                        await self.redis.set(cache_key, invite_url, ex=self.bot.yaml_config['cache']['invite'])
-                    except discord.Forbidden:
-                        pass
-                    await asyncio.sleep(self.bot.yaml_config['delays']['invite_fetch'])
+        all_ids = [e["guild"].id for e in entries]
+        all_pairs = [(min(a, b), max(a, b)) for i, a in enumerate(all_ids) for b in all_ids[i + 1:]]
+
+        if all_pairs:
+            async with self.redis.pipeline(transaction=False) as pipe:
+                for a, b in all_pairs:
+                    pipe.exists(f"{ver}:partner_cooldown:{a}:{b}")
+                cd_results = await pipe.execute()
+            on_cooldown = {pair for pair, hit in zip(all_pairs, cd_results) if hit}
+        else:
+            on_cooldown = set()
+
+        for e in entries:
+            gid = e["guild"].id
+            e["available"] = sum(
+                1 for o in entries
+                if o["guild"].id != gid
+                and (min(gid, o["guild"].id), max(gid, o["guild"].id)) not in on_cooldown
+            )
+
+        fields = []
+        for e in entries:
+            guild = e["guild"]
+            delay = e["delay"]
+            needed = round(604800 / delay)
+            avail = e["available"]
+            last = e["last"]
+            next_str = "now" if last is None else f"<t:{int(last + delay)}:R>"
             value = (
-                f"Members: `{guild.member_count}`\n"
-                f"Status: {':green_circle:' if all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role]) else ':red_circle:'}\n"
-                f"Invite: {invite_url}"
+                f"Members: {guild.member_count:,}\n"
+                f"Needs: {needed}/week\n"
+                f"Available: {avail}/week\n"
+                f"Next: {next_str}"
             )
             fields.append((guild.name, value))
+
         if not fields:
-            await interaction.followup.send(embed=discord.Embed(
-                description="No servers.",
-                color=discord.Color.fuchsia()
-            ), ephemeral=True)
+            await interaction.followup.send("No servers.", ephemeral=True)
             return
 
-        for i in range(0, max(len(fields), 1), 25):
-            chunk = fields[i:i+25]
+        for i in range(0, len(fields), 25):
+            chunk = fields[i:i + 25]
             embed = discord.Embed(
-                title=f"Servers ({i+1}-{i+len(chunk)} of {len(fields)})",
+                title=f"Server Overview ({i + 1}–{i + len(chunk)} of {len(fields)})",
                 color=discord.Color.fuchsia()
             )
             for name, value in chunk:
                 embed.add_field(name=name, value=value, inline=False)
-
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @serversGroup.command(name="debug")
@@ -426,43 +447,6 @@ class OwnerOnly(commands.Cog):
 
         await interaction.followup.send(f"Leaving **{guild.name}** (`{guild.id}`).", ephemeral=True)
         await guild.leave()
-
-    @serversGroup.command(name="cooldowns", description="Show next eligible partner time for every server")
-    @is_owner()
-    async def server_cooldowns(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-
-        ver = self.bot.yaml_config['cache']['cache_version']
-        default_delay = self.bot.yaml_config['partner_delay']['default']
-        guilds = list(self.bot.guilds)
-
-        async with self.redis.pipeline(transaction=False) as pipe:
-            for guild in guilds:
-                pipe.get(f"{ver}:server_last_partner:{guild.id}")
-            last_values = await pipe.execute()
-
-        lines = []
-        for guild, last in zip(guilds, last_values):
-            config = await self.bot.config.get(guild.id)
-            partner_delay = (config.get("partner_delay") if config else None) or default_delay
-            if last is None:
-                lines.append(f"**{guild.name}**: eligible now")
-            else:
-                eligible_ts = int(float(last) + partner_delay)
-                lines.append(f"**{guild.name}**: <t:{eligible_ts}:f> (<t:{eligible_ts}:R>)")
-
-        if not lines:
-            await interaction.followup.send("No servers.", ephemeral=True)
-            return
-
-        for i in range(0, len(lines), 20):
-            chunk = lines[i:i + 20]
-            embed = discord.Embed(
-                title=f"Partner Cooldowns ({i + 1}-{i + len(chunk)} of {len(lines)})",
-                description="\n".join(chunk),
-                color=discord.Color.fuchsia()
-            )
-            await interaction.followup.send(embed=embed, ephemeral=True)
 
     @commands.command(name="exec")
     @commands.is_owner()
