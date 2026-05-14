@@ -6,6 +6,8 @@ from redis.asyncio import Redis
 from asyncpg import Pool
 import discord, random, logging, asyncio, re, os, hashlib, json, time, yaml
 
+from src.constants import ALL_PINGS
+
 LINK_REGEX = re.compile(r"https?://\S+")
 PING_RE = re.compile(r"@everyone|@here|<@&\d+>")
 
@@ -50,6 +52,8 @@ class AddBotView(discord.ui.View):
         await interaction.response.send_message(YAML_CONFIG['bot']['support_invite'], embed=embed, ephemeral=True)
 
 def get_req(count_a: int, count_b: int) -> dict:
+    count_a = count_a or 0
+    count_b = count_b or 0
     if count_a >= count_b:
         host, guest = count_a, count_b
         a_is_host = True
@@ -172,7 +176,8 @@ class Partner(commands.Cog):
         return None
 
     async def match_servers(self, guilds: list[tuple[int, int]]) -> tuple[list[tuple[int, int]], list[int]]:
-        pool = [id for id, _ in guilds]
+        member_counts = {gid: mc for gid, mc in guilds}
+        pool = list(member_counts)
         random.shuffle(pool)  # randomise before sort so ties break randomly
 
         if len(pool) < 2:
@@ -181,21 +186,76 @@ class Partner(commands.Cog):
         ver = self.bot.yaml_config['cache']['cache_version']
         all_pairs = [(min(a, b), max(a, b)) for i, a in enumerate(pool) for b in pool[i + 1:]]
 
-        # Fetch all cooldowns in one pipeline round-trip instead of n²/2 individual calls
+        # Fetch cooldowns + premium configs in one pipeline round-trip
         async with self.redis.pipeline(transaction=False) as pipe:
             for a, b in all_pairs:
                 pipe.exists(f"{ver}:partner_cooldown:{a}:{b}")
+            for gid in pool:
+                pipe.get(f"premium:{gid}")
             results = await pipe.execute()
 
-        on_cooldown = {pair for pair, hit in zip(all_pairs, results) if hit}
+        on_cooldown = {pair for pair, hit in zip(all_pairs, results[:len(all_pairs)]) if hit}
         logger.debug("[match] cooldown check: %d/%d pairs blocked", len(on_cooldown), len(all_pairs))
 
-        # Build adjacency sets
+        # Parse premium configs — DB fallback for cache misses
+        # "0" sentinel = confirmed non-premium (negative cache)
+        prem_configs: dict[int, dict] = {}
+        miss_ids = []
+        corrupt_keys = []
+        for gid, val in zip(pool, results[len(all_pairs):]):
+            if val:
+                if val == "0":
+                    continue
+                try:
+                    prem_configs[gid] = json.loads(val)
+                except (json.JSONDecodeError, ValueError):
+                    corrupt_keys.append(f"premium:{gid}")
+                    miss_ids.append(gid)
+            else:
+                miss_ids.append(gid)
+
+        if corrupt_keys:
+            async with self.redis.pipeline(transaction=False) as pipe:
+                for key in corrupt_keys:
+                    pipe.delete(key)
+                await pipe.execute()
+
+        if miss_ids:
+            async with self.db_pool.acquire() as conn:
+                rows = await conn.fetch("SELECT * FROM premium WHERE guild_id = ANY($1::bigint[])", miss_ids)
+            found_ids: set[int] = set()
+            async with self.redis.pipeline(transaction=False) as pipe:
+                for row in rows:
+                    data = dict(row)
+                    data["added_at"] = data["added_at"].isoformat() if data.get("added_at") else None
+                    prem_configs[row["guild_id"]] = data
+                    found_ids.add(row["guild_id"])
+                    pipe.set(f"premium:{row['guild_id']}", json.dumps(data), ex=2592000)
+                for gid in miss_ids:
+                    if gid not in found_ids:
+                        pipe.set(f"premium:{gid}", "0", ex=3600)
+                await pipe.execute()
+
+        # Build adjacency — skip pairs on cooldown or blocked by premium ping restrictions
+        # Empty available_pings defaults to all pings allowed
         neighbors: dict[int, set[int]] = {s: set() for s in pool}
         for a, b in all_pairs:
-            if (a, b) not in on_cooldown:
-                neighbors[a].add(b)
-                neighbors[b].add(a)
+            if (a, b) in on_cooldown:
+                continue
+            if a in prem_configs or b in prem_configs:
+                r = get_req(member_counts[a], member_counts[b])
+                ping_blocked = False
+                for gid, ping_key in ((a, 'server_a'), (b, 'server_b')):
+                    if gid in prem_configs:
+                        allowed = prem_configs[gid].get("available_pings") or ALL_PINGS
+                        if r[ping_key] not in allowed:
+                            logger.debug("[match] pair (%d,%d) blocked: %d premium, ping '%s' not in %s", a, b, gid, r[ping_key], allowed)
+                            ping_blocked = True
+                            break
+                if ping_blocked:
+                    continue
+            neighbors[a].add(b)
+            neighbors[b].add(a)
 
         # Greedy maximum matching — most-constrained nodes first
         # Picking the partner with the fewest remaining options keeps the graph
@@ -442,7 +502,7 @@ class Partner(commands.Cog):
                         break
             except discord.HTTPException as e:
                 logger.warning("HTTP error fetching history for %s: %s", guild.name, e)
-                return False
+                continue
             if ad_message:
                 pending.append((f"ads:{guild.id}", PING_RE.sub("", ad_message)))
                 summary["cached"] += 1
@@ -551,6 +611,10 @@ class Partner(commands.Cog):
                         await log_channel.send(embed=discord.Embed(title="Requirements not met", description=reason, color=discord.Color.dark_red()))
                     except discord.HTTPException:
                         pass
+                continue
+
+            if guild.member_count is None:
+                logger.debug("skip %s (%d): member_count is None", guild.name, guild.id)
                 continue
 
             indexed = await self.index_ad(guild.id, config=config)

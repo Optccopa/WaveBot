@@ -1,9 +1,7 @@
 import discord
 from discord.ext import commands
 from src.checks import is_owner, is_guild_owner
-
-VALID_PINGS = {"none", "partner", "here", "partnerhere", "member"}
-ALL_PINGS = ["none", "partner", "here", "partnerhere", "member"]
+from src.constants import ALL_PINGS, VALID_PINGS
 
 class Premium(commands.Cog):
     def __init__(self, bot):

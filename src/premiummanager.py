@@ -12,6 +12,8 @@ class PremiumManager:
         key = f"premium:{guild_id}"
         cached = await self.redis.get(key)
         if cached:
+            if cached == "0":
+                return None
             try:
                 return json.loads(cached)
             except (json.JSONDecodeError, ValueError):
