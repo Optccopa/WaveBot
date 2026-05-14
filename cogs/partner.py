@@ -1,5 +1,5 @@
 from discord.ext import tasks, commands
-from src.checks import is_owner, has_management
+from src.checks import is_owner, is_management
 from src.prompts import SCAN_PROMPT, RULE_PATTERNS
 from anthropic import AsyncAnthropic
 from redis.asyncio import Redis
@@ -662,7 +662,7 @@ class Partner(commands.Cog):
         await interaction.followup.send(ad, ephemeral=True)
 
     @partnerGroup.command(name="status", description="Check why your server may not be getting partnered")
-    @has_management()
+    @is_management()
     @discord.app_commands.checks.cooldown(rate=1, per=10)
     async def partner_status(self, interaction: discord.Interaction):
         guild = interaction.guild

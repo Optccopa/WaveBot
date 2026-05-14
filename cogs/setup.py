@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from src.checks import has_management
+from src.checks import is_management
 
 TIMEOUT = 300
 
@@ -278,7 +278,7 @@ class SetupCog(commands.Cog):
 
     @app_commands.command(name="setup", description="Interactive guide to set up WaveBot for your server")
     @app_commands.checks.cooldown(1, 10)
-    @has_management()
+    @is_management()
     async def setup(self, interaction: discord.Interaction):
         state = SetupState()
         embed = step_embed(

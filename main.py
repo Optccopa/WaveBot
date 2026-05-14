@@ -3,6 +3,7 @@ from aiohttp import web
 from redis.asyncio import Redis
 from discord.ext import commands
 from src.configmanager import ConfigManager
+from src.premiummanager import PremiumManager
 from src.utils import retry_with_backoff
 
 logging.basicConfig(
@@ -184,6 +185,15 @@ class Bot(commands.AutoShardedBot):
                     reason TEXT
                 )
             """)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS premium (
+                    guild_id        BIGINT PRIMARY KEY,
+                    available_pings TEXT[] DEFAULT '{}',
+                    added_by        BIGINT NOT NULL,
+                    added_at        TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            await conn.execute("ALTER TABLE guild_config DROP COLUMN IF EXISTS premium")
 
         # load cogs
         if os.path.isdir("cogs"):
@@ -197,6 +207,7 @@ class Bot(commands.AutoShardedBot):
 
         # init config manager
         self.config = ConfigManager(self.db_pool, self.redis)
+        self.premium = PremiumManager(self.db_pool, self.redis)
 
 
         await retry_with_backoff(self.tree.sync)
