@@ -56,18 +56,19 @@ class Premium(commands.Cog):
     )
     @is_guild_owner()
     @discord.app_commands.describe(
-        available_pings='Comma-separated ping types, or "all". Valid: none, partner, here, partnerhere, member'
+        available_pings='Available pings, or all, example: none, partner, here, partnerhere, member'
     )
     async def premium_configset(
         self,
         interaction: discord.Interaction,
         available_pings: str | None = None
     ):
-        await interaction.response.defer(ephemeral=True)
         data = await self.bot.premium.get(interaction.guild.id)
         if not data:
-            await interaction.followup.send("This server does not have premium.", ephemeral=True)
-            return
+            return await interaction.response.send_message("This server does not have premium.", ephemeral=True)
+
+        if not any([available_pings]):
+            return await interaction.response.send_message("Set at least one config element to set", ephemeral=True)
 
         fields = {}
         if available_pings is not None:
@@ -77,36 +78,35 @@ class Premium(commands.Cog):
                 tokens = [t.strip().lower() for t in available_pings.split(",") if t.strip()]
                 invalid = [t for t in tokens if t not in VALID_PINGS]
                 if invalid:
-                    await interaction.followup.send(
+                    return await interaction.response.send_message(
                         f"Invalid ping type(s): {', '.join(invalid)}. Valid: {', '.join(ALL_PINGS)}, or `all`.",
                         ephemeral=True
                     )
-                    return
                 fields["available_pings"] = tokens
 
-        if not fields:
-            await interaction.followup.send("No changes provided.", ephemeral=True)
-            return
-
         await self.bot.premium.set(interaction.guild.id, **fields)
-        await interaction.followup.send("Premium config updated.", ephemeral=True)
+        await interaction.response.send_message("Premium configuration updated.", ephemeral=True)
 
     @premiumGroup.command(name="configview", description="View premium config for this server")
     @is_guild_owner()
     async def premium_configview(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
         data = await self.bot.premium.get(interaction.guild.id)
         if not data:
-            await interaction.followup.send("This server does not have premium.", ephemeral=True)
-            return
+            return await interaction.response.send_message("This server does not have premium.", ephemeral=True)
 
-        embed = discord.Embed(title="Premium Config", color=discord.Color.gold())
-        embed.add_field(name="Guild", value=interaction.guild.name, inline=False)
-        embed.add_field(name="Added by", value=f"<@{data['added_by']}>", inline=True)
-        embed.add_field(name="Added at", value=data.get("added_at", "Unknown"), inline=True)
         pings = data.get("available_pings") or []
-        embed.add_field(name="Available Pings", value=", ".join(pings) if pings else "None set", inline=False)
-        await interaction.followup.send(embed=embed, ephemeral=True)
+
+        embed = discord.Embed(
+            title="Premium Configuration",
+            color=discord.Color.fuchsia()
+            )
+
+        embed.add_field(
+            name="Available Pings",
+            value=", ".join(pings) if pings else "Not set",
+            inline=False
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Premium(bot))
