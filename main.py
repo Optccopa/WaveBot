@@ -68,8 +68,8 @@ class WebhookHandler(logging.Handler):
                 embeds.append({"color": 0xEB459E, "fields": fields})
 
             try:
-                for i in range(0, len(embeds), 10):
-                    payload = {"embeds": embeds[i:i + 10]}
+                for embed in embeds:
+                    payload = {"embeds": [embed]}
                     for attempt in range(3):
                         try:
                             resp = await self.session.post(self.url, json=payload)
@@ -89,7 +89,8 @@ class WebhookHandler(logging.Handler):
                             print(f"[WebhookHandler] Exception on attempt {attempt+1}/3: {e}", file=sys.stderr)
                             await asyncio.sleep(1)
                     else:
-                        print(f"[WebhookHandler] Failed to deliver embed group after 3 attempts, dropping {len(embeds[i:i+10])} embeds", file=sys.stderr)
+                        print(f"[WebhookHandler] Failed to deliver embed after 3 attempts, dropping 1 embed", file=sys.stderr)
+                    await asyncio.sleep(self._batch_delay)
             finally:
                 for _ in batch:
                     self._queue.task_done()
