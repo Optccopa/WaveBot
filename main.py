@@ -57,7 +57,7 @@ class WebhookHandler(logging.Handler):
 
             embeds = []
             fields, chars = [], 0
-            for entry in batch:
+            for entry in batch:            # Remove control chars
                 sanitized = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", entry)[:1014] or "\u200b"
                 value = f"```\n{sanitized}\n```"
                 if fields and (len(fields) >= 25 or chars + len(value) > 5800):

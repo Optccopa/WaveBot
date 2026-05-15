@@ -12,11 +12,11 @@ delays:
   scan_ad: 2
   invite_fetch: 2
   scan_timeout: 30.0
-  logging_webhook: 7
+  logging_webhook: 3
 
 bot:
   prefix: p!
-  send_pings: false
+  send_pings: true
   bot_invite: https://discord.com/oauth2/authorize?client_id=1487962334138863666
   support_invite: https://discord.gg/uacMXzbAfg
   support_guild: 1491681410111635478
