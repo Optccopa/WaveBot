@@ -1,7 +1,7 @@
 from discord.ext import tasks, commands
 from src.checks import is_owner, is_management
 from src.prompts import SCAN_PROMPT, RULE_PATTERNS
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropic, APIStatusError
 from redis.asyncio import Redis
 from asyncpg import Pool
 import discord, random, logging, asyncio, re, os, hashlib, json, time, yaml
@@ -361,16 +361,22 @@ class Partner(commands.Cog):
         regex_hits = list(set(hits))
         if regex_hits:
             return {"sus": True, "confidence": 0.95, "ai_hits": [], "regex_hits": regex_hits, "user_reason": "Your ad was flagged during the regex prescan"}
-        message = await self.client.messages.create(
-            model=self.bot.yaml_config['ai']['model'],
-            max_tokens=self.bot.yaml_config['ai']['max_tokens'],
-            temperature=self.bot.yaml_config['ai']['temperature'],
-            system=[{"type": "text", "text": SCAN_PROMPT, "cache_control": {"type": "ephemeral"}}],
-            messages=[
-                {"role": "user", "content": f"Advertisement:\n{ad}"},
-                {"role": "assistant", "content": "{"},
-            ],
-        )
+        try:
+            message = await self.client.messages.create(
+                model=self.bot.yaml_config['ai']['model'],
+                max_tokens=self.bot.yaml_config['ai']['max_tokens'],
+                temperature=self.bot.yaml_config['ai']['temperature'],
+                system=[{"type": "text", "text": SCAN_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                messages=[
+                    {"role": "user", "content": f"Advertisement:\n{ad}"},
+                    {"role": "assistant", "content": "{"},
+                ],
+            )
+        except APIStatusError as e:
+            if e.status_code in (503, 529):
+                logger.warning("Claude API unavailable (%s), skipping scan", e.status_code)
+                return {"sus": False, "confidence": 0.0, "ai_hits": [], "regex_hits": [], "user_reason": "AI scan unavailable"}
+            raise
         try:
             raw = "{" + message.content[0].text.strip()
             result = json.loads(raw)
