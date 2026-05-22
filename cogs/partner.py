@@ -35,7 +35,7 @@ class AddBotView(discord.ui.View):
         )
         embed.add_field(
             name="Need Help?",
-            value=f"[Join the support server]({YAML_CONFIG['bot']['support_invite']})",
+            value=f"[Join the support server]({YAML_CONFIG['bot']['support_invite']}) (Reccomended)",
             inline=False
         )
         await interaction.response.send_message(YAML_CONFIG['bot']['support_invite'], embed=embed, ephemeral=True)
