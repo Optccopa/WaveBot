@@ -87,7 +87,7 @@ class BotCommands(commands.Cog):
     async def tasksloop(self):
         # Update presence
         template: str = self.bot.yaml_config['bot']['custom_status_template']
-        partners = self.redis.get("stats:partners")
+        partners = await self.redis.get("stats:partners")
         custom_status = template.replace("%!partners%", partners if partners else "n/a")
 
         await self.bot.change_presence(activity=discord.CustomActivity(name=custom_status))
