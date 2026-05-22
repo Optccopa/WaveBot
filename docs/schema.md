@@ -53,6 +53,8 @@ Grants a guild the ability to add the bot even if it is under `requirements.mini
 | `{cache_ver}:partner_cooldown:{min_id}:{max_id}` | String | 3d | `1` — signals cooldown active between two guilds | `cogs/partner.py` set_cooldown |
 | `{cache_ver}:server_last_partner:{guild_id}` | String | none | Unix timestamp (float as string) of when this server last successfully partnered | `cogs/partner.py` partner |
 | `last_partner_run` | String | 55s | `1` — distributed lock preventing multi-instance double-run | `cogs/partner.py` partner_loop |
+| `stats:partners` | String | none | Integer — `ZCARD` of `stats:partners:24h` written after every partner. Always equals sliding 24h count. | `cogs/partner.py` partner |
+| `stats:partners:24h` | Sorted Set | none | Members `{min_id}:{max_id}:{ts}`, score = unix timestamp. Trimmed on every write. `ZCARD` gives true sliding 24h partner count. | `cogs/partner.py` partner |
 | `invite:{channel_id}` | String | 6h | Discord invite URL for a partner channel | `cogs/owneronly.py` list_servers / debug_all_servers |
 | `whitelisted_links` | Set | none | Link strings stripped from ads before scan | `cogs/partner.py` cog_load / `cogs/owneronly.py` |
 | `panel:guilds:{user_id}` | String | 5m | JSON list of user's Discord guilds with permissions/counts | `site/app.py` _get_user_guilds |

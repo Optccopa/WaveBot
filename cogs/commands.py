@@ -1,10 +1,12 @@
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
+from redis.asyncio import Redis
 
 class BotCommands(commands.Cog):
     def __init__(self, bot):
         self.bot: commands.Bot = bot
+        self.redis: Redis = bot.redis
     
     botGroup = app_commands.Group(
         name="bot",
@@ -83,6 +85,14 @@ class BotCommands(commands.Cog):
 
     @tasks.loop(minutes=5)
     async def tasksloop(self):
+        # Update presence
+        template: str = self.yaml_config['bot']['custom_status_template']
+        partners = self.redis.get("stats:partners")
+        custom_status = template.replace("%!partners%", partners if partners else "n/a")
+
+        await self.bot.change_presence(activity=discord.CustomActivity(name=custom_status))
+        
+        # User role add logic
         support_guild = self.bot.get_guild(self.bot.yaml_config['bot']['support_guild'])
         if not support_guild:
             return

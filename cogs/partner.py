@@ -308,21 +308,26 @@ class Partner(commands.Cog):
         logger.debug("channels resolved: #%s (%d) <-> #%s (%d)", getattr(channel1, 'name', None), server1_id, getattr(channel2, 'name', None), server2_id)
 
         r = get_req(guild1.member_count, guild2.member_count)
-        logger.debug("%d(%d) pings %s | %d(%d) pings %s | host: %s", server1_id, guild1.member_count, r['server_a'], server2_id, guild2.member_count, r['server_b'], r['host'])
+        ping_a = r.get('server_a', 'none')
+        ping_b = r.get('server_b', 'none')
+        if ping_a is None or ping_b is None:
+            logger.warning("abort %d<->%d: get_req returned incomplete pings", server1_id, server2_id)
+            return None, None
+        logger.debug("%d(%d) pings %s | %d(%d) pings %s | host: %s", server1_id, guild1.member_count, ping_a, server2_id, guild2.member_count, ping_b, r.get('host'))
 
         raw_ad1 = await self.redis.get(f'ads:{server1_id}')
         raw_ad2 = await self.redis.get(f'ads:{server2_id}')
         if not raw_ad1 or not raw_ad2:
             logger.warning("abort %d<->%d: missing ad (ad1=%s ad2=%s)", server1_id, server2_id, bool(raw_ad1), bool(raw_ad2))
             return None, None
-        
+
         if self.bot.yaml_config['bot']['send_pings'] == True:
-            ad1 = f"{raw_ad1}\n\n{await self.parse_ping(server2_id, r['server_b'])}"
-            ad2 = f"{raw_ad2}\n\n{await self.parse_ping(server1_id, r['server_a'])}"
+            ad1 = f"{raw_ad1}\n\n{await self.parse_ping(server2_id, ping_b)}"
+            ad2 = f"{raw_ad2}\n\n{await self.parse_ping(server1_id, ping_a)}"
         else:
             logger.debug("send_pings is False, sending ads without pings")
-            ad1 = f"{raw_ad1}\n\nPlaceholder for {r['server_b']}"
-            ad2 = f"{raw_ad2}\n\nPlaceholder for {r['server_a']}"
+            ad1 = f"{raw_ad1}\n\nPlaceholder for {ping_b}"
+            ad2 = f"{raw_ad2}\n\nPlaceholder for {ping_a}"
 
         logger.debug("ad lengths: server1_ad=%d server2_ad=%d (ad1 sent to ch2, ad2 sent to ch1)", len(ad1), len(ad2))
         if len(ad1) > 2000 or len(ad2) > 2000:
@@ -347,6 +352,14 @@ class Partner(commands.Cog):
         await self.set_cooldown(server1_id, server2_id)
         await self.set_server_last_partner(server1_id)
         await self.set_server_last_partner(server2_id)
+
+        now = time.time()
+        async with self.redis.pipeline(transaction=False) as pipe:
+            pipe.zadd("stats:partners:24h", {f"{min(server1_id, server2_id)}:{max(server1_id, server2_id)}:{now:.0f}": now})
+            pipe.zremrangebyscore("stats:partners:24h", 0, now - 86400)
+            await pipe.execute()
+        count = await self.redis.zcard("stats:partners:24h")
+        await self.redis.set("stats:partners", count)
 
         logger.info("partner success: %s <-> %s", guild1.name, guild2.name)
         return channel1, channel2
@@ -384,7 +397,7 @@ class Partner(commands.Cog):
             logger.error("failed to parse claude response for ad: %.100s", ad)
             result = {"sus": True, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Your ad could not be automatically verified. Please review the server rules and resubmit."}
 
-        if result['sus']:
+        if result.get('sus'):
             guild: discord.Guild = self.bot.get_guild(self.bot.yaml_config['bot']['support_guild'])
             channel: discord.TextChannel = guild.get_channel(self.bot.yaml_config['channels']['flagged_ads']) if guild else None
             if channel:
@@ -408,7 +421,7 @@ class Partner(commands.Cog):
                 )
                 try:
                     await channel.send(
-                        f"<@&{self.bot.yaml_config['roles']['staff']}> Flagged Ad, Confidence: {result['confidence']}",
+                        f"<@&{self.bot.yaml_config['roles']['staff']}> Flagged Ad, Confidence: {result.get('confidence', 0.5)}",
                         embed=embed
                     )
                 except Exception:
