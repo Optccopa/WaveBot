@@ -42,7 +42,7 @@ class BotCommands(commands.Cog):
         )
         embed.add_field(
             name="Version",
-            Value=self.bot.yaml_config['bot']['version']
+            value=self.bot.yaml_config['bot']['version']
         )
 
         await interaction.response.send_message(embed=embed)
