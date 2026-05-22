@@ -2,10 +2,11 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 from redis.asyncio import Redis
+from main import Bot
 
 class BotCommands(commands.Cog):
     def __init__(self, bot):
-        self.bot: commands.Bot = bot
+        self.bot: Bot = bot
         self.redis: Redis = bot.redis
     
     botGroup = app_commands.Group(

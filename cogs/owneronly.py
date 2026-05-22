@@ -3,11 +3,12 @@ from asyncpg import Pool
 from discord.ext import commands
 from discord import app_commands
 from src.checks import is_owner
+from main import Bot
 import discord, json, traceback, textwrap, asyncio
 
 class OwnerOnly(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: Bot = bot
         self.db_pool: Pool = bot.db_pool
         self.redis: Redis = bot.redis
 

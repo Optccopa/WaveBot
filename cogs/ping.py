@@ -1,9 +1,10 @@
 import discord, time
+from main import Bot
 from discord.ext import commands
 
 class Ping(commands.Cog):
     def __init__(self, bot: commands.Bot):
-        self.bot = bot
+        self.bot: Bot = bot
 
     @commands.command()
     @commands.cooldown(1, 10)

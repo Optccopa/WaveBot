@@ -4,6 +4,7 @@ from src.prompts import SCAN_PROMPT, RULE_PATTERNS
 from anthropic import AsyncAnthropic, APIStatusError
 from redis.asyncio import Redis
 from asyncpg import Pool
+from main import Bot
 import discord, random, logging, asyncio, re, os, hashlib, json, time, yaml
 
 from src.constants import ALL_PINGS
@@ -74,7 +75,7 @@ def get_req(count_a: int, count_b: int) -> dict:
 
 class Partner(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: Bot = bot
         self.redis: Redis = bot.redis
         self.db_pool: Pool = bot.db_pool
         self._partner_lock = asyncio.Lock()

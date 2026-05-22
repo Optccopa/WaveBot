@@ -2,6 +2,7 @@ import discord, traceback, logging, asyncio
 from time import time
 from discord.ext import commands
 from src.checks import is_owner
+from main import Bot
 
 _cooldown_notified: set[int] = set()
 
@@ -9,7 +10,7 @@ log = logging.getLogger(__name__)
 
 class ErrorHandler(commands.Cog):
     def __init__(self, bot: commands.Bot):
-        self.bot = bot
+        self.bot: Bot = bot
         self.last_errors = {
             "slash": None,
             "prefix": None,

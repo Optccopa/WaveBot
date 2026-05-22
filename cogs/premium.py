@@ -1,11 +1,12 @@
 import discord
 from discord.ext import commands
+from main import Bot
 from src.checks import is_owner, is_guild_owner
 from src.constants import ALL_PINGS, VALID_PINGS
 
 class Premium(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: Bot = bot
 
     premiumGroup = discord.app_commands.Group(
         name="premium",

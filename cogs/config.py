@@ -1,11 +1,12 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from main import Bot
 from src.checks import is_management
 
 class Setup(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: Bot = bot
 
     config = app_commands.Group(
         name="config",
