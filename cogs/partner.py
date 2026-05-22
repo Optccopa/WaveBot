@@ -50,13 +50,13 @@ def get_req(count_a: int, count_b: int) -> dict:
     else:
         host, guest = count_b, count_a
         a_is_host = False
-    REF = 2300
-    scale = host / REF
+    config_req = YAML_CONFIG['partner_requirements']
+    scale = host / config_req['scale']
     tiers = [
-        (round(400 * scale), "none"),
-        (round(800 * scale), "partner"),
-        (round(1700 * scale), "here"),
-        (round(2000 * scale), "partnerhere"),
+        (round(config_req['below_do_none'] * scale), "none"),
+        (round(config_req['below_do_partner'] * scale), "partner"),
+        (round(config_req['below_do_here'] * scale), "here"),
+        (round(config_req['below_do_partnerhere'] * scale), "partnerhere"),
         (float("inf"), "member")
     ]
     ping_a, ping_b = "none", "none"
@@ -673,11 +673,12 @@ class Partner(commands.Cog):
     @partnerGroup.command(name="reqs", description="Show partner reqs depending on membercount")
     @discord.app_commands.checks.cooldown(rate=1, per=10)
     async def partner_reqs(self, interaction: discord.Interaction, membercount: int = 1000):
-        scale = membercount / 2300
-        c1 = round(400 * scale)
-        c2 = round(800 * scale)
-        c3 = round(1700 * scale)
-        c4 = round(2000 * scale)
+        config_req = self.bot.yaml_config['partner_requirements']
+        scale = membercount / config_req['scale']
+        c1 = round(config_req['below_do_none'] * scale)
+        c2 = round(config_req['below_do_partner'] * scale)
+        c3 = round(config_req['below_do_here'] * scale)
+        c4 = round(config_req['below_do_partnerhere'] * scale)
 
         lines = [
             f"- **1 - {c1}** - none",

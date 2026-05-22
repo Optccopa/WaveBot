@@ -23,6 +23,13 @@ bot:
   support_guild: 1491681410111635478
   custom_status_template: "%!partners% Partners / Day | wavebot.dev"
 
+partner_requirements:
+  scale: 1000
+  below_do_none: 180
+  below_do_partner: 350
+  below_do_here: 700
+  below_do_partnerhere: 950 # Over this is member
+
 requirements:
   member_role_min_coverage: 0.80
   channel_visibility_min: 0.95
