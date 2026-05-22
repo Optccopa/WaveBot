@@ -122,8 +122,7 @@ class Bot(commands.AutoShardedBot):
             command_prefix=self.yaml_config['bot']['prefix'],
             intents=intents,
             help_command=None,
-            chunk_guilds_at_startup=True,
-            activity=discord.CustomActivity(name=self.yaml_config['bot']['custom_status'])
+            chunk_guilds_at_startup=True
         )
 
         self.db_pool = None
