@@ -24,29 +24,18 @@ class AddBotView(discord.ui.View):
     async def add_bot(self, interaction: discord.Interaction, button: discord.ui.Button):
         logger.info("Add bot view clicked by user: %s guild: %s", interaction.user.name, interaction.guild.name)
         embed = discord.Embed(
-            title="Add WaveBot to your server!",
+            title="Add WaveBot!",
+            description="WaveBot automatically does partners with other servers without any fuss",
             color=discord.Color.fuchsia()
         )
         embed.add_field(
-            name="Invite the bot",
-            value=f'[Click Here]({YAML_CONFIG["bot"]["bot_invite"]}) and click "Add to server"',
+            name="Get Started",
+            value=f'[Invite WaveBot]({YAML_CONFIG["bot"]["bot_invite"]}) then run `/config set` for setup',
             inline=False
         )
         embed.add_field(
-            name="Grant permissions",
-            value="The bot needs **Send Messages** and **Mention Everyone** permissions in both:\n"
-                  "- Your **partner channel** (where ads are posted)\n"
-                  "- Your **logging channel** (for errors, warnings, and announcements)",
-            inline=False
-        )
-        embed.add_field(
-            name="Configure the bot",
-            value="Run `/setup` for a step-by-step interactive setup guide (recommended), or use `/config set` to configure manually",
-            inline=False
-        )
-        embed.add_field(
-            name="Join the support server",
-            value="Click the link sent with this embed",
+            name="Need Help?",
+            value=f"[Join the support server]({YAML_CONFIG['bot']['support_invite']})",
             inline=False
         )
         await interaction.response.send_message(YAML_CONFIG['bot']['support_invite'], embed=embed, ephemeral=True)

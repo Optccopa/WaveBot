@@ -49,25 +49,50 @@ class Setup(commands.Cog):
                 ephemeral=True
             )
 
-        fields = {}
+        warnings = []
+        reqs = self.bot.yaml_config['requirements']
 
+        # partner channel permission check
         if partner_channel:
-            fields["partner_channel"] = partner_channel.id
+            perms = partner_channel.permissions_for(interaction.guild.me)
+            missing = []
+            if not perms.send_messages:
+                missing.append("Send Messages")
+            if not perms.mention_everyone:
+                missing.append("Mention Everyone")
+            if missing:
+                return await interaction.response.send_message(
+                    f"I'm missing the following permissions in {partner_channel.mention}:\n{"\n".join(f"- **{p}**" for p in missing)}",
+                    ephemeral=True
+                )
 
-        if ad_channel:
-            fields["ad_channel"] = ad_channel.id
-
-        if log_channel:
-            fields["log_channel"] = log_channel.id
-
+        # soft coverage warnings
         if member_role:
-            fields["member_role"] = member_role.id
+            total = interaction.guild.member_count or 1
+            coverage = len(member_role.members) / total
+            min_member = reqs['member_role_min_coverage']
+            if coverage < min_member:
+                warnings.append(
+                    f"**{member_role.name}** only covers {coverage:.0%} of your server, the requirement is {round(min_member * 100)}%."
+                )
 
         if partner_ping_role:
-            fields["partner_ping_role"] = partner_ping_role.id
+            total = interaction.guild.member_count or 1
+            coverage = len(partner_ping_role.members) / total
+            min_partner = reqs['partner_role_min_coverage']
+            if coverage < min_partner:
+                warnings.append(
+                    f"**{partner_ping_role.name}** only covers {coverage:.0%} of your server, the requirement is {round(min_partner * 100)}%."
+                )
 
-        if partner_delay_hours is not None:
-            fields["partner_delay"] = partner_delay_hours * 3600
+        fields = {}
+
+        if partner_channel: fields["partner_channel"] = partner_channel.id
+        if ad_channel: fields["ad_channel"] = ad_channel.id
+        if log_channel: fields["log_channel"] = log_channel.id
+        if member_role: fields["member_role"] = member_role.id
+        if partner_ping_role: fields["partner_ping_role"] = partner_ping_role.id
+        if partner_delay_hours is not None: fields["partner_delay"] = partner_delay_hours * 3600
 
         current = await self.bot.config.get(interaction.guild.id) or {}
         merged = {**current, **fields}
@@ -76,7 +101,10 @@ class Setup(commands.Cog):
             if partner_cog:
                 reason = await partner_cog.validate_server(interaction.guild, merged)
                 if reason:
-                    return await interaction.response.send_message(reason, ephemeral=True)
+                    return await interaction.response.send_message(
+                        f"Configuration not saved, {reason}",
+                        ephemeral=True
+                    )
 
         await self.bot.config.set(
             interaction.guild.id,
@@ -90,17 +118,20 @@ class Setup(commands.Cog):
                 ad_cached = await partner_cog.index_ad(interaction.guild.id)
 
         config = await self.bot.config.get(interaction.guild.id)
-        channel = interaction.guild.get_channel(config.get('log_channel'))
-        if channel: channel = channel.mention
-        else: channel = "<Unconfigured>"
+        log_ch = interaction.guild.get_channel(config.get('log_channel'))
+        log_mention = log_ch.mention if log_ch else "your log channel (not set)"
 
-        msg = f"Configuration updated, Validity is checked at runtime so Watch {channel} for info on any issues"
-        if ad_cached is True:
-            msg += "\n\n> Ad cached successfully."
-        elif ad_cached is False:
-            msg += "\n\n> No ad found in your ad channel"
+        if ad_cached is False:
+            warnings.append("No ad found in your ad channel.")
 
-        await interaction.response.send_message(msg, ephemeral=True)
+        lines = ["Configuration saved"]
+        if warnings:
+            lines.append("\nIssues found:")
+            lines.extend(f"- {w}" for w in warnings)
+        else:
+            lines.append(f"\nReady!, watch {log_mention} for any warnings or issues")
+
+        await interaction.response.send_message("\n".join(lines), ephemeral=True)
 
     @config.command(name="view", description="View server configuration")
     @app_commands.checks.cooldown(rate=1, per=10)

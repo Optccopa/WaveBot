@@ -24,7 +24,7 @@
 | Command | Cooldown | Description |
 |---------|----------|-------------|
 | `/partner status` | 1/10s | Shows why your server may not be getting partnered (blacklist, missing config, missing ad, failed validation) |
-| `/config set [...]` | 1/10s | Set one or more config fields (partner_channel, ad_channel, log_channel, member_role, partner_ping_role). Any subset is valid. Validates before saving if all three key fields are present. Re-indexes ad if `ad_channel` changes |
+| `/config set [...]` | 1/10s | Set one or more config fields. Any subset is valid. Checks bot permissions in partner_channel before saving. Shows coverage warnings if member_role or partner_ping_role are below thresholds. Validates before saving if all three key fields are present. Re-indexes ad if `ad_channel` changes |
 | `/config view` | 1/10s | View current server config — all five fields plus premium status |
 | `/setup` | 1/10s | Interactive 5-step setup wizard using Discord UI components |
 
