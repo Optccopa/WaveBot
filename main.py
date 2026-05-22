@@ -151,49 +151,11 @@ class Bot(commands.AutoShardedBot):
         )
         
         # create tables
+        with open("schema.sql") as f:
+            schema = f.read()
         async with self.db_pool.acquire() as conn:
             conn: asyncpg.Connection
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS guild_config (
-                    guild_id BIGINT PRIMARY KEY,
-                    partner_channel BIGINT,
-                    ad_channel BIGINT,
-                    member_role BIGINT,
-                    partner_ping_role BIGINT,
-                    log_channel BIGINT,
-                    partner_delay INTEGER DEFAULT 21600,
-                    premium BOOLEAN DEFAULT FALSE
-                )
-            """)
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS blacklists (
-                    guild_id BIGINT PRIMARY KEY,
-                    reason TEXT NOT NULL,
-                    added_by BIGINT NOT NULL
-                )
-            """)
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS whitelisted_links (
-                    link TEXT PRIMARY KEY,
-                    added_by BIGINT NOT NULL
-                )
-            """)
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS early_access (
-                    guild_id BIGINT PRIMARY KEY,
-                    user_id BIGINT NOT NULL,
-                    reason TEXT
-                )
-            """)
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS premium (
-                    guild_id        BIGINT PRIMARY KEY,
-                    available_pings TEXT[] DEFAULT '{}',
-                    added_by        BIGINT NOT NULL,
-                    added_at        TIMESTAMPTZ DEFAULT NOW()
-                )
-            """)
-            await conn.execute("ALTER TABLE guild_config DROP COLUMN IF EXISTS premium")
+            await conn.execute(schema)
 
         # load cogs
         if os.path.isdir("cogs"):

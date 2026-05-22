@@ -38,6 +38,10 @@ class BotCommands(commands.Cog):
             name="Servers",
             value=f"Servers: {len(self.bot.guilds)}, Total Members: {total_members}"
         )
+        embed.add_field(
+            name="Version",
+            Value=self.bot.yaml_config['bot']['version']
+        )
 
         await interaction.response.send_message(embed=embed)
     
@@ -51,7 +55,6 @@ class BotCommands(commands.Cog):
             "- `/partner status` - Shows information on why your server may not be getting partnered"
         ]
         public_commands = [
-            "- `/partner loopinfo` - Shows information on the partner loop like time and status",
             "- `/partner ad <guild_id>` - Pull a servers current cached ad message",
             "- `/partner reqs <membercount>` - Show partner reqs scaled to a membercount",
             "- `p!ping` - Ping the bot and check status of services",
@@ -79,7 +82,7 @@ class BotCommands(commands.Cog):
         await ctx.reply(self.bot.yaml_config['bot']['support_invite'])
 
     @tasks.loop(minutes=5)
-    async def userloop(self):
+    async def tasksloop(self):
         support_guild = self.bot.get_guild(self.bot.yaml_config['bot']['support_guild'])
         if not support_guild:
             return
@@ -100,15 +103,15 @@ class BotCommands(commands.Cog):
                     await member.add_roles(role)
                 except discord.Forbidden:
                     pass
-    @userloop.before_loop
+    @tasksloop.before_loop
     async def before_five_minute_loop(self):
         await self.bot.wait_until_ready()
 
     async def cog_load(self):
-        self.userloop.start()
+        self.tasksloop.start()
 
     async def cog_unload(self):
-        self.userloop.cancel()
+        self.tasksloop.cancel()
 
 async def setup(bot):
     await bot.add_cog(BotCommands(bot))

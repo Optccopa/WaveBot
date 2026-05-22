@@ -15,6 +15,7 @@ delays:
   logging_webhook: 3
 
 bot:
+  version: 1.2.0
   prefix: p!
   send_pings: true
   bot_invite: https://discord.com/oauth2/authorize?client_id=1487962334138863666

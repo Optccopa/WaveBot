@@ -1,5 +1,7 @@
 # Schema Reference
 
+Tables are defined in `schema.sql` at the repo root. `setup_hook` in `main.py` executes the file on every startup (`CREATE TABLE IF NOT EXISTS` — safe to re-run).
+
 ## Postgres Tables
 
 ### `guild_config`
