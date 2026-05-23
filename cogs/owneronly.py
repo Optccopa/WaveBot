@@ -311,10 +311,10 @@ class OwnerOnly(commands.Cog):
 
         def status(val, id_val=None):
             if val:
-                return f":green_circle:"
+                return f"🟢"
             elif id_val:
-                return f":red_circle: (ID `{id_val}` not resolved)"
-            return ":red_circle: (not set)"
+                return f"🔴 (ID `{id_val}` not resolved)"
+            return "🔴 (not set)"
 
         embed = discord.Embed(
             title=f"Debug: {guild.name}",
@@ -327,7 +327,7 @@ class OwnerOnly(commands.Cog):
         ), inline=False)
 
         embed.add_field(name="Config", value=(
-            f"Loaded: {':green_circle:' if config else ':red_circle:'}\n"
+            f"Loaded: {'🟢' if config else '🔴'}\n"
             f"Raw: ```json\n{json.dumps(config, indent=2) if config else 'None'}```"
         ), inline=False)
 
@@ -342,14 +342,14 @@ class OwnerOnly(commands.Cog):
         ), inline=False)
 
         embed.add_field(name="Ad", value=(
-            f"Cached: {':green_circle:' if ad else ':red_circle:'}\n"
+            f"Cached: {'🟢' if ad else '🔴'}\n"
             f"Content: ```{ad[:200] if ad else 'None'}```"
         ), inline=False)
 
         embed.add_field(name="Invite", value=invite_url, inline=False)
 
         overall = all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role])
-        embed.add_field(name="Overall Status", value=':green_circle: Ready' if overall else ':red_circle: Not ready', inline=False)
+        embed.add_field(name="Overall Status", value='🟢 Ready' if overall else '🔴 Not ready', inline=False)
 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -389,15 +389,15 @@ class OwnerOnly(commands.Cog):
 
             def status(val, id_val=None):
                 if val:
-                    return ":green_circle:"
+                    return "🟢"
                 elif id_val:
-                    return f":red_circle: (ID `{id_val}` not resolved)"
-                return ":red_circle: (not set)"
+                    return f"🔴 (ID `{id_val}` not resolved)"
+                return "🔴 (not set)"
 
             overall = all([config, ad, partner_channel, ad_channel, member_role, partner_ping_role])
 
             embed = discord.Embed(
-                title=f"{':green_circle:' if overall else ':red_circle:'} {guild.name}",
+                title=f"{'🟢' if overall else '🔴'} {guild.name}",
                 color=discord.Color.green() if overall else discord.Color.red()
             )
             embed.add_field(name="Guild", value=(
@@ -407,7 +407,7 @@ class OwnerOnly(commands.Cog):
             ), inline=False)
 
             embed.add_field(name="Config", value=(
-                f"Loaded: {':green_circle:' if config else ':red_circle:'}\n"
+                f"Loaded: {'🟢' if config else '🔴'}\n"
                 f"Raw: ```json\n{json.dumps(config, indent=2) if config else 'None'}```"
             ), inline=False)
 
@@ -422,7 +422,7 @@ class OwnerOnly(commands.Cog):
             ), inline=False)
 
             embed.add_field(name="Ad", value=(
-                f"Cached: {':green_circle:' if ad else ':red_circle:'}\n"
+                f"Cached: {'🟢' if ad else '🔴'}\n"
                 f"Content: ```{ad[:200] if ad else 'None'}```"
             ), inline=False)
 
@@ -541,7 +541,7 @@ class OwnerOnly(commands.Cog):
                 name=m.name,
                 value=f"ID: {m.id}"
             )
-        await ctx.send(embed=embed, ephemeral=True)
+        await ctx.send(embed=embed)
 
 
 async def setup(bot: commands.Bot):

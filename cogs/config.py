@@ -104,7 +104,7 @@ class Setup(commands.Cog):
             if partner_cog:
                 reason = await partner_cog.validate_server(interaction.guild, merged)
                 if reason:
-                    return await interaction.response.send_message(
+                    return await interaction.followup.send(
                         f"Configuration not saved, {reason}",
                         ephemeral=True
                     )
