@@ -524,6 +524,25 @@ class OwnerOnly(commands.Cog):
 
             await ctx.send(embed=embed)
             return
+    
+    @commands.command(name="search")
+    @is_owner()
+    async def searchservers(self, ctx: commands.Context, query: str):
+        matches = []
+        for s in self.bot.guilds:
+            if query in s.name:
+                matches.append(s)
+        embed = discord.Embed(
+            title="Search Query",
+            color=discord.Color.fuchsia()
+        )
+        for m in matches[:10]:
+            embed.add_field(
+                name=m.name,
+                value=f"ID: {m.id}"
+            )
+        await ctx.send(embed=embed, ephemeral=True)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(OwnerOnly(bot))

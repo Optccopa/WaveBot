@@ -50,6 +50,8 @@ class Setup(commands.Cog):
                 ephemeral=True
             )
 
+        await interaction.response.defer(ephemeral=True)
+
         warnings = []
         reqs = self.bot.yaml_config['requirements']
 
@@ -62,7 +64,7 @@ class Setup(commands.Cog):
             if not perms.mention_everyone:
                 missing.append("Mention Everyone")
             if missing:
-                return await interaction.response.send_message(
+                return await interaction.followup.send(
                     f"I'm missing the following permissions in {partner_channel.mention}:\n{"\n".join(f"- **{p}**" for p in missing)}",
                     ephemeral=True
                 )
