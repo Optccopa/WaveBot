@@ -5,8 +5,7 @@ CREATE TABLE IF NOT EXISTS guild_config (
     member_role BIGINT,
     partner_ping_role BIGINT,
     log_channel BIGINT,
-    partner_delay INTEGER DEFAULT 21600,
-    premium BOOLEAN DEFAULT FALSE
+    partner_delay INTEGER DEFAULT 21600
 );
 
 CREATE TABLE IF NOT EXISTS blacklists (

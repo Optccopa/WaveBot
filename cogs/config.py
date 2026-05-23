@@ -134,7 +134,7 @@ class Setup(commands.Cog):
         else:
             lines.append(f"\nReady!, watch {log_mention} for any warnings or issues")
 
-        await interaction.response.send_message("\n".join(lines), ephemeral=True)
+        await interaction.followup.send("\n".join(lines), ephemeral=True)
 
     @config.command(name="view", description="View server configuration")
     @app_commands.checks.cooldown(rate=1, per=10)
