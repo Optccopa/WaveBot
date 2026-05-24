@@ -291,12 +291,16 @@ async def handle_home(request: web.Request) -> web.Response:
         f"&scope=bot+applications.commands&permissions=274877992000"
     ) if client_id else None
     partner_cooldown_hours = request.app["yaml_config"]["cache"]["partner_cooldown"] // 3600
+    if partner_cooldown_hours > 24:
+        partner_cooldown_str = f"{partner_cooldown_hours // 24} day"
+    else:
+        partner_cooldown_str = f"{partner_cooldown_hours} hour"
     return aiohttp_jinja2.render_template("home.html", request, {
         "user": session.get("user"),
         "guild_count": guild_count,
         "member_total": member_total,
         "partners_day": partners_day,
-        "partner_cooldown_hours": partner_cooldown_hours,
+        "partner_cooldown_str": partner_cooldown_str,
         "invite_url": invite_url,
         "support_invite": request.app["yaml_config"]["bot"]["support_invite"],
         "csrf_token": _csrf_token(session) if session.get("user") else None,

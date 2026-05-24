@@ -5,7 +5,7 @@
 {% block content %}
 <div class="hero">
     <h1 class="hero-title">WaveBot</h1>
-    <p class="hero-pitch">Automatically partner with other servers every 6 hours, easy growth with built in safety</p>
+    <p class="hero-pitch">Automatically partner with other servers with a customizable delay, easy growth with built in safety</p>
 
     <div class="hero-stats">
         <div class="stat">
@@ -43,10 +43,12 @@
         <h3>Easy Setup</h3>
         <p>Just add the bot go to https://wavebot.dev/servers and fill in your channel ids</p>
     </div>
+    {% if partner_cooldown_str %}
     <div class="feature">
         <h3>No Repeat Partners</h3>
-        <p>There is a {{ partner_cooldown_hours }} hour cooldown between partnering with other servers</p>
+        <p>There is a {{ partner_cooldown_str }} cooldown between partnering with other servers</p>
     </div>
+    {% endif %}
     <div class="feature">
         <h3>Completely Free</h3>
         <p>No payments are required for full usage of the bot (For now)</p>
