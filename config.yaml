@@ -15,7 +15,7 @@ delays:
   logging_webhook: 3
 
 bot:
-  version: 1.2.5
+  version: 1.2.6
   prefix: p!
   send_pings: true # Testing
   bot_invite: https://discord.com/discovery/applications/1487962334138863666

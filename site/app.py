@@ -290,11 +290,13 @@ async def handle_home(request: web.Request) -> web.Response:
         f"https://discord.com/oauth2/authorize?client_id={client_id}"
         f"&scope=bot+applications.commands&permissions=274877992000"
     ) if client_id else None
+    partner_cooldown_hours = request.app["yaml_config"]["cache"]["partner_cooldown"] // 3600
     return aiohttp_jinja2.render_template("home.html", request, {
         "user": session.get("user"),
         "guild_count": guild_count,
         "member_total": member_total,
         "partners_day": partners_day,
+        "partner_cooldown_hours": partner_cooldown_hours,
         "invite_url": invite_url,
         "support_invite": request.app["yaml_config"]["bot"]["support_invite"],
         "csrf_token": _csrf_token(session) if session.get("user") else None,
@@ -306,6 +308,7 @@ async def handle_tos(request: web.Request) -> web.Response:
     session = await aiohttp_session.get_session(request)
     return aiohttp_jinja2.render_template("tos.html", request, {
         "user": session.get("user"),
+        "support_invite": request.app["yaml_config"]["bot"]["support_invite"],
         "csrf_token": _csrf_token(session) if session.get("user") else None,
     })
 
