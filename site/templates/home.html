@@ -16,6 +16,12 @@
             <span class="stat-value">{{ member_total }}</span>
             <span class="stat-label">members</span>
         </div>
+        {% if partners_day %}
+        <div class="stat">
+            <span class="stat-value">{{ partners_day }}</span>
+            <span class="stat-label">partners / day</span>
+        </div>
+        {% endif %}
     </div>
 
     <div class="hero-cta">

@@ -284,6 +284,7 @@ async def handle_home(request: web.Request) -> web.Response:
             member_total += json.loads(raw).get("member_count") or 0
         except Exception:
             pass
+    partners_day = await redis.get("stats:partners")
     client_id = os.environ.get("DISCORD_CLIENT_ID", "")
     invite_url = (
         f"https://discord.com/oauth2/authorize?client_id={client_id}"
@@ -293,6 +294,7 @@ async def handle_home(request: web.Request) -> web.Response:
         "user": session.get("user"),
         "guild_count": guild_count,
         "member_total": member_total,
+        "partners_day": partners_day,
         "invite_url": invite_url,
         "support_invite": request.app["yaml_config"]["bot"]["support_invite"],
         "csrf_token": _csrf_token(session) if session.get("user") else None,
