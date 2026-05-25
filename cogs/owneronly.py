@@ -433,7 +433,7 @@ class OwnerOnly(commands.Cog):
     @serversGroup.command(name="leave")
     @app_commands.describe(server_id="The server to leave")
     @is_owner()
-    async def leave_server(self, interaction: discord.Interaction, server_id: str):
+    async def leave_server(self, interaction: discord.Interaction, server_id: str, reason: str = None):
         await interaction.response.defer(ephemeral=True)
 
         try:
@@ -447,6 +447,11 @@ class OwnerOnly(commands.Cog):
             return
 
         await interaction.followup.send(f"Leaving **{guild.name}** (`{guild.id}`).", ephemeral=True)
+        if reason:
+            try:
+                await guild.owner.send(f"Wavebot has left {guild.name}, Reason: {reason}")
+            except Exception as e:
+                await interaction.followup.send(f"Failed to message guild owner, Exception: {e}", ephemeral=True)
         await guild.leave()
 
     @serversGroup.command(name="invite", description="Get an invite to a server")
