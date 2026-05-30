@@ -535,10 +535,10 @@ class OwnerOnly(commands.Cog):
     async def searchservers(self, ctx: commands.Context, query: str):
         matches = []
         for s in self.bot.guilds:
-            if query in s.name:
+            if query.lower() in s.name.lower():
                 matches.append(s)
         embed = discord.Embed(
-            title="Search Query",
+            title="Top 10 Search Results",
             color=discord.Color.fuchsia()
         )
         for m in matches[:10]:
