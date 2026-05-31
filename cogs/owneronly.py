@@ -547,6 +547,26 @@ class OwnerOnly(commands.Cog):
                 value=f"ID: {m.id}"
             )
         await ctx.send(embed=embed)
+    
+    @commands.command(name="cull", description="List servers missing required config")
+    async def culler(self, ctx: commands.Context):
+        required = ("partner_channel", "ad_channel", "member_role", "partner_ping_role")
+        unready = []
+        for guild in self.bot.guilds:
+            config = await self.bot.config.get(guild.id)
+            missing = [k for k in required if not (config and config.get(k))]
+            if missing:
+                unready.append((guild, missing))
+
+        if not unready:
+            await ctx.send("All servers configured.")
+            return
+
+        embed = discord.Embed(title=f"Not Setup ({len(unready)})", color=discord.Color.red())
+        for guild, missing in unready[:25]:
+            embed.add_field(name=f"{guild.name} ({guild.id})", value=", ".join(missing), inline=False)
+        await ctx.send(embed=embed)
+
 
 
 async def setup(bot: commands.Bot):

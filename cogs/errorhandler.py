@@ -20,35 +20,40 @@ class ErrorHandler(commands.Cog):
 
     # Slash commands
     async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
-        if isinstance(error, discord.app_commands.MissingPermissions):
+        if not interaction.guild or not interaction.guild.me:
+            msg = f"I am not in this guild, Try adding the bot [here]({self.bot.yaml_config['bot']['bot_invite']})"
+
+        elif isinstance(error, discord.app_commands.MissingPermissions):
             msg = "You don't have permission to use this command."
+
         elif isinstance(error, discord.app_commands.CommandOnCooldown):
             retry_at = int(time() + error.retry_after)
-            msg = f"Slow down, Retry at: <t:{retry_at}:R>"
+            msg = f"Slow down, Retry <t:{retry_at}:R>"
+
         elif isinstance(error, discord.app_commands.CheckFailure):
             msg = "You don't have permission to use this command."
+
+        elif isinstance(error, discord.app_commands.TransformerError):
+            msg = f"Failed to resolve {error.value} make sure it is a {error.type.__name__}"
+
         elif isinstance(error, discord.Forbidden):
             log.warning("Forbidden in app command %s: %s", interaction.command, error)
-            try:
-                msg = "I'm missing permissions in this channel"
-                if interaction.response.is_done():
-                    await interaction.followup.send(msg, ephemeral=True)
-                else:
-                    await interaction.response.send_message(msg, ephemeral=True)
-            except (discord.HTTPException, discord.Forbidden):
-                pass
-            return
+            msg = "I'm missing permissions in this channel"
+    
         else:
             self.last_errors["slash"] = traceback.format_exception(
                 type(error), error, error.__traceback__
             )
             log.error("App command error: %r", error)
             msg = "An unexpected error occurred, if this issue persists please contact support."
-
-        if interaction.response.is_done():
-            await interaction.followup.send(msg, ephemeral=True)
-        else:
-            await interaction.response.send_message(msg, ephemeral=True)
+        
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(msg, ephemeral=True)
+            else:
+                await interaction.response.send_message(msg, ephemeral=True)
+        except (discord.HTTPException, discord.Forbidden):
+            pass
 
     # Prefix commands
     @commands.Cog.listener()
