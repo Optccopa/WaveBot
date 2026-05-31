@@ -264,6 +264,14 @@ class Bot(commands.AutoShardedBot):
             return
         
         log.info(f"Joined a new server: {guild.name} with {guild.member_count} members")
+    
+    async def on_message(self, message: discord.Message):
+        if message.author == self.user:
+            return
+        
+        message.content = message.content.lower() # Make everything lowercase in content
+
+        await bot.process_commands(message)
 
 bot = Bot()
 
