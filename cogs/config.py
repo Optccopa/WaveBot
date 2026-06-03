@@ -144,7 +144,7 @@ class Setup(commands.Cog):
 
         if not config:
             return await interaction.response.send_message(
-                "Server not registered. Use /register first.",
+                "Server does not have a config, Use `/config set` first",
                 ephemeral=True
             )
 
