@@ -1,8 +1,10 @@
-import discord
+import discord, logging
 from discord import app_commands
 from discord.ext import commands, tasks
 from redis.asyncio import Redis
 from main import Bot
+
+log = logging.getLogger(__name__)
 
 class BotCommands(commands.Cog):
     def __init__(self, bot):
@@ -86,34 +88,39 @@ class BotCommands(commands.Cog):
 
     @tasks.loop(minutes=5)
     async def tasksloop(self):
-        # Update presence
-        template: str = self.bot.yaml_config['bot']['custom_status_template']
-        partners = await self.redis.get("stats:partners")
-        custom_status = template.replace("%!partners%", partners if partners else "n/a")
+        try:
+            # Update presence
+            template: str = self.bot.yaml_config['bot']['custom_status_template']
+            partners = await self.redis.get("stats:partners")
+            custom_status = template.replace("%!partners%", partners if partners else "n/a")
 
-        await self.bot.change_presence(activity=discord.CustomActivity(name=custom_status))
+            await self.bot.change_presence(activity=discord.CustomActivity(name=custom_status))
 
-        # User role add logic
-        support_guild = self.bot.get_guild(self.bot.yaml_config['bot']['support_guild'])
-        if not support_guild:
-            return
-        role = support_guild.get_role(self.bot.yaml_config['roles']['bot_user'])
-        if not role:
-            return
-        owner_ids = {g.owner_id for g in self.bot.guilds if g.owner_id}
-        for member in list(role.members):
-            if member.id not in owner_ids:
-                try:
-                    await member.remove_roles(role)
-                except discord.Forbidden:
-                    pass
-        for owner_id in owner_ids:
-            member = support_guild.get_member(owner_id)
-            if member and role not in member.roles:
-                try:
-                    await member.add_roles(role)
-                except discord.Forbidden:
-                    pass
+            # User role add logic
+            support_guild = self.bot.get_guild(self.bot.yaml_config['bot']['support_guild'])
+            if not support_guild:
+                return
+            role = support_guild.get_role(self.bot.yaml_config['roles']['bot_user'])
+            if not role:
+                return
+            owner_ids = {g.owner_id for g in self.bot.guilds if g.owner_id}
+            for member in list(role.members):
+                if member.id not in owner_ids:
+                    try:
+                        await member.remove_roles(role)
+                    except discord.Forbidden:
+                        pass
+            for owner_id in owner_ids:
+                member = support_guild.get_member(owner_id)
+                if member and role not in member.roles:
+                    try:
+                        await member.add_roles(role)
+                    except discord.Forbidden:
+                        pass
+        except discord.DiscordServerError:
+            log.exception("Failed reaching discord servers in tasksloop")
+        except Exception:
+            log.exception("Unexpected exception in tasksloop")
     @tasksloop.before_loop
     async def before_five_minute_loop(self):
         await self.bot.wait_until_ready()
