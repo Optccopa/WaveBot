@@ -233,9 +233,8 @@ class Bot(commands.AutoShardedBot):
                 if guild.owner:
                     try:
                         await guild.owner.send(
-                            f"**{self.user.name}** has left **{guild.name}** as it is under the minimum membercount `{self.yaml_config['requirements']['minimum_membercount']}`\n"
-                            f"Access: You can request access in {self.yaml_config['bot']['support_invite']} , https://discord.com/channels/1491681410111635478/1491709242829307965"
-                        )
+                            f"**{self.user.name}** has left **{guild.name}** as it is under the minimum membercount `{self.yaml_config['requirements']['minimum_membercount']}`"
+                            )
                     except discord.Forbidden:
                         pass
                 await guild.leave()
