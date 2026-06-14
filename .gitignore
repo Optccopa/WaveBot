@@ -1,4 +1,4 @@
 .env
 tempCodeRunnerFile.py
 __pycache__/
-.claude/
+.claude/settings.local.json
