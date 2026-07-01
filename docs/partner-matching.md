@@ -33,7 +33,7 @@ This approximates maximum matching without Blossom complexity. It won't always f
 
 ## Cooldowns
 
-Cooldown TTL: `cache.partner_cooldown` in `config.yaml` (currently 259200s = 3 days).
+Cooldown TTL: `cache.partner_cooldown` in `config.yaml` (currently 172800s = 2 days).
 
 Key format: `{cache_version}:partner_cooldown:{min(a,b)}:{max(a,b)}`
 
@@ -59,6 +59,10 @@ Guest always pings `member`.
 Pings in the stored ad text are stripped before storage — `parse_ping` adds the correct ping at send time based on each server's config.
 
 After each pair is sent, `asyncio.sleep(delays.partner_pair)` (default 3s) runs unconditionally to pace Discord API calls.
+
+Each ad message carries an `AddBotView` with two buttons:
+- **Add WaveBot** — static persistent button (`custom_id: wavebot:add_bot`), shows invite embed.
+- **Partner Info** — `discord.ui.DynamicItem` button (`custom_id: wavebot:partner_info:{partnership_id}`). Before sending, `partner()` inserts a snapshot row into the `partnerships` table (both guild ids/names, member counts, pings used, host, timestamp) and encodes the row id in the custom_id — survives restarts, values are frozen at match time. If either send fails the row is deleted. Clicking replies with an ephemeral embed (cache-aside via Redis `partner_info:{id}`, 30-day TTL, `"0"` negative cache) showing both servers' names, ids, member counts, and viewer-relative ping direction ("Pinged here" vs "Pinged there"). Rate limited 1 click / 10s per user via Redis NX key. Registered via `bot.add_dynamic_items(PartnerInfoButton)` in `cog_load`. `/partner broadcast` messages carry only the Add WaveBot button — no matching data exists there.
 
 ## Concurrency
 

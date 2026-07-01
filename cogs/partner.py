@@ -17,9 +17,71 @@ with open("config.yaml", "r") as f:
 
 logger = logging.getLogger(__name__)
 
+class PartnerInfoButton(discord.ui.DynamicItem[discord.ui.Button], template=r"wavebot:partner_info:(?P<pid>\d+)"):
+    def __init__(self, partnership_id: int):
+        super().__init__(discord.ui.Button(
+            label="Partner Info",
+            style=discord.ButtonStyle.gray,
+            custom_id=f"wavebot:partner_info:{partnership_id}",
+        ))
+        self.partnership_id: int = partnership_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction: discord.Interaction, item: discord.ui.Button, match: re.Match[str]):
+        return cls(int(match["pid"]))
+
+    async def callback(self, interaction: discord.Interaction):
+        logger.info("Partner info clicked by user: %s guild: %s partnership: %d", interaction.user.name, interaction.guild.name if interaction.guild else None, self.partnership_id)
+        bot = interaction.client
+
+        allowed = await bot.redis.set(f"cooldown:partner_info:{interaction.user.id}", "1", nx=True, ex=10)
+        if not allowed:
+            await interaction.response.send_message("Slow down.", ephemeral=True)
+            return
+
+        cache_key = f"partner_info:{self.partnership_id}"
+        cached = await bot.redis.get(cache_key)
+        if cached == "0":
+            await interaction.response.send_message("Partner not found.", ephemeral=True)
+            return
+        if cached:
+            info = json.loads(cached)
+        else:
+            async with bot.db_pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT * FROM partnerships WHERE id = $1", self.partnership_id)
+            if row is None:
+                await bot.redis.set(cache_key, "0", ex=86400)
+                await interaction.response.send_message("Partner not found.", ephemeral=True)
+                return
+            info = dict(row)
+            info["partnered_at"] = info["partnered_at"].isoformat()
+            await bot.redis.set(cache_key, json.dumps(info), ex=2592000)
+
+        host_id = info.get("host_guild_id")
+        viewer_id = interaction.guild.id if interaction.guild else None
+        embed = discord.Embed(title="Partner Info", color=discord.Color.fuchsia())
+        for n in (1, 2):
+            gid = info[f"guild{n}_id"]
+            tags = []
+            if gid == viewer_id:
+                tags.append("this server")
+            if gid == host_id:
+                tags.append("host")
+            tag_str = f" ({', '.join(tags)})" if tags else ""
+            # guild{n}_ping fires in guild{n}'s own partner channel (announcing the other side's ad)
+            ping_label = "Pinged here" if gid == viewer_id else "Pinged there"
+            embed.add_field(
+                name=f"{info[f'guild{n}_name']}{tag_str}",
+                value=f"Guild ID: `{gid}`\nMembercount: `{info[f'guild{n}_members']}`\n{ping_label}: `{info[f'guild{n}_ping']}`",
+                inline=True,
+            )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 class AddBotView(discord.ui.View):
-    def __init__(self):
+    def __init__(self, partnership_id: int | None = None):
         super().__init__(timeout=None)
+        if partnership_id is not None:
+            self.add_item(PartnerInfoButton(partnership_id))
 
     @discord.ui.button(label="Add WaveBot", style=discord.ButtonStyle.blurple, custom_id="wavebot:add_bot")
     async def add_bot(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -324,19 +386,33 @@ class Partner(commands.Cog):
             logger.warning("abort: ad too long - server1_ad=%d server2_ad=%d (max 2000)", len(ad1), len(ad2))
             return None, None
 
+        host_guild_id = server1_id if r.get('host') == 'server_a' else server2_id
+        async with self.db_pool.acquire() as conn:
+            partnership_id = await conn.fetchval(
+                """INSERT INTO partnerships
+                   (guild1_id, guild2_id, guild1_name, guild2_name, guild1_members, guild2_members, guild1_ping, guild2_ping, host_guild_id)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id""",
+                server1_id, server2_id, guild1.name, guild2.name,
+                guild1.member_count or 0, guild2.member_count or 0, ping_a, ping_b, host_guild_id
+            )
+
         logger.debug("sending ad2 -> #%s in %s (%d)", channel1.name, guild1.name, server1_id)
         try:
-            await channel1.send(ad2, view=AddBotView())
+            await channel1.send(ad2, view=AddBotView(partnership_id))
             logger.debug("sent ad2 -> %d #%s OK", server1_id, channel1.name)
         except Exception as e:
             logger.error("failed sending to %d #%s: %s", server1_id, channel1.name, e)
+            async with self.db_pool.acquire() as conn:
+                await conn.execute("DELETE FROM partnerships WHERE id = $1", partnership_id)
             return None, None
         logger.debug("sending ad1 -> #%s in %s (%d)", channel2.name, guild2.name, server2_id)
         try:
-            await channel2.send(ad1, view=AddBotView())
+            await channel2.send(ad1, view=AddBotView(partnership_id))
             logger.debug("sent ad1 -> %d #%s OK", server2_id, channel2.name)
         except Exception as e:
             logger.error("failed sending to %d #%s: %s", server2_id, channel2.name, e)
+            async with self.db_pool.acquire() as conn:
+                await conn.execute("DELETE FROM partnerships WHERE id = $1", partnership_id)
             return None, None
 
         await self.set_cooldown(server1_id, server2_id)
@@ -537,6 +613,7 @@ class Partner(commands.Cog):
 
     async def cog_load(self):
         self.bot.add_view(AddBotView())
+        self.bot.add_dynamic_items(PartnerInfoButton)
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch("SELECT link FROM whitelisted_links")
         await self.redis.delete("whitelisted_links")

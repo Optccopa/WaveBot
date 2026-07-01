@@ -225,6 +225,8 @@ class Bot(commands.AutoShardedBot):
     async def on_guild_remove(self, guild: discord.Guild):
         await self.redis.srem("bot:guild_ids", guild.id)
         await self.redis.hdel("bot:guild_info", str(guild.id))
+        # privacy policy §6: removal clears guild caches (ads key has no TTL)
+        await self.redis.delete(f"ads:{guild.id}", f"config:{guild.id}", f"premium:{guild.id}")
 
     async def on_guild_join(self, guild: discord.Guild):
         if (guild.member_count or 0) < self.yaml_config['requirements']['minimum_membercount']:

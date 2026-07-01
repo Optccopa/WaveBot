@@ -38,6 +38,19 @@ Tables are defined in `schema.sql` at the repo root. `setup_hook` in `main.py` e
 
 Grants a guild the ability to add the bot even if it is under `requirements.minimum_membercount` (default 50). See [early-access.md](early-access.md).
 
+### `partnerships`
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | `BIGSERIAL` | PK — encoded in the Partner Info button custom_id |
+| `guild1_id` / `guild2_id` | `BIGINT` | The matched pair |
+| `guild1_name` / `guild2_name` | `TEXT` | Guild names at match time |
+| `guild1_members` / `guild2_members` | `INTEGER` | Member counts used by `get_req` |
+| `guild1_ping` / `guild2_ping` | `TEXT` | Ping tier each side used |
+| `host_guild_id` | `BIGINT` | Larger server of the pair |
+| `partnered_at` | `TIMESTAMPTZ` | Default `NOW()` |
+
+Snapshot of each partnership, written by `partner()` before ads are sent (deleted if either send fails). Read by the Partner Info button. See [partner-matching.md](partner-matching.md).
+
 ---
 
 ## Redis Keys
@@ -48,7 +61,7 @@ Grants a guild the ability to add the bot even if it is under `requirements.mini
 | `bot:early_access_guilds` | Set | none | Guild IDs with early access (bypass member count minimum) | `main.py` on_ready / `cogs/owneronly.py` earlyaccess commands |
 | `bot:guild_info` | Hash | none | Field = `guild_id`, value = `{"name","icon","member_count"}` JSON | `main.py` on_ready / on_guild_join / on_guild_remove |
 | `config:{guild_id}` | String | 30d | `guild_config` row as JSON | `src/configmanager.py` |
-| `ads:{guild_id}` | String | none | Ping-stripped ad message text | `cogs/partner.py` index_ad / index_ads |
+| `ads:{guild_id}` | String | none | Ping-stripped ad message text. Deleted (with `config:`/`premium:` keys) in `on_guild_remove` | `cogs/partner.py` index_ad / index_ads |
 | `{claude_ver}:claude:{sha256_12}` | String | 30d | Claude Haiku scan result JSON `{sus,confidence,ai_hits,regex_hits,user_reason}` | `cogs/partner.py` scan_ad |
 | `{cache_ver}:partner_cooldown:{min_id}:{max_id}` | String | 3d | `1` — signals cooldown active between two guilds | `cogs/partner.py` set_cooldown |
 | `{cache_ver}:server_last_partner:{guild_id}` | String | none | Unix timestamp (float as string) of when this server last successfully partnered | `cogs/partner.py` partner |
@@ -56,6 +69,8 @@ Grants a guild the ability to add the bot even if it is under `requirements.mini
 | `stats:partners` | String | none | Integer — `ZCARD` of `stats:partners:24h` written after every partner. Always equals sliding 24h count. | `cogs/partner.py` partner |
 | `stats:partners:24h` | Sorted Set | none | Members `{min_id}:{max_id}:{ts}`, score = unix timestamp. Trimmed on every write. `ZCARD` gives true sliding 24h partner count. | `cogs/partner.py` partner |
 | `invite:{channel_id}` | String | 6h | Discord invite URL for a partner channel | `cogs/owneronly.py` list_servers / debug_all_servers |
+| `partner_info:{partnership_id}` | String | 30d | `partnerships` row as JSON (`"0"` = negative cache, 1d) | `cogs/partner.py` PartnerInfoButton callback |
+| `cooldown:partner_info:{user_id}` | String | 10s | `1` — per-user rate limit on the Partner Info button | `cogs/partner.py` PartnerInfoButton callback |
 | `whitelisted_links` | Set | none | Link strings stripped from ads before scan | `cogs/partner.py` cog_load / `cogs/owneronly.py` |
 | `panel:guilds:{user_id}` | String | 5m | JSON list of user's Discord guilds with permissions/counts | `site/app.py` _get_user_guilds |
 | `ratelimit:get:{user_id}` | String | 60s | Request counter — max 30 GET requests/min | `site/app.py` _check_rate_limit |

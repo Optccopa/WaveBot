@@ -25,6 +25,20 @@ CREATE TABLE IF NOT EXISTS early_access (
     reason TEXT
 );
 
+CREATE TABLE IF NOT EXISTS partnerships (
+    id BIGSERIAL PRIMARY KEY,
+    guild1_id BIGINT NOT NULL,
+    guild2_id BIGINT NOT NULL,
+    guild1_name TEXT,
+    guild2_name TEXT,
+    guild1_members INTEGER,
+    guild2_members INTEGER,
+    guild1_ping TEXT,
+    guild2_ping TEXT,
+    host_guild_id BIGINT,
+    partnered_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS premium (
     guild_id   BIGINT PRIMARY KEY,
     available_pings TEXT[] DEFAULT '{}',
