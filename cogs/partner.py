@@ -27,9 +27,6 @@ async def _interaction_error_reply(interaction: discord.Interaction, content: st
     except discord.HTTPException:
         pass
 
-
-# assumes redis decode_responses=True (set in main.py setup_hook) — negative-cache
-# compare and ad slicing below break silently on a bytes client
 async def fetch_partnership(bot, partnership_id: int) -> dict | None:
     cache_key = f"partner_info:{partnership_id}"
     cached = await bot.redis.get(cache_key)
@@ -134,10 +131,10 @@ class ReportModal(discord.ui.Modal, title="Report Server (In testing)"):
         component=discord.ui.Select(
             placeholder="Pick a category",
             options=[
-                discord.SelectOption(label="Scam"),
-                discord.SelectOption(label="IRL Trading"),
-                discord.SelectOption(label="NSFW"),
-                discord.SelectOption(label="Spam"),
+                discord.SelectOption(label="Scamming"),
+                discord.SelectOption(label="IRL trading"),
+                discord.SelectOption(label="Botted"),
+                discord.SelectOption(label="Non DonutSMP based"),
                 discord.SelectOption(label="Other"),
             ],
         ),
