@@ -209,7 +209,7 @@ class ReportModal(discord.ui.Modal, title="Report Server (In testing)"):
         await bot.redis.set(dedupe_key, "1", ex=2592000)
 
         embed = discord.Embed(
-            title=f"Report #{report_id} — {category}", color=discord.Color.red()
+            title=f"Report #{report_id} - {category}", color=discord.Color.red()
         )
         embed.add_field(
             name="Reported server",
@@ -241,11 +241,11 @@ class ReportModal(discord.ui.Modal, title="Report Server (In testing)"):
                 )
         else:
             logger.error(
-                "reports channel %s not found",
-                YAML_CONFIG["channels"]["reports"]
+                "reports channel %s not found", YAML_CONFIG["channels"]["reports"]
             )
         await interaction.followup.send(
-            "Report submitted — thank you!", ephemeral=True
+            f"Report submitted, Beyond obvious rule violations you should make a ticket in our [support server]({YAML_CONFIG['bot']['support_invite']}) and show proof",
+            ephemeral=True,
         )
 
 
@@ -401,9 +401,7 @@ class ReportBlacklistButton(
         )
         embeds = interaction.message.embeds
         embed = (
-            embeds[0]
-            if embeds
-            else discord.Embed(title=f"Report #{self.report_id}")
+            embeds[0] if embeds else discord.Embed(title=f"Report #{self.report_id}")
         )
         embed.colour = discord.Color.dark_grey()
         embed.add_field(
@@ -414,9 +412,7 @@ class ReportBlacklistButton(
         try:
             await interaction.message.edit(embed=embed, view=None)
         except discord.HTTPException as e:
-            logger.error(
-                "failed editing report message for #%d: %s", self.report_id, e
-            )
+            logger.error("failed editing report message for #%d: %s", self.report_id, e)
 
         guild = bot.get_guild(self.guild_id)
         if guild:
@@ -481,14 +477,10 @@ class ReportDismissButton(
             )
             return
 
-        logger.info(
-            "Report #%d dismissed by %s", self.report_id, interaction.user.name
-        )
+        logger.info("Report #%d dismissed by %s", self.report_id, interaction.user.name)
         embeds = interaction.message.embeds
         embed = (
-            embeds[0]
-            if embeds
-            else discord.Embed(title=f"Report #{self.report_id}")
+            embeds[0] if embeds else discord.Embed(title=f"Report #{self.report_id}")
         )
         embed.colour = discord.Color.dark_grey()
         embed.add_field(
@@ -499,9 +491,7 @@ class ReportDismissButton(
         try:
             await interaction.message.edit(embed=embed, view=None)
         except discord.HTTPException as e:
-            logger.error(
-                "failed editing report message for #%d: %s", self.report_id, e
-            )
+            logger.error("failed editing report message for #%d: %s", self.report_id, e)
 
 
 class AddBotView(discord.ui.View):
