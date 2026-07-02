@@ -1,4 +1,5 @@
 """Adversarial review tests for match_servers / get_req."""
+
 import random
 import json
 
@@ -29,7 +30,11 @@ def get_req(count_a: int, count_b: int) -> dict:
             else:
                 ping_a, ping_b = "member", host_ping
             break
-    return {"server_a": ping_a, "server_b": ping_b, "host": "server_a" if a_is_host else "server_b"}
+    return {
+        "server_a": ping_a,
+        "server_b": ping_b,
+        "host": "server_a" if a_is_host else "server_b",
+    }
 
 
 def test_pingkey_mapping():
@@ -68,7 +73,12 @@ def test_tier_boundary_rounding():
     bad = []
     for host in range(0, 100000, 7):
         scale = host / 2300
-        t = [round(400 * scale), round(800 * scale), round(1700 * scale), round(2000 * scale)]
+        t = [
+            round(400 * scale),
+            round(800 * scale),
+            round(1700 * scale),
+            round(2000 * scale),
+        ]
         for i in range(len(t) - 1):
             if t[i] > t[i + 1]:
                 bad.append((host, t))
@@ -101,6 +111,7 @@ def test_negative_or_none():
 
 # ============ match_servers logic checks ============
 
+
 def simulate_match(guilds, premium_data=None, cooldown_pairs=None, seed=0):
     """Simulate the matching logic without redis/db."""
     random.seed(seed)
@@ -114,7 +125,9 @@ def simulate_match(guilds, premium_data=None, cooldown_pairs=None, seed=0):
     if len(pool) < 2:
         return [], pool
 
-    all_pairs = [(min(a, b), max(a, b)) for i, a in enumerate(pool) for b in pool[i + 1:]]
+    all_pairs = [
+        (min(a, b), max(a, b)) for i, a in enumerate(pool) for b in pool[i + 1 :]
+    ]
     on_cooldown = {p for p in all_pairs if p in cooldown_pairs}
 
     prem_configs = premium_data
@@ -126,7 +139,7 @@ def simulate_match(guilds, premium_data=None, cooldown_pairs=None, seed=0):
         if a in prem_configs or b in prem_configs:
             r = get_req(member_counts[a], member_counts[b])
             ping_blocked = False
-            for gid, ping_key in ((a, 'server_a'), (b, 'server_b')):
+            for gid, ping_key in ((a, "server_a"), (b, "server_b")):
                 if gid in prem_configs:
                     allowed = prem_configs[gid].get("available_pings") or ALL_PINGS
                     if r[ping_key] not in allowed:
@@ -229,7 +242,9 @@ def test_greedy_optimality():
 def test_shuffle_determinism():
     # Same input, different seeds -> different results possible. That's by design.
     for seed in range(3):
-        p, s = simulate_match([(1, 100), (2, 200), (3, 300), (4, 400), (5, 500)], seed=seed)
+        p, s = simulate_match(
+            [(1, 100), (2, 200), (3, 300), (4, 400), (5, 500)], seed=seed
+        )
         print(f"seed {seed}: pairs={p} satout={s}")
 
 

@@ -5,6 +5,7 @@ from src.prompts import *
 
 client = anthropic.Anthropic(api_key=None)
 
+
 def scan_ad(ad: str) -> dict:
     hits = []
     lower = ad.lower()
@@ -21,7 +22,7 @@ def scan_ad(ad: str) -> dict:
             "confidence": 0.95,
             "ai_hits": [],
             "regex_hits": regex_hits,
-            "user_reason": "Your ad was flagged during the regex prescan"
+            "user_reason": "Your ad was flagged during the regex prescan",
         }
 
     message = client.messages.create(
@@ -37,6 +38,7 @@ def scan_ad(ad: str) -> dict:
     result = json.loads(raw)
 
     return result
+
 
 if __name__ == "__main__":
     result = scan_ad("""

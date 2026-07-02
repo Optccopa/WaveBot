@@ -17,24 +17,42 @@ with open("config.yaml", "r") as f:
 
 logger = logging.getLogger(__name__)
 
-class PartnerInfoButton(discord.ui.DynamicItem[discord.ui.Button], template=r"wavebot:partner_info:(?P<pid>\d+)"):
+
+class PartnerInfoButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"wavebot:partner_info:(?P<pid>\d+)",
+):
     def __init__(self, partnership_id: int):
-        super().__init__(discord.ui.Button(
-            label="Partner Info",
-            style=discord.ButtonStyle.gray,
-            custom_id=f"wavebot:partner_info:{partnership_id}",
-        ))
+        super().__init__(
+            discord.ui.Button(
+                label="Partner Info",
+                style=discord.ButtonStyle.gray,
+                custom_id=f"wavebot:partner_info:{partnership_id}",
+            )
+        )
         self.partnership_id: int = partnership_id
 
     @classmethod
-    async def from_custom_id(cls, interaction: discord.Interaction, item: discord.ui.Button, match: re.Match[str]):
+    async def from_custom_id(
+        cls,
+        interaction: discord.Interaction,
+        item: discord.ui.Button,
+        match: re.Match[str],
+    ):
         return cls(int(match["pid"]))
 
     async def callback(self, interaction: discord.Interaction):
-        logger.info("Partner info clicked by user: %s guild: %s partnership: %d", interaction.user.name, interaction.guild.name if interaction.guild else None, self.partnership_id)
+        logger.info(
+            "Partner info clicked by user: %s guild: %s partnership: %d",
+            interaction.user.name,
+            interaction.guild.name if interaction.guild else None,
+            self.partnership_id,
+        )
         bot = interaction.client
 
-        allowed = await bot.redis.set(f"cooldown:partner_info:{interaction.user.id}", "1", nx=True, ex=10)
+        allowed = await bot.redis.set(
+            f"cooldown:partner_info:{interaction.user.id}", "1", nx=True, ex=10
+        )
         if not allowed:
             await interaction.response.send_message("Slow down.", ephemeral=True)
             return
@@ -42,16 +60,22 @@ class PartnerInfoButton(discord.ui.DynamicItem[discord.ui.Button], template=r"wa
         cache_key = f"partner_info:{self.partnership_id}"
         cached = await bot.redis.get(cache_key)
         if cached == "0":
-            await interaction.response.send_message("Partner not found.", ephemeral=True)
+            await interaction.response.send_message(
+                "Partner not found.", ephemeral=True
+            )
             return
         if cached:
             info = json.loads(cached)
         else:
             async with bot.db_pool.acquire() as conn:
-                row = await conn.fetchrow("SELECT * FROM partnerships WHERE id = $1", self.partnership_id)
+                row = await conn.fetchrow(
+                    "SELECT * FROM partnerships WHERE id = $1", self.partnership_id
+                )
             if row is None:
                 await bot.redis.set(cache_key, "0", ex=86400)
-                await interaction.response.send_message("Partner not found.", ephemeral=True)
+                await interaction.response.send_message(
+                    "Partner not found.", ephemeral=True
+                )
                 return
             info = dict(row)
             info["partnered_at"] = info["partnered_at"].isoformat()
@@ -77,31 +101,45 @@ class PartnerInfoButton(discord.ui.DynamicItem[discord.ui.Button], template=r"wa
             )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
+
 class AddBotView(discord.ui.View):
     def __init__(self, partnership_id: int | None = None):
         super().__init__(timeout=None)
         if partnership_id is not None:
             self.add_item(PartnerInfoButton(partnership_id))
 
-    @discord.ui.button(label="Add WaveBot", style=discord.ButtonStyle.blurple, custom_id="wavebot:add_bot")
-    async def add_bot(self, interaction: discord.Interaction, button: discord.ui.Button):
-        logger.info("Add bot view clicked by user: %s guild: %s", interaction.user.name, interaction.guild.name)
+    @discord.ui.button(
+        label="Add WaveBot",
+        style=discord.ButtonStyle.blurple,
+        custom_id="wavebot:add_bot",
+    )
+    async def add_bot(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        logger.info(
+            "Add bot view clicked by user: %s guild: %s",
+            interaction.user.name,
+            interaction.guild.name,
+        )
         embed = discord.Embed(
             title="Add WaveBot!",
             description="WaveBot automatically does partners with other servers without any fuss",
-            color=discord.Color.fuchsia()
+            color=discord.Color.fuchsia(),
         )
         embed.add_field(
             name="Get Started",
-            value=f'[Invite WaveBot]({YAML_CONFIG["bot"]["bot_invite"]}) then run `/config set` for setup',
-            inline=False
+            value=f"[Invite WaveBot]({YAML_CONFIG['bot']['bot_invite']}) then run `/config set` for setup",
+            inline=False,
         )
         embed.add_field(
             name="Need Help?",
             value=f"[Join the support server]({YAML_CONFIG['bot']['support_invite']}) (Reccomended)",
-            inline=False
+            inline=False,
         )
-        await interaction.response.send_message(YAML_CONFIG['bot']['support_invite'], embed=embed, ephemeral=True)
+        await interaction.response.send_message(
+            YAML_CONFIG["bot"]["support_invite"], embed=embed, ephemeral=True
+        )
+
 
 def get_req(count_a: int, count_b: int) -> dict:
     count_a = count_a or 0
@@ -112,14 +150,14 @@ def get_req(count_a: int, count_b: int) -> dict:
     else:
         host, guest = count_b, count_a
         a_is_host = False
-    config_req = YAML_CONFIG['partner_requirements']
-    scale = host / config_req['scale']
+    config_req = YAML_CONFIG["partner_requirements"]
+    scale = host / config_req["scale"]
     tiers = [
-        (round(config_req['below_do_none'] * scale), "none"),
-        (round(config_req['below_do_partner'] * scale), "partner"),
-        (round(config_req['below_do_here'] * scale), "here"),
-        (round(config_req['below_do_partnerhere'] * scale), "partnerhere"),
-        (float("inf"), "member")
+        (round(config_req["below_do_none"] * scale), "none"),
+        (round(config_req["below_do_partner"] * scale), "partner"),
+        (round(config_req["below_do_here"] * scale), "here"),
+        (round(config_req["below_do_partnerhere"] * scale), "partnerhere"),
+        (float("inf"), "member"),
     ]
     ping_a, ping_b = "none", "none"
 
@@ -129,11 +167,18 @@ def get_req(count_a: int, count_b: int) -> dict:
                 ping_a, ping_b = host_ping, "member"
             else:
                 ping_a, ping_b = "member", host_ping
-            logger.debug("scale: %.3f ceiling: %s -> host_ping: %s", scale, ceiling, host_ping)
+            logger.debug(
+                "scale: %.3f ceiling: %s -> host_ping: %s", scale, ceiling, host_ping
+            )
             break
 
-    result = {"server_a": ping_a, "server_b": ping_b, "host": "server_a" if a_is_host else "server_b"}
+    result = {
+        "server_a": ping_a,
+        "server_b": ping_b,
+        "host": "server_a" if a_is_host else "server_b",
+    }
     return result
+
 
 class Partner(commands.Cog):
     def __init__(self, bot):
@@ -142,61 +187,72 @@ class Partner(commands.Cog):
         self.db_pool: Pool = bot.db_pool
         self._partner_lock = asyncio.Lock()
         self._scan_semaphore = asyncio.Semaphore(3)
-        self.client: AsyncAnthropic = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        self.client: AsyncAnthropic = AsyncAnthropic(
+            api_key=os.getenv("ANTHROPIC_API_KEY")
+        )
 
     partnerGroup = discord.app_commands.Group(
-        name="partner",
-        description="Partner commands"
+        name="partner", description="Partner commands"
     )
 
     async def parse_ping(self, guild_id: int, ping: str = "none") -> str:
         config = await self.bot.config.get(guild_id)
-        
+
         if ping == "member":
             return f"<@&{config.get('member_role')}>"
-        
+
         elif ping == "partner":
             return f"<@&{config.get('partner_ping_role')}>"
-        
+
         elif ping == "here":
             return "@here"
-        
+
         elif ping == "partnerhere":
             return f"@here <@&{config.get('partner_ping_role')}>"
-        else: # none
+        else:  # none
             return ""
 
     async def has_cooldown(self, a: int, b: int) -> bool:
-        key = f"{self.bot.yaml_config['cache']['cache_version']}:partner_cooldown:{min(a,b)}:{max(a,b)}"
+        key = f"{self.bot.yaml_config['cache']['cache_version']}:partner_cooldown:{min(a, b)}:{max(a, b)}"
         result = bool(await self.redis.exists(key))
         logger.debug("%s -> %s", key, "HIT" if result else "MISS")
         return result
 
     async def set_cooldown(self, a: int, b: int):
-        key = f"{self.bot.yaml_config['cache']['cache_version']}:partner_cooldown:{min(a,b)}:{max(a,b)}"
-        await self.redis.set(key, 1, ex=self.bot.yaml_config['cache']['partner_cooldown'])
+        key = f"{self.bot.yaml_config['cache']['cache_version']}:partner_cooldown:{min(a, b)}:{max(a, b)}"
+        await self.redis.set(
+            key, 1, ex=self.bot.yaml_config["cache"]["partner_cooldown"]
+        )
         logger.debug("SET %s (7d)", key)
 
     async def set_server_last_partner(self, guild_id: int):
-        ver = self.bot.yaml_config['cache']['cache_version']
-        ttl = self.bot.yaml_config['partner_delay']['max']
-        await self.redis.set(f"{ver}:server_last_partner:{guild_id}", str(time.time()), ex=ttl)
+        ver = self.bot.yaml_config["cache"]["cache_version"]
+        ttl = self.bot.yaml_config["partner_delay"]["max"]
+        await self.redis.set(
+            f"{ver}:server_last_partner:{guild_id}", str(time.time()), ex=ttl
+        )
 
     async def get_server_last_partner(self, guild_id: int) -> float | None:
-        ver = self.bot.yaml_config['cache']['cache_version']
+        ver = self.bot.yaml_config["cache"]["cache_version"]
         val = await self.redis.get(f"{ver}:server_last_partner:{guild_id}")
         return float(val) if val else None
 
     async def _can_warn(self, guild_id: int, warn_key: str, ttl: int = 21600) -> bool:
-        ver = self.bot.yaml_config['cache']['cache_version']
-        return bool(await self.redis.set(f"{ver}:warn:{warn_key}:{guild_id}", 1, nx=True, ex=ttl))
+        ver = self.bot.yaml_config["cache"]["cache_version"]
+        return bool(
+            await self.redis.set(
+                f"{ver}:warn:{warn_key}:{guild_id}", 1, nx=True, ex=ttl
+            )
+        )
 
-    async def validate_server(self, guild: discord.Guild, config: dict | None = None) -> str | None:
+    async def validate_server(
+        self, guild: discord.Guild, config: dict | None = None
+    ) -> str | None:
         if config is None:
             config = await self.bot.config.get(guild.id)
         if not config:
             return "No configuration found"
-        reqs = self.bot.yaml_config['requirements']
+        reqs = self.bot.yaml_config["requirements"]
 
         member_role = guild.get_role(config.get("member_role"))
         partner_role = guild.get_role(config.get("partner_ping_role"))
@@ -210,9 +266,9 @@ class Partner(commands.Cog):
             return "Partner channel not configured"
 
         total = guild.member_count or 1
-        min_member = reqs['member_role_min_coverage']
-        min_visible = reqs['channel_visibility_min']
-        min_partner = reqs['partner_role_min_coverage']
+        min_member = reqs["member_role_min_coverage"]
+        min_visible = reqs["channel_visibility_min"]
+        min_partner = reqs["partner_role_min_coverage"]
 
         member_pct = len(member_role.members) / total
         if member_pct < min_member:
@@ -227,7 +283,9 @@ class Partner(commands.Cog):
 
         return None
 
-    async def match_servers(self, guilds: list[tuple[int, int]]) -> tuple[list[tuple[int, int]], list[int]]:
+    async def match_servers(
+        self, guilds: list[tuple[int, int]]
+    ) -> tuple[list[tuple[int, int]], list[int]]:
         member_counts = {gid: mc for gid, mc in guilds}
         pool = list(member_counts)
         random.shuffle(pool)  # randomise before sort so ties break randomly
@@ -235,8 +293,10 @@ class Partner(commands.Cog):
         if len(pool) < 2:
             return [], pool
 
-        ver = self.bot.yaml_config['cache']['cache_version']
-        all_pairs = [(min(a, b), max(a, b)) for i, a in enumerate(pool) for b in pool[i + 1:]]
+        ver = self.bot.yaml_config["cache"]["cache_version"]
+        all_pairs = [
+            (min(a, b), max(a, b)) for i, a in enumerate(pool) for b in pool[i + 1 :]
+        ]
 
         # Fetch cooldowns + premium configs in one pipeline round-trip
         async with self.redis.pipeline(transaction=False) as pipe:
@@ -246,15 +306,21 @@ class Partner(commands.Cog):
                 pipe.get(f"premium:{gid}")
             results = await pipe.execute()
 
-        on_cooldown = {pair for pair, hit in zip(all_pairs, results[:len(all_pairs)]) if hit}
-        logger.debug("[match] cooldown check: %d/%d pairs blocked", len(on_cooldown), len(all_pairs))
+        on_cooldown = {
+            pair for pair, hit in zip(all_pairs, results[: len(all_pairs)]) if hit
+        }
+        logger.debug(
+            "[match] cooldown check: %d/%d pairs blocked",
+            len(on_cooldown),
+            len(all_pairs),
+        )
 
         # Parse premium configs — DB fallback for cache misses
         # "0" sentinel = confirmed non-premium (negative cache)
         prem_configs: dict[int, dict] = {}
         miss_ids = []
         corrupt_keys = []
-        for gid, val in zip(pool, results[len(all_pairs):]):
+        for gid, val in zip(pool, results[len(all_pairs) :]):
             if val:
                 if val == "0":
                     continue
@@ -274,12 +340,16 @@ class Partner(commands.Cog):
 
         if miss_ids:
             async with self.db_pool.acquire() as conn:
-                rows = await conn.fetch("SELECT * FROM premium WHERE guild_id = ANY($1::bigint[])", miss_ids)
+                rows = await conn.fetch(
+                    "SELECT * FROM premium WHERE guild_id = ANY($1::bigint[])", miss_ids
+                )
             found_ids: set[int] = set()
             async with self.redis.pipeline(transaction=False) as pipe:
                 for row in rows:
                     data = dict(row)
-                    data["added_at"] = data["added_at"].isoformat() if data.get("added_at") else None
+                    data["added_at"] = (
+                        data["added_at"].isoformat() if data.get("added_at") else None
+                    )
                     prem_configs[row["guild_id"]] = data
                     found_ids.add(row["guild_id"])
                     pipe.set(f"premium:{row['guild_id']}", json.dumps(data), ex=2592000)
@@ -297,11 +367,18 @@ class Partner(commands.Cog):
             if a in prem_configs or b in prem_configs:
                 r = get_req(member_counts[a], member_counts[b])
                 ping_blocked = False
-                for gid, ping_key in ((a, 'server_a'), (b, 'server_b')):
+                for gid, ping_key in ((a, "server_a"), (b, "server_b")):
                     if gid in prem_configs:
                         allowed = prem_configs[gid].get("available_pings") or ALL_PINGS
                         if r[ping_key] not in allowed:
-                            logger.debug("[match] pair (%d,%d) blocked: %d premium, ping '%s' not in %s", a, b, gid, r[ping_key], allowed)
+                            logger.debug(
+                                "[match] pair (%d,%d) blocked: %d premium, ping '%s' not in %s",
+                                a,
+                                b,
+                                gid,
+                                r[ping_key],
+                                allowed,
+                            )
                             ping_blocked = True
                             break
                 if ping_blocked:
@@ -332,7 +409,12 @@ class Partner(commands.Cog):
         for a, b in pairs:
             logger.debug("paired %d <-> %d", a, b)
         for s in sat_out:
-            logger.debug("sat out or all on cooldown: %s", self.bot.get_guild(s).name if self.bot.get_guild(s) else f"Guild not found: {s}")
+            logger.debug(
+                "sat out or all on cooldown: %s",
+                self.bot.get_guild(s).name
+                if self.bot.get_guild(s)
+                else f"Guild not found: {s}",
+            )
         return pairs, sat_out
 
     async def partner(self, server1_id: int, server2_id: int):
@@ -341,39 +423,88 @@ class Partner(commands.Cog):
         config1 = await self.bot.config.get(server1_id)
         config2 = await self.bot.config.get(server2_id)
         if not config1 or not config2:
-            logger.warning("abort %d<->%d: missing config (config1=%s config2=%s)", server1_id, server2_id, bool(config1), bool(config2))
+            logger.warning(
+                "abort %d<->%d: missing config (config1=%s config2=%s)",
+                server1_id,
+                server2_id,
+                bool(config1),
+                bool(config2),
+            )
             return None, None
 
         guild1: discord.Guild = self.bot.get_guild(server1_id)
         guild2: discord.Guild = self.bot.get_guild(server2_id)
         if not guild1 or not guild2:
-            logger.warning("abort %d<->%d: guild not in cache (guild1=%s guild2=%s)", server1_id, server2_id, bool(guild1), bool(guild2))
+            logger.warning(
+                "abort %d<->%d: guild not in cache (guild1=%s guild2=%s)",
+                server1_id,
+                server2_id,
+                bool(guild1),
+                bool(guild2),
+            )
             return None, None
 
-        logger.debug("guilds resolved: %s (%d members) <-> %s (%d members)", guild1.name, guild1.member_count, guild2.name, guild2.member_count)
+        logger.debug(
+            "guilds resolved: %s (%d members) <-> %s (%d members)",
+            guild1.name,
+            guild1.member_count,
+            guild2.name,
+            guild2.member_count,
+        )
 
         channel1 = guild1.get_channel(config1.get("partner_channel"))
         channel2 = guild2.get_channel(config2.get("partner_channel"))
         if not channel1 or not channel2:
-            logger.warning("abort %d<->%d: channel not found (ch1=%s ch2=%s)", server1_id, server2_id, bool(channel1), bool(channel2))
+            logger.warning(
+                "abort %d<->%d: channel not found (ch1=%s ch2=%s)",
+                server1_id,
+                server2_id,
+                bool(channel1),
+                bool(channel2),
+            )
             return None, None
-        logger.debug("channels resolved: #%s (%d) <-> #%s (%d)", getattr(channel1, 'name', None), server1_id, getattr(channel2, 'name', None), server2_id)
+        logger.debug(
+            "channels resolved: #%s (%d) <-> #%s (%d)",
+            getattr(channel1, "name", None),
+            server1_id,
+            getattr(channel2, "name", None),
+            server2_id,
+        )
 
         r = get_req(guild1.member_count, guild2.member_count)
-        ping_a = r.get('server_a', 'none')
-        ping_b = r.get('server_b', 'none')
+        ping_a = r.get("server_a", "none")
+        ping_b = r.get("server_b", "none")
         if ping_a is None or ping_b is None:
-            logger.warning("abort %d<->%d: get_req returned incomplete pings", server1_id, server2_id)
+            logger.warning(
+                "abort %d<->%d: get_req returned incomplete pings",
+                server1_id,
+                server2_id,
+            )
             return None, None
-        logger.debug("%d(%d) pings %s | %d(%d) pings %s | host: %s", server1_id, guild1.member_count, ping_a, server2_id, guild2.member_count, ping_b, r.get('host'))
+        logger.debug(
+            "%d(%d) pings %s | %d(%d) pings %s | host: %s",
+            server1_id,
+            guild1.member_count,
+            ping_a,
+            server2_id,
+            guild2.member_count,
+            ping_b,
+            r.get("host"),
+        )
 
-        raw_ad1 = await self.redis.get(f'ads:{server1_id}')
-        raw_ad2 = await self.redis.get(f'ads:{server2_id}')
+        raw_ad1 = await self.redis.get(f"ads:{server1_id}")
+        raw_ad2 = await self.redis.get(f"ads:{server2_id}")
         if not raw_ad1 or not raw_ad2:
-            logger.warning("abort %d<->%d: missing ad (ad1=%s ad2=%s)", server1_id, server2_id, bool(raw_ad1), bool(raw_ad2))
+            logger.warning(
+                "abort %d<->%d: missing ad (ad1=%s ad2=%s)",
+                server1_id,
+                server2_id,
+                bool(raw_ad1),
+                bool(raw_ad2),
+            )
             return None, None
 
-        if self.bot.yaml_config['bot']['send_pings'] == True:
+        if self.bot.yaml_config["bot"]["send_pings"] == True:
             ad1 = f"{raw_ad1}\n\n{await self.parse_ping(server2_id, ping_b)}"
             ad2 = f"{raw_ad2}\n\n{await self.parse_ping(server1_id, ping_a)}"
         else:
@@ -381,38 +512,61 @@ class Partner(commands.Cog):
             ad1 = f"{raw_ad1}\n\nPlaceholder for {ping_b}"
             ad2 = f"{raw_ad2}\n\nPlaceholder for {ping_a}"
 
-        logger.debug("ad lengths: server1_ad=%d server2_ad=%d (ad1 sent to ch2, ad2 sent to ch1)", len(ad1), len(ad2))
+        logger.debug(
+            "ad lengths: server1_ad=%d server2_ad=%d (ad1 sent to ch2, ad2 sent to ch1)",
+            len(ad1),
+            len(ad2),
+        )
         if len(ad1) > 2000 or len(ad2) > 2000:
-            logger.warning("abort: ad too long - server1_ad=%d server2_ad=%d (max 2000)", len(ad1), len(ad2))
+            logger.warning(
+                "abort: ad too long - server1_ad=%d server2_ad=%d (max 2000)",
+                len(ad1),
+                len(ad2),
+            )
             return None, None
 
-        host_guild_id = server1_id if r.get('host') == 'server_a' else server2_id
+        host_guild_id = server1_id if r.get("host") == "server_a" else server2_id
         async with self.db_pool.acquire() as conn:
             partnership_id = await conn.fetchval(
                 """INSERT INTO partnerships
                    (guild1_id, guild2_id, guild1_name, guild2_name, guild1_members, guild2_members, guild1_ping, guild2_ping, host_guild_id)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id""",
-                server1_id, server2_id, guild1.name, guild2.name,
-                guild1.member_count or 0, guild2.member_count or 0, ping_a, ping_b, host_guild_id
+                server1_id,
+                server2_id,
+                guild1.name,
+                guild2.name,
+                guild1.member_count or 0,
+                guild2.member_count or 0,
+                ping_a,
+                ping_b,
+                host_guild_id,
             )
 
-        logger.debug("sending ad2 -> #%s in %s (%d)", channel1.name, guild1.name, server1_id)
+        logger.debug(
+            "sending ad2 -> #%s in %s (%d)", channel1.name, guild1.name, server1_id
+        )
         try:
             await channel1.send(ad2, view=AddBotView(partnership_id))
             logger.debug("sent ad2 -> %d #%s OK", server1_id, channel1.name)
         except Exception as e:
             logger.error("failed sending to %d #%s: %s", server1_id, channel1.name, e)
             async with self.db_pool.acquire() as conn:
-                await conn.execute("DELETE FROM partnerships WHERE id = $1", partnership_id)
+                await conn.execute(
+                    "DELETE FROM partnerships WHERE id = $1", partnership_id
+                )
             return None, None
-        logger.debug("sending ad1 -> #%s in %s (%d)", channel2.name, guild2.name, server2_id)
+        logger.debug(
+            "sending ad1 -> #%s in %s (%d)", channel2.name, guild2.name, server2_id
+        )
         try:
             await channel2.send(ad1, view=AddBotView(partnership_id))
             logger.debug("sent ad1 -> %d #%s OK", server2_id, channel2.name)
         except Exception as e:
             logger.error("failed sending to %d #%s: %s", server2_id, channel2.name, e)
             async with self.db_pool.acquire() as conn:
-                await conn.execute("DELETE FROM partnerships WHERE id = $1", partnership_id)
+                await conn.execute(
+                    "DELETE FROM partnerships WHERE id = $1", partnership_id
+                )
             return None, None
 
         await self.set_cooldown(server1_id, server2_id)
@@ -421,7 +575,12 @@ class Partner(commands.Cog):
 
         now = time.time()
         async with self.redis.pipeline(transaction=False) as pipe:
-            pipe.zadd("stats:partners:24h", {f"{min(server1_id, server2_id)}:{max(server1_id, server2_id)}:{now:.0f}": now})
+            pipe.zadd(
+                "stats:partners:24h",
+                {
+                    f"{min(server1_id, server2_id)}:{max(server1_id, server2_id)}:{now:.0f}": now
+                },
+            )
             pipe.zremrangebyscore("stats:partners:24h", 0, now - 86400)
             await pipe.execute()
         count = await self.redis.zcard("stats:partners:24h")
@@ -439,13 +598,25 @@ class Partner(commands.Cog):
                     hits.append(f"{rule}: {m.group()}")
         regex_hits = list(set(hits))
         if regex_hits:
-            return {"sus": True, "confidence": 0.95, "ai_hits": [], "regex_hits": regex_hits, "user_reason": "Your ad was flagged during the regex prescan"}
+            return {
+                "sus": True,
+                "confidence": 0.95,
+                "ai_hits": [],
+                "regex_hits": regex_hits,
+                "user_reason": "Your ad was flagged during the regex prescan",
+            }
         try:
             message = await self.client.messages.create(
-                model=self.bot.yaml_config['ai']['model'],
-                max_tokens=self.bot.yaml_config['ai']['max_tokens'],
-                temperature=self.bot.yaml_config['ai']['temperature'],
-                system=[{"type": "text", "text": SCAN_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                model=self.bot.yaml_config["ai"]["model"],
+                max_tokens=self.bot.yaml_config["ai"]["max_tokens"],
+                temperature=self.bot.yaml_config["ai"]["temperature"],
+                system=[
+                    {
+                        "type": "text",
+                        "text": SCAN_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
                 messages=[
                     {"role": "user", "content": f"Advertisement:\n{ad}"},
                     {"role": "assistant", "content": "{"},
@@ -453,45 +624,58 @@ class Partner(commands.Cog):
             )
         except APIStatusError as e:
             if e.status_code in (503, 529):
-                logger.warning("Claude API unavailable (%s), skipping scan", e.status_code)
-                return {"sus": False, "confidence": 0.0, "ai_hits": [], "regex_hits": [], "user_reason": "AI scan unavailable"}
+                logger.warning(
+                    "Claude API unavailable (%s), skipping scan", e.status_code
+                )
+                return {
+                    "sus": False,
+                    "confidence": 0.0,
+                    "ai_hits": [],
+                    "regex_hits": [],
+                    "user_reason": "AI scan unavailable",
+                }
             raise
         try:
             raw = "{" + message.content[0].text.strip()
             result = json.loads(raw)
         except (json.JSONDecodeError, IndexError):
             logger.error("failed to parse claude response for ad: %.100s", ad)
-            result = {"sus": True, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Your ad could not be automatically verified. Please review the server rules and resubmit."}
+            result = {
+                "sus": True,
+                "confidence": 0.5,
+                "ai_hits": [],
+                "regex_hits": [],
+                "user_reason": "Your ad could not be automatically verified. Please review the server rules and resubmit.",
+            }
 
-        if result.get('sus'):
-            guild: discord.Guild = self.bot.get_guild(self.bot.yaml_config['bot']['support_guild'])
-            channel: discord.TextChannel = guild.get_channel(self.bot.yaml_config['channels']['flagged_ads']) if guild else None
+        if result.get("sus"):
+            guild: discord.Guild = self.bot.get_guild(
+                self.bot.yaml_config["bot"]["support_guild"]
+            )
+            channel: discord.TextChannel = (
+                guild.get_channel(self.bot.yaml_config["channels"]["flagged_ads"])
+                if guild
+                else None
+            )
             if channel:
                 result_str = str(result)
                 if len(result_str) > 1000:
                     result_str = result_str[:1000] + "..."
                 ad_str = ad if len(ad) <= 1000 else ad[:1000] + "..."
-                embed = discord.Embed(
-                    title="Ad flagged",
-                    color=discord.Color.fuchsia()
-                )
+                embed = discord.Embed(title="Ad flagged", color=discord.Color.fuchsia())
                 embed.add_field(
-                    name="Json",
-                    value=f"```\n{result_str}\n```",
-                    inline=False
+                    name="Json", value=f"```\n{result_str}\n```", inline=False
                 )
-                embed.add_field(
-                    name="Ad",
-                    value=f"```\n{ad_str}\n```",
-                    inline=False
-                )
+                embed.add_field(name="Ad", value=f"```\n{ad_str}\n```", inline=False)
                 try:
                     await channel.send(
                         f"<@&{self.bot.yaml_config['roles']['staff']}> Flagged Ad, Confidence: {result.get('confidence', 0.5)}",
-                        embed=embed
+                        embed=embed,
                     )
                 except Exception:
-                    logger.error("Failed sending Ad scan result to channel", exc_info=True)
+                    logger.error(
+                        "Failed sending Ad scan result to channel", exc_info=True
+                    )
             else:
                 logger.error("flagged_ads channel or support_guild not found")
         return result
@@ -509,7 +693,13 @@ class Partner(commands.Cog):
         if not ad_channel:
             if log_channel and await self._can_warn(guild_id, "ad_channel"):
                 try:
-                    await log_channel.send(embed=discord.Embed(title="Ad channel missing", description="Use `/config set` to set one", color=discord.Color.dark_red()))
+                    await log_channel.send(
+                        embed=discord.Embed(
+                            title="Ad channel missing",
+                            description="Use `/config set` to set one",
+                            color=discord.Color.dark_red(),
+                        )
+                    )
                 except discord.HTTPException:
                     pass
             return False
@@ -521,17 +711,34 @@ class Partner(commands.Cog):
                     for link in whitelisted:
                         ad_message = ad_message.replace(link, "")
                     ad_hash = hashlib.sha256(ad_message.encode()).hexdigest()[:12]
-                    ver = self.bot.yaml_config['cache']['claude_cache_version']
+                    ver = self.bot.yaml_config["cache"]["claude_cache_version"]
                     cached = await self.redis.get(f"{ver}:claude:{ad_hash}")
                     if not cached:
                         async with self._scan_semaphore:
                             try:
-                                scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=self.bot.yaml_config['delays']['scan_timeout'])
+                                scan_result = await asyncio.wait_for(
+                                    self.scan_ad(ad_message),
+                                    timeout=self.bot.yaml_config["delays"][
+                                        "scan_timeout"
+                                    ],
+                                )
                             except asyncio.TimeoutError:
-                                scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
+                                scan_result = {
+                                    "sus": False,
+                                    "confidence": 0.5,
+                                    "ai_hits": [],
+                                    "regex_hits": [],
+                                    "user_reason": "Timed out",
+                                }
                             cached = json.dumps(scan_result, indent=2)
-                            await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=self.bot.yaml_config['cache']['scan_result_ttl'])
-                            await asyncio.sleep(self.bot.yaml_config['delays']['scan_ad'])
+                            await self.redis.set(
+                                f"{ver}:claude:{ad_hash}",
+                                cached,
+                                ex=self.bot.yaml_config["cache"]["scan_result_ttl"],
+                            )
+                            await asyncio.sleep(
+                                self.bot.yaml_config["delays"]["scan_ad"]
+                            )
                     await self.redis.set(f"ads:{guild_id}", PING_RE.sub("", ad_message))
                     return True
         except discord.HTTPException as e:
@@ -539,17 +746,37 @@ class Partner(commands.Cog):
             return False
         if log_channel and await self._can_warn(guild_id, "ad_missing"):
             try:
-                await log_channel.send(embed=discord.Embed(title="Ad message missing", description="Your ad message was not found in the recent 10 messages in the channel", color=discord.Color.dark_red()))
+                await log_channel.send(
+                    embed=discord.Embed(
+                        title="Ad message missing",
+                        description="Your ad message was not found in the recent 10 messages in the channel",
+                        color=discord.Color.dark_red(),
+                    )
+                )
             except discord.HTTPException:
                 pass
         return False
 
     async def index_ads(self) -> dict:
         whitelisted = await self.redis.smembers("whitelisted_links")
-        missing_channel_embed = discord.Embed(title="Ad channel missing", description="Use `/config set` to set one", color=discord.Color.dark_red())
-        missing_ad_embed = discord.Embed(title="Ad message missing", description="Your ad message was not found in the recent 10 messages in the channel", color=discord.Color.dark_red())
+        missing_channel_embed = discord.Embed(
+            title="Ad channel missing",
+            description="Use `/config set` to set one",
+            color=discord.Color.dark_red(),
+        )
+        missing_ad_embed = discord.Embed(
+            title="Ad message missing",
+            description="Your ad message was not found in the recent 10 messages in the channel",
+            color=discord.Color.dark_red(),
+        )
         pending = []
-        summary = {"total": len(self.bot.guilds), "no_config": 0, "missing_channel": 0, "cached": 0, "missing_ad": 0}
+        summary = {
+            "total": len(self.bot.guilds),
+            "no_config": 0,
+            "missing_channel": 0,
+            "cached": 0,
+            "missing_ad": 0,
+        }
         for guild in self.bot.guilds:
             config = await self.bot.config.get(guild.id)
             if not config:
@@ -573,17 +800,34 @@ class Partner(commands.Cog):
                         for link in whitelisted:
                             ad_message = ad_message.replace(link, "")
                         ad_hash = hashlib.sha256(ad_message.encode()).hexdigest()[:12]
-                        ver = self.bot.yaml_config['cache']['claude_cache_version']
+                        ver = self.bot.yaml_config["cache"]["claude_cache_version"]
                         cached = await self.redis.get(f"{ver}:claude:{ad_hash}")
                         if not cached:
                             async with self._scan_semaphore:
                                 try:
-                                    scan_result = await asyncio.wait_for(self.scan_ad(ad_message), timeout=self.bot.yaml_config['delays']['scan_timeout'])
+                                    scan_result = await asyncio.wait_for(
+                                        self.scan_ad(ad_message),
+                                        timeout=self.bot.yaml_config["delays"][
+                                            "scan_timeout"
+                                        ],
+                                    )
                                 except asyncio.TimeoutError:
-                                    scan_result = {"sus": False, "confidence": 0.5, "ai_hits": [], "regex_hits": [], "user_reason": "Timed out"}
+                                    scan_result = {
+                                        "sus": False,
+                                        "confidence": 0.5,
+                                        "ai_hits": [],
+                                        "regex_hits": [],
+                                        "user_reason": "Timed out",
+                                    }
                                 cached = json.dumps(scan_result, indent=2)
-                                await self.redis.set(f"{ver}:claude:{ad_hash}", cached, ex=self.bot.yaml_config['cache']['scan_result_ttl'])
-                                await asyncio.sleep(self.bot.yaml_config['delays']['scan_ad'])
+                                await self.redis.set(
+                                    f"{ver}:claude:{ad_hash}",
+                                    cached,
+                                    ex=self.bot.yaml_config["cache"]["scan_result_ttl"],
+                                )
+                                await asyncio.sleep(
+                                    self.bot.yaml_config["delays"]["scan_ad"]
+                                )
                         break
             except discord.HTTPException as e:
                 logger.warning("HTTP error fetching history for %s: %s", guild.name, e)
@@ -599,9 +843,9 @@ class Partner(commands.Cog):
                     except discord.HTTPException:
                         pass
             await asyncio.sleep(0)
-        batch = self.bot.yaml_config['cache']['pipeline_batch']
+        batch = self.bot.yaml_config["cache"]["pipeline_batch"]
         for i in range(0, max(len(pending), 1), batch):
-            chunk = pending[i:i + batch]
+            chunk = pending[i : i + batch]
             if not chunk:
                 break
             async with self.redis.pipeline() as pipe:
@@ -648,10 +892,18 @@ class Partner(commands.Cog):
             if not config:
                 continue
 
-            partner_delay = config.get("partner_delay") or self.bot.yaml_config['partner_delay']['default']
+            partner_delay = (
+                config.get("partner_delay")
+                or self.bot.yaml_config["partner_delay"]["default"]
+            )
             last = await self.get_server_last_partner(guild.id)
             if last is not None and (now - last) < partner_delay:
-                logger.debug("skip %s (%d): cooldown %.0fs remaining", guild.name, guild.id, partner_delay - (now - last))
+                logger.debug(
+                    "skip %s (%d): cooldown %.0fs remaining",
+                    guild.name,
+                    guild.id,
+                    partner_delay - (now - last),
+                )
                 continue
 
             partner_channel = guild.get_channel(config.get("partner_channel"))
@@ -659,42 +911,80 @@ class Partner(commands.Cog):
             partner_ping_role = guild.get_role(config.get("partner_ping_role"))
 
             missing = []
-            if not partner_channel: missing.append("partner_channel")
-            if not config.get("ad_channel"): missing.append("ad_channel")
-            if not member_role: missing.append("member_role")
-            if not partner_ping_role: missing.append("partner_ping_role")
+            if not partner_channel:
+                missing.append("partner_channel")
+            if not config.get("ad_channel"):
+                missing.append("ad_channel")
+            if not member_role:
+                missing.append("member_role")
+            if not partner_ping_role:
+                missing.append("partner_ping_role")
             if missing:
-                logger.debug("skip %s (%d): missing config — %s", guild.name, guild.id, ', '.join(missing))
+                logger.debug(
+                    "skip %s (%d): missing config — %s",
+                    guild.name,
+                    guild.id,
+                    ", ".join(missing),
+                )
                 continue
 
             if not isinstance(partner_channel, discord.TextChannel):
-                logger.debug("skip %s (%d): partner_channel is wrong type", guild.name, guild.id)
+                logger.debug(
+                    "skip %s (%d): partner_channel is wrong type", guild.name, guild.id
+                )
                 log_channel = guild.get_channel(config.get("log_channel"))
                 if log_channel and await self._can_warn(guild.id, "wrong_channel_type"):
                     try:
-                        await log_channel.send(embed=discord.Embed(title="Partner channel not found", description="Use `/config set` to set one", color=discord.Color.dark_red()))
+                        await log_channel.send(
+                            embed=discord.Embed(
+                                title="Partner channel not found",
+                                description="Use `/config set` to set one",
+                                color=discord.Color.dark_red(),
+                            )
+                        )
                     except discord.HTTPException:
                         pass
                 continue
 
             perms = partner_channel.permissions_for(guild.me)
             if not perms.send_messages or not perms.mention_everyone:
-                logger.debug("skip %s (%d): missing perms in #%s — send=%s mention=%s", guild.name, guild.id, partner_channel.name, perms.send_messages, perms.mention_everyone)
+                logger.debug(
+                    "skip %s (%d): missing perms in #%s — send=%s mention=%s",
+                    guild.name,
+                    guild.id,
+                    partner_channel.name,
+                    perms.send_messages,
+                    perms.mention_everyone,
+                )
                 log_channel = guild.get_channel(config.get("log_channel"))
                 if log_channel and await self._can_warn(guild.id, "missing_perms"):
                     try:
-                        await log_channel.send(embed=discord.Embed(title="Missing permissions", description="I need `Send Messages` and `Mention Everyone` permissions in the partner channel", color=discord.Color.dark_red()))
+                        await log_channel.send(
+                            embed=discord.Embed(
+                                title="Missing permissions",
+                                description="I need `Send Messages` and `Mention Everyone` permissions in the partner channel",
+                                color=discord.Color.dark_red(),
+                            )
+                        )
                     except discord.HTTPException:
                         pass
                 continue
 
             reason = await self.validate_server(guild, config)
             if reason:
-                logger.debug("skip %s (%d): validation failed — %s", guild.name, guild.id, reason)
+                logger.debug(
+                    "skip %s (%d): validation failed — %s", guild.name, guild.id, reason
+                )
                 log_channel = guild.get_channel(config.get("log_channel"))
                 if log_channel and await self._can_warn(guild.id, "validation"):
                     try:
-                        await log_channel.send(embed=discord.Embed(title="Requirements not met", description=reason, color=discord.Color.dark_red()))
+                        await log_channel.send(
+                            embed=discord.Embed(
+                                title="Requirements not met",
+                                description=reason,
+                                color=discord.Color.dark_red(),
+                            )
+                        )
                     except discord.HTTPException:
                         pass
                 continue
@@ -708,7 +998,9 @@ class Partner(commands.Cog):
                 logger.debug("skip %s (%d): no ad indexed", guild.name, guild.id)
                 continue
 
-            logger.debug("eligible %s (%d) members=%d", guild.name, guild.id, guild.member_count)
+            logger.debug(
+                "eligible %s (%d) members=%d", guild.name, guild.id, guild.member_count
+            )
             available.append((guild.id, guild.member_count))
             await asyncio.sleep(0)
 
@@ -717,17 +1009,39 @@ class Partner(commands.Cog):
         for a, b in pairs:
             guild_a: discord.Guild = self.bot.get_guild(a)
             guild_b: discord.Guild = self.bot.get_guild(b)
-            logger.debug("attempting pair: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
+            logger.debug(
+                "attempting pair: %s <-> %s",
+                guild_a.name if guild_a else a,
+                guild_b.name if guild_b else b,
+            )
             ch1, ch2 = await self.partner(a, b)
-            await asyncio.sleep(self.bot.yaml_config['delays']['partner_pair'])
+            await asyncio.sleep(self.bot.yaml_config["delays"]["partner_pair"])
             if ch1 and ch2:
-                logger.debug("success: %s <-> %s", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
+                logger.debug(
+                    "success: %s <-> %s",
+                    guild_a.name if guild_a else a,
+                    guild_b.name if guild_b else b,
+                )
             else:
-                logger.warning("failed pair: %s <-> %s — see reason above", guild_a.name if guild_a else a, guild_b.name if guild_b else b)
+                logger.warning(
+                    "failed pair: %s <-> %s — see reason above",
+                    guild_a.name if guild_a else a,
+                    guild_b.name if guild_b else b,
+                )
         if pairs:
-            logger.info("Finished round with %d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
+            logger.info(
+                "Finished round with %d eligible, %d pairs, %d sat out",
+                len(available),
+                len(pairs),
+                len(sat_out),
+            )
         else:
-            logger.debug("Finished round with %d eligible, %d pairs, %d sat out", len(available), len(pairs), len(sat_out))
+            logger.debug(
+                "Finished round with %d eligible, %d pairs, %d sat out",
+                len(available),
+                len(pairs),
+                len(sat_out),
+            )
 
     @tasks.loop(seconds=60)
     async def partner_loop(self):
@@ -736,9 +1050,16 @@ class Partner(commands.Cog):
             logger.debug("skipping — already running in this process")
             return
         async with self._partner_lock:
-            acquired = await self.redis.set("last_partner_run", 1, nx=True, ex=self.bot.yaml_config['cache']['redis_lock'])
+            acquired = await self.redis.set(
+                "last_partner_run",
+                1,
+                nx=True,
+                ex=self.bot.yaml_config["cache"]["redis_lock"],
+            )
             if not acquired:
-                logger.debug("skipping — another instance already running (last_partner_run key exists)")
+                logger.debug(
+                    "skipping — another instance already running (last_partner_run key exists)"
+                )
                 return
             logger.debug("[loop] acquired lock, proceeding")
             await self._run_partner_round()
@@ -747,15 +1068,19 @@ class Partner(commands.Cog):
     async def before_partner_loop(self):
         await self.bot.wait_until_ready()
 
-    @partnerGroup.command(name="reqs", description="Show partner reqs depending on membercount")
+    @partnerGroup.command(
+        name="reqs", description="Show partner reqs depending on membercount"
+    )
     @discord.app_commands.checks.cooldown(rate=1, per=10)
-    async def partner_reqs(self, interaction: discord.Interaction, membercount: int = 1000):
-        config_req = self.bot.yaml_config['partner_requirements']
-        scale = membercount / config_req['scale']
-        c1 = round(config_req['below_do_none'] * scale)
-        c2 = round(config_req['below_do_partner'] * scale)
-        c3 = round(config_req['below_do_here'] * scale)
-        c4 = round(config_req['below_do_partnerhere'] * scale)
+    async def partner_reqs(
+        self, interaction: discord.Interaction, membercount: int = 1000
+    ):
+        config_req = self.bot.yaml_config["partner_requirements"]
+        scale = membercount / config_req["scale"]
+        c1 = round(config_req["below_do_none"] * scale)
+        c2 = round(config_req["below_do_partner"] * scale)
+        c3 = round(config_req["below_do_here"] * scale)
+        c4 = round(config_req["below_do_partnerhere"] * scale)
 
         lines = [
             f"- **1 - {c1}** - none",
@@ -768,18 +1093,27 @@ class Partner(commands.Cog):
         embed = discord.Embed(
             title="Partner Reqs",
             description="\n".join(lines),
-            color=discord.Color.fuchsia()
+            color=discord.Color.fuchsia(),
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @partnerGroup.command(name="force")
     @is_owner()
-    async def force_partner(self, interaction: discord.Interaction, server_id_1: str, server_id_2: str):
-        logger.info("[force_partner] invoked by %d: %s <-> %s", interaction.user.id, server_id_1, server_id_2)
+    async def force_partner(
+        self, interaction: discord.Interaction, server_id_1: str, server_id_2: str
+    ):
+        logger.info(
+            "[force_partner] invoked by %d: %s <-> %s",
+            interaction.user.id,
+            server_id_1,
+            server_id_2,
+        )
         await interaction.response.defer(ephemeral=True)
         if server_id_1 == server_id_2:
             logger.warning("[force_partner] rejected: same server id %s", server_id_1)
-            await interaction.followup.send("Cannot partner a server with itself.", ephemeral=True)
+            await interaction.followup.send(
+                "Cannot partner a server with itself.", ephemeral=True
+            )
             return
         try:
             channel1, channel2 = await self.partner(int(server_id_1), int(server_id_2))
@@ -788,12 +1122,20 @@ class Partner(commands.Cog):
             await interaction.followup.send(f"Error: {e}", ephemeral=True)
             return
         if not channel1:
-            logger.warning("[force_partner] partner() returned None for %s <-> %s", server_id_1, server_id_2)
-            await interaction.followup.send("Failed - check logs and console for details.", ephemeral=True)
+            logger.warning(
+                "[force_partner] partner() returned None for %s <-> %s",
+                server_id_1,
+                server_id_2,
+            )
+            await interaction.followup.send(
+                "Failed - check logs and console for details.", ephemeral=True
+            )
             return
         logger.info("[force_partner] SUCCESS: %s <-> %s", channel1, channel2)
-        await interaction.followup.send(f"Partnered: {channel1.mention} | {channel2.mention}", ephemeral=True)
-    
+        await interaction.followup.send(
+            f"Partnered: {channel1.mention} | {channel2.mention}", ephemeral=True
+        )
+
     @partnerGroup.command(name="ad", description="Send a server's partner ad")
     @discord.app_commands.checks.cooldown(rate=1, per=10)
     async def send_ad(self, interaction: discord.Interaction, guild_id: str):
@@ -808,25 +1150,35 @@ class Partner(commands.Cog):
             await self.index_ad(gid)
             ad = await self.redis.get(f"ads:{gid}")
         if not ad:
-            await interaction.followup.send("No ad found for that server.", ephemeral=True)
+            await interaction.followup.send(
+                "No ad found for that server.", ephemeral=True
+            )
             return
         await interaction.followup.send(ad, ephemeral=True)
 
-    @partnerGroup.command(name="status", description="Check why your server may not be getting partnered")
+    @partnerGroup.command(
+        name="status", description="Check why your server may not be getting partnered"
+    )
     @is_management()
     @discord.app_commands.checks.cooldown(rate=1, per=10)
     async def partner_status(self, interaction: discord.Interaction):
         guild = interaction.guild
 
         async with self.db_pool.acquire() as conn:
-            bl = await conn.fetchrow("SELECT reason FROM blacklists WHERE guild_id = $1", guild.id)
+            bl = await conn.fetchrow(
+                "SELECT reason FROM blacklists WHERE guild_id = $1", guild.id
+            )
         if bl:
-            await interaction.response.send_message(f"Your server is **blacklisted**: {bl['reason']}", ephemeral=True)
+            await interaction.response.send_message(
+                f"Your server is **blacklisted**: {bl['reason']}", ephemeral=True
+            )
             return
 
         config = await self.bot.config.get(guild.id)
         if not config:
-            await interaction.response.send_message("No configuration found. Run `/setup` to get started.", ephemeral=True)
+            await interaction.response.send_message(
+                "No configuration found. Run `/setup` to get started.", ephemeral=True
+            )
             return
 
         partner_channel = guild.get_channel(config.get("partner_channel"))
@@ -835,26 +1187,41 @@ class Partner(commands.Cog):
         partner_ping_role = guild.get_role(config.get("partner_ping_role"))
 
         missing = []
-        if not partner_channel: missing.append("partner channel")
-        if not ad_channel: missing.append("ad channel")
-        if not member_role: missing.append("member role")
-        if not partner_ping_role: missing.append("partner ping role")
+        if not partner_channel:
+            missing.append("partner channel")
+        if not ad_channel:
+            missing.append("ad channel")
+        if not member_role:
+            missing.append("member role")
+        if not partner_ping_role:
+            missing.append("partner ping role")
         if missing:
-            await interaction.response.send_message(f"Missing config: {', '.join(missing)}. Use `/config set` to fix.", ephemeral=True)
+            await interaction.response.send_message(
+                f"Missing config: {', '.join(missing)}. Use `/config set` to fix.",
+                ephemeral=True,
+            )
             return
 
         if not isinstance(partner_channel, discord.TextChannel):
-            await interaction.response.send_message("Partner channel must be a text channel.", ephemeral=True)
+            await interaction.response.send_message(
+                "Partner channel must be a text channel.", ephemeral=True
+            )
             return
 
         perms = partner_channel.permissions_for(guild.me)
         if not perms.send_messages or not perms.mention_everyone:
-            await interaction.response.send_message(f"Missing permissions in {partner_channel.mention}: need **Send Messages** and **Mention Everyone**.", ephemeral=True)
+            await interaction.response.send_message(
+                f"Missing permissions in {partner_channel.mention}: need **Send Messages** and **Mention Everyone**.",
+                ephemeral=True,
+            )
             return
 
         ad = await self.redis.get(f"ads:{guild.id}")
         if not ad:
-            await interaction.response.send_message("No ad found. Make sure your ad channel has a message with a link, then run `/config set` to re-index.", ephemeral=True)
+            await interaction.response.send_message(
+                "No ad found. Make sure your ad channel has a message with a link, then run `/config set` to re-index.",
+                ephemeral=True,
+            )
             return
 
         reason = await self.validate_server(guild, config)
@@ -862,9 +1229,13 @@ class Partner(commands.Cog):
             await interaction.response.send_message(reason, ephemeral=True)
             return
 
-        await interaction.response.send_message("Your server is eligible for partnering.", ephemeral=True)
+        await interaction.response.send_message(
+            "Your server is eligible for partnering.", ephemeral=True
+        )
 
-    @partnerGroup.command(name="indexads", description="Re-index all server ads and show a summary")
+    @partnerGroup.command(
+        name="indexads", description="Re-index all server ads and show a summary"
+    )
     @is_owner()
     async def indexads(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -872,8 +1243,12 @@ class Partner(commands.Cog):
         embed = discord.Embed(title="Ad Index Summary", color=discord.Color.fuchsia())
         embed.add_field(name="Total Guilds", value=str(summary["total"]), inline=True)
         embed.add_field(name="Cached", value=str(summary["cached"]), inline=True)
-        embed.add_field(name="Missing Ad", value=str(summary["missing_ad"]), inline=True)
-        embed.add_field(name="Missing Channel", value=str(summary["missing_channel"]), inline=True)
+        embed.add_field(
+            name="Missing Ad", value=str(summary["missing_ad"]), inline=True
+        )
+        embed.add_field(
+            name="Missing Channel", value=str(summary["missing_channel"]), inline=True
+        )
         embed.add_field(name="No Config", value=str(summary["no_config"]), inline=True)
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -882,15 +1257,21 @@ class Partner(commands.Cog):
     async def forceloop(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         if self._partner_lock.locked():
-            await interaction.followup.send("Already running, wait for it to finish.", ephemeral=True)
+            await interaction.followup.send(
+                "Already running, wait for it to finish.", ephemeral=True
+            )
             return
         async with self._partner_lock:
             logger.info("[forceloop] force-acquired lock, proceeding")
-            await self.redis.set("last_partner_run", 1, ex=self.bot.yaml_config['cache']['redis_lock'])
+            await self.redis.set(
+                "last_partner_run", 1, ex=self.bot.yaml_config["cache"]["redis_lock"]
+            )
             await self._run_partner_round()
         await interaction.followup.send("Partner loop complete", ephemeral=True)
 
-    @partnerGroup.command(name="broadcast", description="Send a server's ad to every partner channel")
+    @partnerGroup.command(
+        name="broadcast", description="Send a server's ad to every partner channel"
+    )
     @is_owner()
     @discord.app_commands.checks.cooldown(rate=1, per=86400)
     async def broadcast_ad(self, interaction: discord.Interaction, guild_id: str):
@@ -903,7 +1284,9 @@ class Partner(commands.Cog):
 
         ad = await self.redis.get(f"ads:{gid}")
         if not ad:
-            await interaction.followup.send("No ad found for that server.", ephemeral=True)
+            await interaction.followup.send(
+                "No ad found for that server.", ephemeral=True
+            )
             return
 
         sent, failed = 0, 0
@@ -919,11 +1302,14 @@ class Partner(commands.Cog):
             try:
                 await channel.send(ad, view=AddBotView())
                 sent += 1
-                await asyncio.sleep(self.bot.yaml_config['delays']['partner_pair'])
+                await asyncio.sleep(self.bot.yaml_config["delays"]["partner_pair"])
             except discord.HTTPException:
                 failed += 1
 
-        await interaction.followup.send(f"Broadcast complete: {sent} sent, {failed} failed.", ephemeral=True)
+        await interaction.followup.send(
+            f"Broadcast complete: {sent} sent, {failed} failed.", ephemeral=True
+        )
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Partner(bot))

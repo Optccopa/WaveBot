@@ -119,18 +119,20 @@ def scan_ai(ad_text: str) -> dict:
         lines = [f"- {h}" for h in regex_hits]
         regex_context = "\nRegex pre-scan found:\n" + "\n".join(lines) + "\n"
 
-    response = requests.post(OLLAMA_URL, json={
-        "model": MODEL,
-        "prompt": SCAN_PROMPT + regex_context + "\n\nAdvertisement:\n" + ad_text,
-        "stream": False,
-        "format": "json",
-    })
+    response = requests.post(
+        OLLAMA_URL,
+        json={
+            "model": MODEL,
+            "prompt": SCAN_PROMPT + regex_context + "\n\nAdvertisement:\n" + ad_text,
+            "stream": False,
+            "format": "json",
+        },
+    )
     raw = response.json()["response"]
     result = json.loads(raw)
 
     ai_block = [
-        v for v in result.get("ai_block", [])
-        if v != "violation: quoted phrase"
+        v for v in result.get("ai_block", []) if v != "violation: quoted phrase"
     ]
 
     all_violations = list(set(regex_hits + ai_block))
@@ -144,11 +146,14 @@ def scan_ai(ad_text: str) -> dict:
 
     explanation = None
     if all_violations:
-        exp_response = requests.post(OLLAMA_URL, json={
-            "model": MODEL,
-            "prompt": EXPLAIN_PROMPT.format(violations="\n".join(all_violations)),
-            "stream": False,
-        })
+        exp_response = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": MODEL,
+                "prompt": EXPLAIN_PROMPT.format(violations="\n".join(all_violations)),
+                "stream": False,
+            },
+        )
         explanation = exp_response.json()["response"].strip()
 
     return {

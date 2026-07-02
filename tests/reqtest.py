@@ -14,7 +14,7 @@ def get_req(count_a: int, count_b: int) -> dict:
         (round(800 * scale), "partner", "member"),
         (round(1700 * scale), "here", "member"),
         (round(2000 * scale), "partnerhere", "member"),
-        (float("inf"), "member", "member")
+        (float("inf"), "member", "member"),
     ]
 
     for ceiling, host_ping, guest_ping in tiers:
@@ -29,7 +29,8 @@ def get_req(count_a: int, count_b: int) -> dict:
                 "server_b": ping_b,
                 "host": "server_a" if a_is_host else "server_b",
             }
-        
+
+
 SERVER_A = 1500
 SERVER_B = 8000
 

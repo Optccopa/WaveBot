@@ -2,7 +2,15 @@ import json
 
 from redis.asyncio import Redis
 
-ALLOWED_COLUMNS = {"partner_channel", "ad_channel", "member_role", "partner_ping_role", "log_channel", "partner_delay"}
+ALLOWED_COLUMNS = {
+    "partner_channel",
+    "ad_channel",
+    "member_role",
+    "partner_ping_role",
+    "log_channel",
+    "partner_delay",
+}
+
 
 class ConfigManager:
     def __init__(self, db_pool, redis):
@@ -21,8 +29,7 @@ class ConfigManager:
 
         async with self.db.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT * FROM guild_config WHERE guild_id = $1",
-                guild_id
+                "SELECT * FROM guild_config WHERE guild_id = $1", guild_id
             )
 
         if not row:
@@ -39,18 +46,18 @@ class ConfigManager:
         if invalid:
             raise ValueError(f"Invalid config fields: {invalid}")
 
-        columns = ", ".join(f"{k} = ${i+2}" for i, k in enumerate(fields))
+        columns = ", ".join(f"{k} = ${i + 2}" for i, k in enumerate(fields))
         values = list(fields.values())
         async with self.db.acquire() as conn:
             await conn.execute(
                 f"""
                 INSERT INTO guild_config (guild_id, {", ".join(fields)})
-                VALUES ($1, {", ".join(f"${i+2}" for i in range(len(fields)))})
+                VALUES ($1, {", ".join(f"${i + 2}" for i in range(len(fields)))})
                 ON CONFLICT (guild_id)
                 DO UPDATE SET {columns}
                 """,
                 guild_id,
-                *values
+                *values,
             )
 
         key = f"config:{guild_id}"

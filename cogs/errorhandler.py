@@ -8,18 +8,19 @@ _cooldown_notified: set[int] = set()
 
 log = logging.getLogger(__name__)
 
+
 class ErrorHandler(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot: Bot = bot
-        self.last_errors = {
-            "slash": None,
-            "prefix": None,
-            "event": None
-        }
+        self.last_errors = {"slash": None, "prefix": None, "event": None}
         self.bot.tree.on_error = self.on_app_command_error
 
     # Slash commands
-    async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+    async def on_app_command_error(
+        self,
+        interaction: discord.Interaction,
+        error: discord.app_commands.AppCommandError,
+    ):
         if not interaction.guild or not interaction.guild.me:
             msg = f"I am not in this guild, Try adding the bot [here]({self.bot.yaml_config['bot']['bot_invite']})"
 
@@ -39,14 +40,14 @@ class ErrorHandler(commands.Cog):
         elif isinstance(error, discord.Forbidden):
             log.warning("Forbidden in app command %s: %s", interaction.command, error)
             msg = "I'm missing permissions in this channel"
-    
+
         else:
             self.last_errors["slash"] = traceback.format_exception(
                 type(error), error, error.__traceback__
             )
             log.error("App command error: %r", error)
             msg = "An unexpected error occurred, if this issue persists please contact support."
-        
+
         try:
             if interaction.response.is_done():
                 await interaction.followup.send(msg, ephemeral=True)
@@ -61,22 +62,29 @@ class ErrorHandler(commands.Cog):
 
         if isinstance(error, commands.CommandInvokeError):
             error = error.original
-        
+
         if isinstance(error, commands.CommandNotFound):
             return
-        
+
         if isinstance(error, commands.BadArgument):
-            await ctx.send("Incorrect command arguments, try running them in a different order", delete_after=3)
+            await ctx.send(
+                "Incorrect command arguments, try running them in a different order",
+                delete_after=3,
+            )
             return
-        
+
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send("Missing command arguments, maybe you forgot a space", delete_after=3)
+            await ctx.send(
+                "Missing command arguments, maybe you forgot a space", delete_after=3
+            )
             return
-        
+
         if isinstance(error, commands.MissingPermissions):
-            await ctx.send("You don't have permission to use this command", delete_after=3)
+            await ctx.send(
+                "You don't have permission to use this command", delete_after=3
+            )
             return
-        
+
         if isinstance(error, commands.CommandOnCooldown):
             if ctx.author.id in _cooldown_notified:
                 return
@@ -85,16 +93,22 @@ class ErrorHandler(commands.Cog):
             await asyncio.sleep(error.retry_after)
             _cooldown_notified.discard(ctx.author.id)
             return
-        
+
         if isinstance(error, commands.BotMissingPermissions):
-            await ctx.send("I don't have the required permissions, please contact support", delete_after=3)
+            await ctx.send(
+                "I don't have the required permissions, please contact support",
+                delete_after=3,
+            )
             log.warning("Incorrect permissions set")
             return
 
         if isinstance(error, discord.Forbidden):
             log.warning("Forbidden in %s/%s: %s", ctx.guild, ctx.channel, error)
             try:
-                await ctx.send("I'm missing permissions in this channel. Make sure I have **Send Messages** and **Embed Links**.", delete_after=10)
+                await ctx.send(
+                    "I'm missing permissions in this channel. Make sure I have **Send Messages** and **Embed Links**.",
+                    delete_after=10,
+                )
             except discord.Forbidden:
                 pass
             return
@@ -104,7 +118,10 @@ class ErrorHandler(commands.Cog):
         )
         log.error("Prefix command error: %r", error)
 
-        await ctx.send("An unexpected error occurred, if this issue persists please contact support", delete_after=3)
+        await ctx.send(
+            "An unexpected error occurred, if this issue persists please contact support",
+            delete_after=3,
+        )
 
     # Events
     @commands.Cog.listener()
@@ -112,7 +129,9 @@ class ErrorHandler(commands.Cog):
         self.last_errors["event"] = traceback.format_exc()
         log.exception("Error in event: %s", event)
 
-    @discord.app_commands.command(name="error", description="Pull the most recent bot error from errorhandlers")
+    @discord.app_commands.command(
+        name="error", description="Pull the most recent bot error from errorhandlers"
+    )
     @is_owner()
     async def lasterror(self, interaction: discord.Interaction):
         embeds = []
@@ -129,12 +148,13 @@ class ErrorHandler(commands.Cog):
             embed = discord.Embed(
                 title=f"Last {key.capitalize()} Error",
                 description=f"```py\n{text}\n```",
-                color=color
+                color=color,
             )
 
             embeds.append(embed)
 
         await interaction.response.send_message(embeds=embeds, ephemeral=True)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ErrorHandler(bot))

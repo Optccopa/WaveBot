@@ -11,6 +11,7 @@ for _a in _hot:
         if _a != _b:
             _cooldown_pairs.add((min(_a, _b), max(_a, _b)))
 
+
 class Cog:
     def __init__(self):
         pass
@@ -18,13 +19,15 @@ class Cog:
     async def has_cooldown(self, a, b):
         return (min(a, b), max(a, b)) in _cooldown_pairs
 
-    async def match(self, players: list[int]) -> tuple[list[tuple[int, int]], list[int]]:
+    async def match(
+        self, players: list[int]
+    ) -> tuple[list[tuple[int, int]], list[int]]:
         shuffled = players[:]
         random.shuffle(shuffled)
 
         cooldowns = set()
         for i, a in enumerate(shuffled):
-            for b in shuffled[i + 1:]:
+            for b in shuffled[i + 1 :]:
                 if await self.has_cooldown(a, b):
                     cooldowns.add((min(a, b), max(a, b)))
 
@@ -39,7 +42,7 @@ class Cog:
             for i, candidate in enumerate(rest):
                 key = (min(first, candidate), max(first, candidate))
                 if key not in cooldowns:
-                    result = [(first, candidate)] + backtrack(rest[:i] + rest[i + 1:])
+                    result = [(first, candidate)] + backtrack(rest[:i] + rest[i + 1 :])
                     if len(result) > len(best):
                         best = result
                         if len(best) == len(remaining) // 2:
@@ -56,10 +59,10 @@ class Cog:
         sat_out = [p for p in shuffled if p not in paired]
         return pairs, sat_out
 
+
 start = perf_counter()
 for i in range(30):
     pairs, sat_out = asyncio.run(Cog().match(servers))
     print(pairs, f"\n{sat_out}")
 
 print(perf_counter() - start)
-

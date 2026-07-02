@@ -96,6 +96,7 @@ RULE_PATTERNS = {
     ],
 }
 
+
 def regex_check(ad_text: str) -> list[str]:
     hits = []
     lower = ad_text.lower()
@@ -105,14 +106,19 @@ def regex_check(ad_text: str) -> list[str]:
                 hits.append(f"{rule}: {m.group()}")
     return hits
 
+
 def generate_explanation(violations: list[str]) -> str:
     prompt = EXPLAIN_PROMPT.format(violations="\n".join(violations))
-    response = requests.post(OLLAMA_URL, json={
-        "model": MODEL,
-        "prompt": prompt,
-        "stream": False,
-    })
+    response = requests.post(
+        OLLAMA_URL,
+        json={
+            "model": MODEL,
+            "prompt": prompt,
+            "stream": False,
+        },
+    )
     return response.json()["response"].strip()
+
 
 def scan_ads(ad_texts: list[str]):
     for ad in ad_texts:
@@ -123,16 +129,21 @@ def scan_ads(ad_texts: list[str]):
             lines = [f"- {h}" for h in regex_hits]
             regex_context = "\nRegex pre-scan found:\n" + "\n".join(lines) + "\n"
 
-        response = requests.post(OLLAMA_URL, json={
-            "model": MODEL,
-            "prompt": SCAN_PROMPT + regex_context + "\n\nAdvertisement:\n" + ad,
-            "stream": False,
-            "format": "json",
-        })
+        response = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": MODEL,
+                "prompt": SCAN_PROMPT + regex_context + "\n\nAdvertisement:\n" + ad,
+                "stream": False,
+                "format": "json",
+            },
+        )
         raw = response.json()["response"]
         result = json.loads(raw)
 
-        ai_block = [v for v in result.get("ai_block", []) if v != "violation: quoted phrase"]
+        ai_block = [
+            v for v in result.get("ai_block", []) if v != "violation: quoted phrase"
+        ]
 
         # Merge regex hits into result, override if model missed
         all_violations = list(set(regex_hits + ai_block))
@@ -145,13 +156,17 @@ def scan_ads(ad_texts: list[str]):
         if all_violations:
             explanation = generate_explanation(all_violations)
 
-        yield {
-            "sus": result.get("sus", False),
-            "confidence": result.get("confidence", 0.0),
-            "regex_block": regex_hits,
-            "ai_block": ai_block,
-            "explanation": explanation,
-        }, ad[:50]
+        yield (
+            {
+                "sus": result.get("sus", False),
+                "confidence": result.get("confidence", 0.0),
+                "regex_block": regex_hits,
+                "ai_block": ai_block,
+                "explanation": explanation,
+            },
+            ad[:50],
+        )
+
 
 if __name__ == "__main__":
     ads = [
@@ -174,7 +189,7 @@ if __name__ == "__main__":
         "# 🧑‍🌾 Farming Service 🧑‍🌾\nI grind for u:\n- crops\n- mobs\n- money\n\nYou chill I work 😎\nDm prices",
         "# 🎁 DAILY REWARDS SERVER 🎁\nJoin for free stuff everyday\nCoins, items, kits\n\nDon’t miss out\nhttps://discord.gg/dailyloot",
         "# __Vault Protection Builds__ 🔐\nHidden vaults, anti-xray tricks\n\nNo one finding ur loot again\n\nDm for custom builds",
-        "# 🐍 Hacked Client Configs 🐍\nBest configs for Donut\n- Undetectable\n- OP settings\n\nDm for access"
+        "# 🐍 Hacked Client Configs 🐍\nBest configs for Donut\n- Undetectable\n- OP settings\n\nDm for access",
     ]
     for result, pre in scan_ads(ads):
         print(json.dumps(result, indent=2))

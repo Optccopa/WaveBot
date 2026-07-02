@@ -4,4 +4,5 @@ def will_keepup(cd: int, server_amount: int = 50):
         return False
     return (72 / cd) <= server_amount
 
+
 print(will_keepup(2, 70))

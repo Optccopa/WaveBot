@@ -28,10 +28,19 @@ MANAGE_GUILD = 0x20
 
 FIELD_LABELS = {
     "partner_channel": ("Partner Channel ID", "Channel where partner ads are posted"),
-    "ad_channel": ("Ad Channel ID", "Channel containing your server ad (recent message with a link)"),
-    "log_channel": ("Log Channel ID", "Private channel for WaveBot warnings and status messages"),
+    "ad_channel": (
+        "Ad Channel ID",
+        "Channel containing your server ad (recent message with a link)",
+    ),
+    "log_channel": (
+        "Log Channel ID",
+        "Private channel for WaveBot warnings and status messages",
+    ),
     "member_role": ("Member Role ID", "Role assigned to >95% of your server members"),
-    "partner_ping_role": ("Partner Ping Role ID", "Role pinged for partner ads, must cover >8% of members"),
+    "partner_ping_role": (
+        "Partner Ping Role ID",
+        "Role pinged for partner ads, must cover >8% of members",
+    ),
 }
 
 SNOWFLAKE_RE = re.compile(r"^\d{15,21}$")
@@ -43,6 +52,7 @@ routes = web.RouteTableDef()
 # Middleware
 # ---------------------------------------------------------------------------
 
+
 @web.middleware
 async def security_headers_middleware(request, handler):
     try:
@@ -52,14 +62,17 @@ async def security_headers_middleware(request, handler):
     except Exception:
         log.exception("Unhandled error on %s %s", request.method, request.path)
         response = aiohttp_jinja2.render_template(
-            "error.html", request,
+            "error.html",
+            request,
             {"code": 500, "message": "Something went wrong. Try again later."},
-            status=500
+            status=500,
         )
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "img-src 'self' https://cdn.discordapp.com data:; "
@@ -82,6 +95,7 @@ async def auth_middleware(request, handler):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _has_manage_guild(permissions: int) -> bool:
     return bool(permissions & MANAGE_GUILD)
@@ -132,7 +146,9 @@ async def _get_user_guilds(request) -> list[dict]:
         raw_guilds = json.loads(cached)
     else:
         http: aiohttp.ClientSession = request.app["http_session"]
-        raw_guilds = await _discord_get(http, session["access_token"], "/users/@me/guilds?with_counts=true")
+        raw_guilds = await _discord_get(
+            http, session["access_token"], "/users/@me/guilds?with_counts=true"
+        )
         raw_guilds = [
             {
                 "id": g["id"],
@@ -149,18 +165,20 @@ async def _get_user_guilds(request) -> list[dict]:
 
     bot_guild_ids = await _authorized_guild_ids(request)
     return [
-        g for g in raw_guilds
+        g
+        for g in raw_guilds
         if _has_manage_guild(int(g["permissions"])) and int(g["id"]) in bot_guild_ids
     ]
 
 
 async def _discord_get(http: aiohttp.ClientSession, token: str, path: str):
     async with http.get(
-        f"{DISCORD_API}{path}",
-        headers={"Authorization": f"Bearer {token}"}
+        f"{DISCORD_API}{path}", headers={"Authorization": f"Bearer {token}"}
     ) as resp:
         if resp.status == 429:
-            raise web.HTTPServiceUnavailable(reason="Discord rate limit hit, try again in a moment.")
+            raise web.HTTPServiceUnavailable(
+                reason="Discord rate limit hit, try again in a moment."
+            )
         resp.raise_for_status()
         return await resp.json()
 
@@ -184,10 +202,13 @@ async def _check_rate_limit(redis: Redis, key: str, max_requests: int, window: i
 # Routes
 # ---------------------------------------------------------------------------
 
+
 @routes.get("/login")
 async def handle_login(request: web.Request) -> web.Response:
     redis: Redis = request.app["redis"]
-    await _check_rate_limit(redis, f"ratelimit:login:{_client_ip(request)}", max_requests=10, window=60)
+    await _check_rate_limit(
+        redis, f"ratelimit:login:{_client_ip(request)}", max_requests=10, window=60
+    )
     session = await aiohttp_session.get_session(request)
     state = secrets.token_urlsafe(16)
     session["oauth_state"] = state
@@ -207,7 +228,9 @@ async def handle_login(request: web.Request) -> web.Response:
 @routes.get("/callback")
 async def handle_callback(request: web.Request) -> web.Response:
     redis: Redis = request.app["redis"]
-    await _check_rate_limit(redis, f"ratelimit:callback:{_client_ip(request)}", max_requests=10, window=60)
+    await _check_rate_limit(
+        redis, f"ratelimit:callback:{_client_ip(request)}", max_requests=10, window=60
+    )
     session = await aiohttp_session.get_session(request)
 
     code = request.rel_url.query.get("code")
@@ -220,9 +243,10 @@ async def handle_callback(request: web.Request) -> web.Response:
 
     if not code or state != stored_state:
         return aiohttp_jinja2.render_template(
-            "error.html", request,
+            "error.html",
+            request,
             {"code": 400, "message": "Invalid OAuth2 state. Try logging in again."},
-            status=400
+            status=400,
         )
 
     http: aiohttp.ClientSession = request.app["http_session"]
@@ -235,13 +259,14 @@ async def handle_callback(request: web.Request) -> web.Response:
             "redirect_uri": os.environ["DISCORD_REDIRECT_URI"],
             "client_id": os.environ["DISCORD_CLIENT_ID"],
             "client_secret": os.environ["DISCORD_CLIENT_SECRET"],
-        }
+        },
     ) as resp:
         if resp.status != 200:
             return aiohttp_jinja2.render_template(
-                "error.html", request,
+                "error.html",
+                request,
                 {"code": 502, "message": "Failed to exchange code with Discord."},
-                status=502
+                status=502,
             )
         token_data = await resp.json()
 
@@ -266,7 +291,10 @@ async def handle_logout(request: web.Request) -> web.Response:
     form = await request.post()
     if form.get("csrf_token") != session.get("csrf_token"):
         return aiohttp_jinja2.render_template(
-            "error.html", request, {"code": 403, "message": "Invalid request. Please try again."}, status=403
+            "error.html",
+            request,
+            {"code": 403, "message": "Invalid request. Please try again."},
+            status=403,
         )
     session.invalidate()
     raise web.HTTPFound("/login")
@@ -287,43 +315,61 @@ async def handle_home(request: web.Request) -> web.Response:
     partners_day = await redis.get("stats:partners")
     client_id = os.environ.get("DISCORD_CLIENT_ID", "")
     invite_url = (
-        f"https://discord.com/oauth2/authorize?client_id={client_id}"
-        f"&scope=bot+applications.commands&permissions=274877992000"
-    ) if client_id else None
-    partner_cooldown_hours = request.app["yaml_config"]["cache"]["partner_cooldown"] // 3600
+        (
+            f"https://discord.com/oauth2/authorize?client_id={client_id}"
+            f"&scope=bot+applications.commands&permissions=274877992000"
+        )
+        if client_id
+        else None
+    )
+    partner_cooldown_hours = (
+        request.app["yaml_config"]["cache"]["partner_cooldown"] // 3600
+    )
     if partner_cooldown_hours > 24:
         partner_cooldown_str = f"{partner_cooldown_hours // 24} day"
     else:
         partner_cooldown_str = f"{partner_cooldown_hours} hour"
-    return aiohttp_jinja2.render_template("home.html", request, {
-        "user": session.get("user"),
-        "guild_count": guild_count,
-        "member_total": member_total,
-        "partners_day": partners_day,
-        "partner_cooldown_str": partner_cooldown_str,
-        "invite_url": invite_url,
-        "support_invite": request.app["yaml_config"]["bot"]["support_invite"],
-        "csrf_token": _csrf_token(session) if session.get("user") else None,
-    })
+    return aiohttp_jinja2.render_template(
+        "home.html",
+        request,
+        {
+            "user": session.get("user"),
+            "guild_count": guild_count,
+            "member_total": member_total,
+            "partners_day": partners_day,
+            "partner_cooldown_str": partner_cooldown_str,
+            "invite_url": invite_url,
+            "support_invite": request.app["yaml_config"]["bot"]["support_invite"],
+            "csrf_token": _csrf_token(session) if session.get("user") else None,
+        },
+    )
 
 
 @routes.get("/tos")
 async def handle_tos(request: web.Request) -> web.Response:
     session = await aiohttp_session.get_session(request)
-    return aiohttp_jinja2.render_template("tos.html", request, {
-        "user": session.get("user"),
-        "support_invite": request.app["yaml_config"]["bot"]["support_invite"],
-        "csrf_token": _csrf_token(session) if session.get("user") else None,
-    })
+    return aiohttp_jinja2.render_template(
+        "tos.html",
+        request,
+        {
+            "user": session.get("user"),
+            "support_invite": request.app["yaml_config"]["bot"]["support_invite"],
+            "csrf_token": _csrf_token(session) if session.get("user") else None,
+        },
+    )
 
 
 @routes.get("/privacy")
 async def handle_privacy(request: web.Request) -> web.Response:
     session = await aiohttp_session.get_session(request)
-    return aiohttp_jinja2.render_template("privacy.html", request, {
-        "user": session.get("user"),
-        "csrf_token": _csrf_token(session) if session.get("user") else None,
-    })
+    return aiohttp_jinja2.render_template(
+        "privacy.html",
+        request,
+        {
+            "user": session.get("user"),
+            "csrf_token": _csrf_token(session) if session.get("user") else None,
+        },
+    )
 
 
 @routes.get("/servers")
@@ -333,30 +379,38 @@ async def handle_guild_list(request: web.Request) -> web.Response:
     cm: ConfigManager = request.app["config_manager"]
 
     redis: Redis = request.app["redis"]
-    await _check_rate_limit(redis, f"ratelimit:get:{user['id']}", max_requests=30, window=60)
+    await _check_rate_limit(
+        redis, f"ratelimit:get:{user['id']}", max_requests=30, window=60
+    )
 
     user_guilds = await _get_user_guilds(request)
 
     guild_cards = []
     for g in user_guilds:
         config = await cm.get(int(g["id"]))
-        guild_cards.append({
-            "id": g["id"],
-            "name": g["name"],
-            "icon_url": _icon_url(g["id"], g.get("icon")),
-            "banner_url": _banner_url(g["id"], g.get("banner")),
-            "member_count": g.get("member_count"),
-            "online_count": g.get("online_count"),
-            "is_ready": _is_ready(config),
-        })
+        guild_cards.append(
+            {
+                "id": g["id"],
+                "name": g["name"],
+                "icon_url": _icon_url(g["id"], g.get("icon")),
+                "banner_url": _banner_url(g["id"], g.get("banner")),
+                "member_count": g.get("member_count"),
+                "online_count": g.get("online_count"),
+                "is_ready": _is_ready(config),
+            }
+        )
 
     guild_cards.sort(key=lambda x: x["name"].lower())
 
-    return aiohttp_jinja2.render_template("guilds.html", request, {
-        "user": user,
-        "guilds": guild_cards,
-        "csrf_token": _csrf_token(session),
-    })
+    return aiohttp_jinja2.render_template(
+        "guilds.html",
+        request,
+        {
+            "user": user,
+            "guilds": guild_cards,
+            "csrf_token": _csrf_token(session),
+        },
+    )
 
 
 @routes.get("/server/{guild_id}")
@@ -367,18 +421,26 @@ async def handle_server_get(request: web.Request) -> web.Response:
 
     if not SNOWFLAKE_RE.match(guild_id_str):
         return aiohttp_jinja2.render_template(
-            "error.html", request, {"code": 404, "message": "Guild not found."}, status=404
+            "error.html",
+            request,
+            {"code": 404, "message": "Guild not found."},
+            status=404,
         )
     guild_id = int(guild_id_str)
 
     redis: Redis = request.app["redis"]
-    await _check_rate_limit(redis, f"ratelimit:get:{user['id']}", max_requests=30, window=60)
+    await _check_rate_limit(
+        redis, f"ratelimit:get:{user['id']}", max_requests=30, window=60
+    )
 
     user_guilds = await _get_user_guilds(request)
     guild = next((g for g in user_guilds if int(g["id"]) == guild_id), None)
     if not guild:
         return aiohttp_jinja2.render_template(
-            "error.html", request, {"code": 403, "message": "Access denied."}, status=403
+            "error.html",
+            request,
+            {"code": 403, "message": "Access denied."},
+            status=403,
         )
 
     cm: ConfigManager = request.app["config_manager"]
@@ -386,21 +448,26 @@ async def handle_server_get(request: web.Request) -> web.Response:
     saved = request.rel_url.query.get("saved") == "1"
     pd_cfg = request.app["yaml_config"]["partner_delay"]
 
-    return aiohttp_jinja2.render_template("server.html", request, {
-        "user": user,
-        "guild_id": guild_id_str,
-        "guild_name": guild["name"],
-        "guild_icon_url": _icon_url(guild["id"], guild.get("icon")),
-        "config": config,
-        "saved": saved,
-        "errors": {},
-        "validation_error": None,
-        "labels": FIELD_LABELS,
-        "csrf_token": _csrf_token(session),
-        "partner_delay_hours": (config.get("partner_delay") or pd_cfg["default"]) // 3600,
-        "partner_delay_min": pd_cfg["min"] // 3600,
-        "partner_delay_max": pd_cfg["max"] // 3600,
-    })
+    return aiohttp_jinja2.render_template(
+        "server.html",
+        request,
+        {
+            "user": user,
+            "guild_id": guild_id_str,
+            "guild_name": guild["name"],
+            "guild_icon_url": _icon_url(guild["id"], guild.get("icon")),
+            "config": config,
+            "saved": saved,
+            "errors": {},
+            "validation_error": None,
+            "labels": FIELD_LABELS,
+            "csrf_token": _csrf_token(session),
+            "partner_delay_hours": (config.get("partner_delay") or pd_cfg["default"])
+            // 3600,
+            "partner_delay_min": pd_cfg["min"] // 3600,
+            "partner_delay_max": pd_cfg["max"] // 3600,
+        },
+    )
 
 
 @routes.post("/server/{guild_id}")
@@ -411,7 +478,10 @@ async def handle_server_post(request: web.Request) -> web.Response:
 
     if not SNOWFLAKE_RE.match(guild_id_str):
         return aiohttp_jinja2.render_template(
-            "error.html", request, {"code": 404, "message": "Guild not found."}, status=404
+            "error.html",
+            request,
+            {"code": 404, "message": "Guild not found."},
+            status=404,
         )
     guild_id = int(guild_id_str)
 
@@ -419,7 +489,10 @@ async def handle_server_post(request: web.Request) -> web.Response:
     guild = next((g for g in user_guilds if int(g["id"]) == guild_id), None)
     if not guild:
         return aiohttp_jinja2.render_template(
-            "error.html", request, {"code": 403, "message": "Access denied."}, status=403
+            "error.html",
+            request,
+            {"code": 403, "message": "Access denied."},
+            status=403,
         )
 
     form = await request.post()
@@ -427,12 +500,17 @@ async def handle_server_post(request: web.Request) -> web.Response:
     # CSRF check
     if form.get("csrf_token") != session.get("csrf_token"):
         return aiohttp_jinja2.render_template(
-            "error.html", request, {"code": 403, "message": "Invalid request. Please try again."}, status=403
+            "error.html",
+            request,
+            {"code": 403, "message": "Invalid request. Please try again."},
+            status=403,
         )
 
     # Rate limit: 10 saves per minute per user
     redis: Redis = request.app["redis"]
-    await _check_rate_limit(redis, f"ratelimit:config:{user['id']}", max_requests=10, window=60)
+    await _check_rate_limit(
+        redis, f"ratelimit:config:{user['id']}", max_requests=10, window=60
+    )
 
     pd_cfg = request.app["yaml_config"]["partner_delay"]
     min_h = pd_cfg["min"] // 3600
@@ -466,26 +544,34 @@ async def handle_server_post(request: web.Request) -> web.Response:
         config = await cm.get(guild_id) or {}
         for f, v in fields.items():
             config[f] = v
-        return aiohttp_jinja2.render_template("server.html", request, {
-            "user": user,
-            "guild_id": guild_id_str,
-            "guild_name": guild["name"],
-            "guild_icon_url": _icon_url(guild["id"], guild.get("icon")),
-            "config": config,
-            "saved": False,
-            "errors": errors,
-            "labels": FIELD_LABELS,
-            "csrf_token": _csrf_token(session),
-            "partner_delay_hours": raw_delay,
-            "partner_delay_min": min_h,
-            "partner_delay_max": max_h,
-        }, status=422)
+        return aiohttp_jinja2.render_template(
+            "server.html",
+            request,
+            {
+                "user": user,
+                "guild_id": guild_id_str,
+                "guild_name": guild["name"],
+                "guild_icon_url": _icon_url(guild["id"], guild.get("icon")),
+                "config": config,
+                "saved": False,
+                "errors": errors,
+                "labels": FIELD_LABELS,
+                "csrf_token": _csrf_token(session),
+                "partner_delay_hours": raw_delay,
+                "partner_delay_min": min_h,
+                "partner_delay_max": max_h,
+            },
+            status=422,
+        )
 
     if fields:
         cm: ConfigManager = request.app["config_manager"]
         current = await cm.get(guild_id) or {}
         merged = {**current, **fields}
-        if all(merged.get(f) for f in ("member_role", "partner_ping_role", "partner_channel")):
+        if all(
+            merged.get(f)
+            for f in ("member_role", "partner_ping_role", "partner_channel")
+        ):
             validation_error = None
             try:
                 bot_url = os.environ.get("BOT_INTERNAL_URL", "http://bot:8081")
@@ -493,7 +579,7 @@ async def handle_server_post(request: web.Request) -> web.Response:
                 async with http.post(
                     f"{bot_url}/validate/{guild_id}",
                     json={"config": merged},
-                    timeout=aiohttp.ClientTimeout(total=10)
+                    timeout=aiohttp.ClientTimeout(total=10),
                 ) as resp:
                     data = await resp.json()
                     validation_error = data.get("reason")
@@ -503,21 +589,29 @@ async def handle_server_post(request: web.Request) -> web.Response:
                 config = await cm.get(guild_id) or {}
                 for f, v in fields.items():
                     config[f] = v
-                return aiohttp_jinja2.render_template("server.html", request, {
-                    "user": user,
-                    "guild_id": guild_id_str,
-                    "guild_name": guild["name"],
-                    "guild_icon_url": _icon_url(guild["id"], guild.get("icon")),
-                    "config": config,
-                    "saved": False,
-                    "errors": {},
-                    "validation_error": validation_error,
-                    "labels": FIELD_LABELS,
-                    "csrf_token": _csrf_token(session),
-                    "partner_delay_hours": (merged.get("partner_delay") or pd_cfg["default"]) // 3600,
-                    "partner_delay_min": min_h,
-                    "partner_delay_max": max_h,
-                }, status=422)
+                return aiohttp_jinja2.render_template(
+                    "server.html",
+                    request,
+                    {
+                        "user": user,
+                        "guild_id": guild_id_str,
+                        "guild_name": guild["name"],
+                        "guild_icon_url": _icon_url(guild["id"], guild.get("icon")),
+                        "config": config,
+                        "saved": False,
+                        "errors": {},
+                        "validation_error": validation_error,
+                        "labels": FIELD_LABELS,
+                        "csrf_token": _csrf_token(session),
+                        "partner_delay_hours": (
+                            merged.get("partner_delay") or pd_cfg["default"]
+                        )
+                        // 3600,
+                        "partner_delay_min": min_h,
+                        "partner_delay_max": max_h,
+                    },
+                    status=422,
+                )
         await cm.set(guild_id, **fields)
 
     raise web.HTTPFound(f"/server/{guild_id_str}?saved=1")
@@ -526,6 +620,7 @@ async def handle_server_post(request: web.Request) -> web.Response:
 # ---------------------------------------------------------------------------
 # App lifecycle
 # ---------------------------------------------------------------------------
+
 
 async def on_startup(app: web.Application):
     config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
@@ -577,7 +672,12 @@ def make_app() -> web.Application:
 
     app.router.add_routes(routes)
     app.router.add_static("/static", os.path.join(os.path.dirname(__file__), "static"))
-    app.router.add_get("/favicon.ico", lambda _: web.FileResponse(os.path.join(os.path.dirname(__file__), "static", "favicon.ico")))
+    app.router.add_get(
+        "/favicon.ico",
+        lambda _: web.FileResponse(
+            os.path.join(os.path.dirname(__file__), "static", "favicon.ico")
+        ),
+    )
 
     app.on_startup.append(on_startup)
     app.on_cleanup.append(on_cleanup)

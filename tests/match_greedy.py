@@ -15,14 +15,18 @@ class Cog:
     def __init__(self):
         pass
 
-    async def match(self, players: list[int]) -> tuple[list[tuple[int, int]], list[int]]:
+    async def match(
+        self, players: list[int]
+    ) -> tuple[list[tuple[int, int]], list[int]]:
         pool = players[:]
         random.shuffle(pool)
 
         if len(pool) < 2:
             return [], pool
 
-        all_pairs = [(min(a, b), max(a, b)) for i, a in enumerate(pool) for b in pool[i + 1:]]
+        all_pairs = [
+            (min(a, b), max(a, b)) for i, a in enumerate(pool) for b in pool[i + 1 :]
+        ]
 
         # Simulate pipeline (in prod this is one Redis round-trip)
         on_cooldown = {pair for pair in all_pairs if pair in _cooldown_pairs}
@@ -67,9 +71,10 @@ async def run():
             print(f"     sat: {sat_out}")
 
     elapsed = time.perf_counter() - start
-    print(f"\n--- {runs} runs in {elapsed*1000:.2f}ms ---")
-    print(f"avg pairs:   {total_pairs/runs:.1f}")
-    print(f"avg sat_out: {total_sat/runs:.1f}")
-    print(f"avg ms/run:  {elapsed/runs*1000:.3f}ms")
+    print(f"\n--- {runs} runs in {elapsed * 1000:.2f}ms ---")
+    print(f"avg pairs:   {total_pairs / runs:.1f}")
+    print(f"avg sat_out: {total_sat / runs:.1f}")
+    print(f"avg ms/run:  {elapsed / runs * 1000:.3f}ms")
+
 
 asyncio.run(run())

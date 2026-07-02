@@ -3,6 +3,7 @@ from redis.asyncio import Redis
 
 ALLOWED_COLUMNS = {"available_pings"}
 
+
 class PremiumManager:
     def __init__(self, db_pool, redis):
         self.db = db_pool
@@ -19,11 +20,15 @@ class PremiumManager:
             except (json.JSONDecodeError, ValueError):
                 await self.redis.delete(key)
         async with self.db.acquire() as conn:
-            row = await conn.fetchrow("SELECT * FROM premium WHERE guild_id = $1", guild_id)
+            row = await conn.fetchrow(
+                "SELECT * FROM premium WHERE guild_id = $1", guild_id
+            )
         if not row:
             return None
         data = dict(row)
-        data["added_at"] = data["added_at"].isoformat() if data.get("added_at") else None
+        data["added_at"] = (
+            data["added_at"].isoformat() if data.get("added_at") else None
+        )
         await self.redis.set(key, json.dumps(data), ex=2592000)
         return data
 
@@ -31,11 +36,12 @@ class PremiumManager:
         invalid = set(fields) - ALLOWED_COLUMNS
         if invalid:
             raise ValueError(f"Invalid premium fields: {invalid}")
-        columns = ", ".join(f"{k} = ${i+2}" for i, k in enumerate(fields))
+        columns = ", ".join(f"{k} = ${i + 2}" for i, k in enumerate(fields))
         async with self.db.acquire() as conn:
             await conn.execute(
                 f"UPDATE premium SET {columns} WHERE guild_id = $1",
-                guild_id, *fields.values()
+                guild_id,
+                *fields.values(),
             )
         await self.redis.delete(f"premium:{guild_id}")
         await self.get(guild_id)
@@ -44,7 +50,8 @@ class PremiumManager:
         async with self.db.acquire() as conn:
             await conn.execute(
                 "INSERT INTO premium (guild_id, added_by) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-                guild_id, added_by
+                guild_id,
+                added_by,
             )
         await self.redis.delete(f"premium:{guild_id}")
         await self.get(guild_id)

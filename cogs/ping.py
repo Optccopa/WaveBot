@@ -2,6 +2,7 @@ import discord, time
 from main import Bot
 from discord.ext import commands
 
+
 class Ping(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot: Bot = bot
@@ -11,10 +12,7 @@ class Ping(commands.Cog):
     async def ping(self, ctx):
         start = time.perf_counter()
 
-        embed = discord.Embed(
-            description="Pinging...",
-            color=discord.Color.fuchsia()
-        )
+        embed = discord.Embed(description="Pinging...", color=discord.Color.fuchsia())
 
         msg = await ctx.send(embed=embed)
 
@@ -48,10 +46,11 @@ class Ping(commands.Cog):
                 f"Database: `{db_latency}`\n"
                 f"Cache: `{redis_latency}`"
             ),
-            color=discord.Color.fuchsia()
+            color=discord.Color.fuchsia(),
         )
 
         await msg.edit(embed=embed)
-        
+
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(Ping(bot))

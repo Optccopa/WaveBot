@@ -86,7 +86,5 @@ RULE_PATTERNS = {
         r"\bexploit\b",
         r"\bundetectable\b",
     ],
-    "NON_DISCORD_LINK": [
-        r"https?://(?!discord\.gg|discord\.com|cdn\.discord)[^\s\)]+"
-    ],
+    "NON_DISCORD_LINK": [r"https?://(?!discord\.gg|discord\.com|cdn\.discord)[^\s\)]+"],
 }
