@@ -51,6 +51,20 @@ Grants a guild the ability to add the bot even if it is under `requirements.mini
 
 Snapshot of each partnership, written by `partner()` before ads are sent (deleted if either send fails). Read by the Partner Info button. See [partner-matching.md](partner-matching.md).
 
+### `reports`
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | `BIGSERIAL` | PK — encoded in staff action button custom_ids |
+| `partnership_id` | `BIGINT` | FK-ish reference to `partnerships.id` |
+| `reporter_id` | `BIGINT` | Discord user who submitted the report |
+| `reporter_guild_id` | `BIGINT` | Guild the report was submitted from |
+| `reported_guild_id` | `BIGINT` | The other side of the partnership |
+| `category` | `TEXT` | Scam / NSFW / Spam / Harassment / Other |
+| `reason` / `evidence` | `TEXT` | Modal answers (reason + rule broken) |
+| `status` | `TEXT` | `open` (default) → `blacklisted` or `dismissed` |
+| `handled_by` | `BIGINT` | Operator who actioned it |
+| `created_at` | `TIMESTAMPTZ` | Default `NOW()` |
+
 ---
 
 ## Redis Keys
@@ -71,6 +85,8 @@ Snapshot of each partnership, written by `partner()` before ads are sent (delete
 | `invite:{channel_id}` | String | 6h | Discord invite URL for a partner channel | `cogs/owneronly.py` list_servers / debug_all_servers |
 | `partner_info:{partnership_id}` | String | 30d | `partnerships` row as JSON (`"0"` = negative cache, 1d) | `cogs/partner.py` PartnerInfoButton callback |
 | `cooldown:partner_info:{user_id}` | String | 10s | `1` — per-user rate limit on the Partner Info button | `cogs/partner.py` PartnerInfoButton callback |
+| `cooldown:report:{user_id}` | String | 10s | `1` — per-user rate limit on the Report button | `cogs/partner.py` ReportButton callback |
+| `reported:{partnership_id}:{user_id}` | String | 30d | `1` — dedupe, one report per user per partnership | `cogs/partner.py` ReportModal on_submit |
 | `whitelisted_links` | Set | none | Link strings stripped from ads before scan | `cogs/partner.py` cog_load / `cogs/owneronly.py` |
 | `panel:guilds:{user_id}` | String | 5m | JSON list of user's Discord guilds with permissions/counts | `site/app.py` _get_user_guilds |
 | `ratelimit:get:{user_id}` | String | 60s | Request counter — max 30 GET requests/min | `site/app.py` _check_rate_limit |

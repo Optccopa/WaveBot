@@ -39,6 +39,23 @@ CREATE TABLE IF NOT EXISTS partnerships (
     partnered_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS reports (
+    id BIGSERIAL PRIMARY KEY,
+    partnership_id BIGINT,
+    reporter_id BIGINT NOT NULL,
+    reporter_guild_id BIGINT,
+    reported_guild_id BIGINT NOT NULL,
+    category TEXT,
+    reason TEXT NOT NULL,
+    evidence TEXT,
+    status TEXT DEFAULT 'open',
+    handled_by BIGINT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS reports_partnership_reporter_idx
+    ON reports (partnership_id, reporter_id);
+
 CREATE TABLE IF NOT EXISTS premium (
     guild_id   BIGINT PRIMARY KEY,
     available_pings TEXT[] DEFAULT '{}',

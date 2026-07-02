@@ -3,7 +3,7 @@ from src.checks import is_owner, is_management
 from src.prompts import SCAN_PROMPT, RULE_PATTERNS
 from anthropic import AsyncAnthropic, APIStatusError
 from redis.asyncio import Redis
-from asyncpg import Pool
+from asyncpg import Pool, UniqueViolationError
 from main import Bot
 import discord, random, logging, asyncio, re, os, hashlib, json, time, yaml
 
@@ -16,6 +16,40 @@ with open("config.yaml", "r") as f:
     YAML_CONFIG = yaml.safe_load(f)
 
 logger = logging.getLogger(__name__)
+
+
+async def _interaction_error_reply(interaction: discord.Interaction, content: str):
+    try:
+        if interaction.response.is_done():
+            await interaction.followup.send(content, ephemeral=True)
+        else:
+            await interaction.response.send_message(content, ephemeral=True)
+    except discord.HTTPException:
+        pass
+
+
+# assumes redis decode_responses=True (set in main.py setup_hook) — negative-cache
+# compare and ad slicing below break silently on a bytes client
+async def fetch_partnership(bot, partnership_id: int) -> dict | None:
+    cache_key = f"partner_info:{partnership_id}"
+    cached = await bot.redis.get(cache_key)
+    if cached == "0":
+        return None
+    if cached:
+        return json.loads(cached)
+    async with bot.db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM partnerships WHERE id = $1", partnership_id
+        )
+    if row is None:
+        await bot.redis.set(cache_key, "0", ex=86400)
+        return None
+    info = dict(row)
+    info["partnered_at"] = info["partnered_at"].isoformat()
+    # default=str so future timestamp/numeric columns degrade to strings instead
+    # of failing every cache write (and therefore every button click)
+    await bot.redis.set(cache_key, json.dumps(info, default=str), ex=2592000)
+    return info
 
 
 class PartnerInfoButton(
@@ -57,29 +91,21 @@ class PartnerInfoButton(
             await interaction.response.send_message("Slow down.", ephemeral=True)
             return
 
-        cache_key = f"partner_info:{self.partnership_id}"
-        cached = await bot.redis.get(cache_key)
-        if cached == "0":
+        try:
+            info = await fetch_partnership(bot, self.partnership_id)
+        except Exception:
+            logger.exception(
+                "partner info lookup failed for partnership %d", self.partnership_id
+            )
+            await _interaction_error_reply(
+                interaction, "Something went wrong. Please try again later."
+            )
+            return
+        if info is None:
             await interaction.response.send_message(
                 "Partner not found.", ephemeral=True
             )
             return
-        if cached:
-            info = json.loads(cached)
-        else:
-            async with bot.db_pool.acquire() as conn:
-                row = await conn.fetchrow(
-                    "SELECT * FROM partnerships WHERE id = $1", self.partnership_id
-                )
-            if row is None:
-                await bot.redis.set(cache_key, "0", ex=86400)
-                await interaction.response.send_message(
-                    "Partner not found.", ephemeral=True
-                )
-                return
-            info = dict(row)
-            info["partnered_at"] = info["partnered_at"].isoformat()
-            await bot.redis.set(cache_key, json.dumps(info), ex=2592000)
 
         host_id = info.get("host_guild_id")
         viewer_id = interaction.guild.id if interaction.guild else None
@@ -96,10 +122,386 @@ class PartnerInfoButton(
             ping_label = "Pinged here" if gid == viewer_id else "Pinged there"
             embed.add_field(
                 name=f"{info[f'guild{n}_name']}{tag_str}",
-                value=f"Guild ID: `{gid}`\nMembercount: `{info[f'guild{n}_members']}`\n{ping_label}: `{info[f'guild{n}_ping']}`",
+                value=f"Guild ID: `{gid}`\nMembers: `{info[f'guild{n}_members']}`\n{ping_label}: `{info[f'guild{n}_ping']}`",
                 inline=True,
             )
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+class ReportModal(discord.ui.Modal, title="Report Server (In testing)"):
+    category = discord.ui.Label(
+        text="Category",
+        component=discord.ui.Select(
+            placeholder="Pick a category",
+            options=[
+                discord.SelectOption(label="Scam"),
+                discord.SelectOption(label="IRL Trading"),
+                discord.SelectOption(label="NSFW"),
+                discord.SelectOption(label="Spam"),
+                discord.SelectOption(label="Other"),
+            ],
+        ),
+    )
+
+    reason = discord.ui.TextInput(
+        label="Reason",
+        style=discord.TextStyle.short,
+        placeholder="Why are you reporting this server?",
+        max_length=1000,
+    )
+
+    rule = discord.ui.TextInput(
+        label="Rule broken",
+        style=discord.TextStyle.paragraph,
+        placeholder="What rule does this server's advertisement or behavior break?",
+        max_length=1000,
+    )
+
+    def __init__(self, partnership_id: int, reported_gid: int, reported_name: str):
+        super().__init__()
+        self.partnership_id = partnership_id
+        self.reported_gid = reported_gid
+        self.reported_name = reported_name
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception):
+        logger.error(
+            "report modal failed (partnership %d)",
+            self.partnership_id,
+            exc_info=error,
+        )
+        await _interaction_error_reply(
+            interaction,
+            "Something went wrong submitting your report. Please try again later.",
+        )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        bot = interaction.client
+        dedupe_key = f"reported:{self.partnership_id}:{interaction.user.id}"
+        if await bot.redis.exists(dedupe_key):
+            await interaction.followup.send(
+                "You already reported this partnership.", ephemeral=True
+            )
+            return
+
+        category = self.category.component.values[0]
+        try:
+            async with bot.db_pool.acquire() as conn:
+                report_id = await conn.fetchval(
+                    """INSERT INTO reports
+                       (partnership_id, reporter_id, reporter_guild_id, reported_guild_id, category, reason, evidence)
+                       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id""",
+                    self.partnership_id,
+                    interaction.user.id,
+                    interaction.guild.id if interaction.guild else None,
+                    self.reported_gid,
+                    category,
+                    self.reason.value,
+                    self.rule.value,
+                )
+        except UniqueViolationError:
+            await bot.redis.set(dedupe_key, "1", ex=2592000)
+            await interaction.followup.send(
+                "You already reported this partnership.", ephemeral=True
+            )
+            return
+        # dedupe key only after the insert succeeds — a failed insert must not lock the user out
+        await bot.redis.set(dedupe_key, "1", ex=2592000)
+
+        embed = discord.Embed(
+            title=f"Report #{report_id} — {category}", color=discord.Color.red()
+        )
+        embed.add_field(
+            name="Reported server",
+            value=f"{self.reported_name} (`{self.reported_gid}`)",
+            inline=False,
+        )
+        embed.add_field(
+            name="Reporter",
+            value=f"{interaction.user} (`{interaction.user.id}`) in {interaction.guild.name if interaction.guild else '?'}",
+            inline=False,
+        )
+        embed.add_field(name="Reason", value=self.reason.value[:1024], inline=False)
+        embed.add_field(name="Rule broken", value=self.rule.value[:1024], inline=False)
+        ad = await bot.redis.get(f"ads:{self.reported_gid}")
+        if ad:
+            embed.add_field(name="Current ad", value=ad[:1024], inline=False)
+        embed.set_footer(text=f"Partnership #{self.partnership_id}")
+
+        channel = bot.get_channel(YAML_CONFIG["channels"]["reports"])
+        if channel:
+            view = discord.ui.View(timeout=None)
+            view.add_item(ReportBlacklistButton(report_id, self.reported_gid))
+            view.add_item(ReportDismissButton(report_id))
+            try:
+                await channel.send(embed=embed, view=view)
+            except discord.HTTPException as e:
+                logger.error(
+                    "failed posting report #%d to reports channel: %s", report_id, e
+                )
+        else:
+            logger.error(
+                "reports channel %s not found",
+                YAML_CONFIG["channels"]["reports"]
+            )
+        await interaction.followup.send(
+            "Report submitted — thank you!", ephemeral=True
+        )
+
+
+class ReportButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"wavebot:report:(?P<pid>\d+)",
+):
+    def __init__(self, partnership_id: int):
+        super().__init__(
+            discord.ui.Button(
+                label="Report",
+                style=discord.ButtonStyle.red,
+                custom_id=f"wavebot:report:{partnership_id}",
+            )
+        )
+        self.partnership_id: int = partnership_id
+
+    @classmethod
+    async def from_custom_id(
+        cls,
+        interaction: discord.Interaction,
+        item: discord.ui.Button,
+        match: re.Match[str],
+    ):
+        return cls(int(match["pid"]))
+
+    async def callback(self, interaction: discord.Interaction):
+        logger.info(
+            "Report clicked by user: %s guild: %s partnership: %d",
+            interaction.user.name,
+            interaction.guild.name if interaction.guild else None,
+            self.partnership_id,
+        )
+        bot = interaction.client
+        allowed = await bot.redis.set(
+            f"cooldown:report:{interaction.user.id}", "1", nx=True, ex=10
+        )
+        if not allowed:
+            await interaction.response.send_message("Slow down.", ephemeral=True)
+            return
+
+        if await bot.redis.exists(
+            f"reported:{self.partnership_id}:{interaction.user.id}"
+        ):
+            await interaction.response.send_message(
+                "You already reported this partnership.", ephemeral=True
+            )
+            return
+
+        try:
+            info = await fetch_partnership(bot, self.partnership_id)
+        except Exception:
+            logger.exception(
+                "report lookup failed for partnership %d", self.partnership_id
+            )
+            await _interaction_error_reply(
+                interaction, "Something went wrong. Please try again later."
+            )
+            return
+        if info is None:
+            await interaction.response.send_message(
+                "Partner not found.", ephemeral=True
+            )
+            return
+
+        viewer_id = interaction.guild.id if interaction.guild else None
+        if viewer_id == info["guild1_id"]:
+            reported_gid, reported_name = info["guild2_id"], info["guild2_name"]
+        elif viewer_id == info["guild2_id"]:
+            reported_gid, reported_name = info["guild1_id"], info["guild1_name"]
+        else:
+            await interaction.response.send_message(
+                "Could not determine which server to report.", ephemeral=True
+            )
+            return
+
+        await interaction.response.send_modal(
+            ReportModal(self.partnership_id, reported_gid, reported_name)
+        )
+
+
+class ReportBlacklistButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"wavebot:report_bl:(?P<rid>\d+):(?P<gid>\d+)",
+):
+    def __init__(self, report_id: int, guild_id: int):
+        super().__init__(
+            discord.ui.Button(
+                label="Blacklist",
+                style=discord.ButtonStyle.red,
+                custom_id=f"wavebot:report_bl:{report_id}:{guild_id}",
+            )
+        )
+        self.report_id: int = report_id
+        self.guild_id: int = guild_id
+
+    @classmethod
+    async def from_custom_id(
+        cls,
+        interaction: discord.Interaction,
+        item: discord.ui.Button,
+        match: re.Match[str],
+    ):
+        return cls(int(match["rid"]), int(match["gid"]))
+
+    async def callback(self, interaction: discord.Interaction):
+        bot = interaction.client
+        if not await bot.is_owner(interaction.user):
+            await interaction.response.send_message(
+                "You don't have permission to do that.", ephemeral=True
+            )
+            return
+
+        await interaction.response.defer()
+
+        try:
+            async with bot.db_pool.acquire() as conn:
+                async with conn.transaction():
+                    row = await conn.fetchrow(
+                        "UPDATE reports SET status = 'blacklisted', handled_by = $1"
+                        " WHERE id = $2 AND status = 'open' RETURNING partnership_id",
+                        interaction.user.id,
+                        self.report_id,
+                    )
+                    if row is not None:
+                        await conn.execute(
+                            "INSERT INTO blacklists (guild_id, reason, added_by) VALUES ($1, $2, $3)"
+                            " ON CONFLICT (guild_id) DO UPDATE SET reason = $2, added_by = $3",
+                            self.guild_id,
+                            f"Report #{self.report_id}",
+                            interaction.user.id,
+                        )
+        except Exception:
+            logger.exception("blacklist action failed for report #%d", self.report_id)
+            await _interaction_error_reply(
+                interaction, "Something went wrong. Please try again."
+            )
+            return
+        if row is None:
+            await interaction.followup.send(
+                "This report was already handled.", ephemeral=True
+            )
+            return
+
+        if row["partnership_id"] is not None:
+            await bot.redis.delete(f"partner_info:{row['partnership_id']}")
+
+        logger.info(
+            "Report #%d: guild %d blacklisted by %s",
+            self.report_id,
+            self.guild_id,
+            interaction.user.name,
+        )
+        embeds = interaction.message.embeds
+        embed = (
+            embeds[0]
+            if embeds
+            else discord.Embed(title=f"Report #{self.report_id}")
+        )
+        embed.colour = discord.Color.dark_grey()
+        embed.add_field(
+            name="Handled",
+            value=f"Blacklisted by {interaction.user} (`{interaction.user.id}`)",
+            inline=False,
+        )
+        try:
+            await interaction.message.edit(embed=embed, view=None)
+        except discord.HTTPException as e:
+            logger.error(
+                "failed editing report message for #%d: %s", self.report_id, e
+            )
+
+        guild = bot.get_guild(self.guild_id)
+        if guild:
+            try:
+                await guild.leave()
+            except discord.HTTPException as e:
+                logger.error(
+                    "failed leaving blacklisted guild %d: %s", self.guild_id, e
+                )
+
+
+class ReportDismissButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"wavebot:report_dm:(?P<rid>\d+)",
+):
+    def __init__(self, report_id: int):
+        super().__init__(
+            discord.ui.Button(
+                label="Dismiss",
+                style=discord.ButtonStyle.gray,
+                custom_id=f"wavebot:report_dm:{report_id}",
+            )
+        )
+        self.report_id: int = report_id
+
+    @classmethod
+    async def from_custom_id(
+        cls,
+        interaction: discord.Interaction,
+        item: discord.ui.Button,
+        match: re.Match[str],
+    ):
+        return cls(int(match["rid"]))
+
+    async def callback(self, interaction: discord.Interaction):
+        bot = interaction.client
+        if not await bot.is_owner(interaction.user):
+            await interaction.response.send_message(
+                "You don't have permission to do that.", ephemeral=True
+            )
+            return
+
+        await interaction.response.defer()
+
+        try:
+            async with bot.db_pool.acquire() as conn:
+                tag = await conn.execute(
+                    "UPDATE reports SET status = 'dismissed', handled_by = $1"
+                    " WHERE id = $2 AND status = 'open'",
+                    interaction.user.id,
+                    self.report_id,
+                )
+        except Exception:
+            logger.exception("dismiss action failed for report #%d", self.report_id)
+            await _interaction_error_reply(
+                interaction, "Something went wrong. Please try again."
+            )
+            return
+        if tag == "UPDATE 0":
+            await interaction.followup.send(
+                "This report was already handled.", ephemeral=True
+            )
+            return
+
+        logger.info(
+            "Report #%d dismissed by %s", self.report_id, interaction.user.name
+        )
+        embeds = interaction.message.embeds
+        embed = (
+            embeds[0]
+            if embeds
+            else discord.Embed(title=f"Report #{self.report_id}")
+        )
+        embed.colour = discord.Color.dark_grey()
+        embed.add_field(
+            name="Handled",
+            value=f"Dismissed by {interaction.user} (`{interaction.user.id}`)",
+            inline=False,
+        )
+        try:
+            await interaction.message.edit(embed=embed, view=None)
+        except discord.HTTPException as e:
+            logger.error(
+                "failed editing report message for #%d: %s", self.report_id, e
+            )
 
 
 class AddBotView(discord.ui.View):
@@ -107,6 +509,7 @@ class AddBotView(discord.ui.View):
         super().__init__(timeout=None)
         if partnership_id is not None:
             self.add_item(PartnerInfoButton(partnership_id))
+            self.add_item(ReportButton(partnership_id))
 
     @discord.ui.button(
         label="Add WaveBot",
@@ -857,7 +1260,9 @@ class Partner(commands.Cog):
 
     async def cog_load(self):
         self.bot.add_view(AddBotView())
-        self.bot.add_dynamic_items(PartnerInfoButton)
+        self.bot.add_dynamic_items(
+            PartnerInfoButton, ReportButton, ReportBlacklistButton, ReportDismissButton
+        )
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch("SELECT link FROM whitelisted_links")
         await self.redis.delete("whitelisted_links")

@@ -23,6 +23,7 @@
             <li><strong>Moderation results:</strong> hash of your ad and the automated scan result (suspicious / not suspicious) returned by the moderation system.</li>
             <li><strong>Partnership records:</strong> when two servers are partnered, a record is kept of both guild IDs, guild names, member counts at the time of matching, the ping type used on each side, and a timestamp. This powers the "Partner Info" button on partner ads.</li>
             <li><strong>Premium status:</strong> guild ID, the ping types granted, the Discord user ID of the operator who granted it, and the grant date.</li>
+            <li><strong>Reports:</strong> if you report a partner server, we store your Discord user ID, the server you reported from, the reported server, your chosen category, and your written answers. Reports are forwarded to a staff-only channel for review.</li>
             <li><strong>Operator actions:</strong> the Discord user ID of the moderator who added a blacklist entry, whitelisted link, or early-access grant, plus the reason.</li>
             <li><strong>Operational logs:</strong> routine bot activity (commands and buttons used, including the username and server where they were used; matching decisions; errors) is sent to private, staff-only log channels for debugging and abuse prevention.</li>
             <li><strong>Flagged ads:</strong> if the automated moderation system flags your ad, the ad text and your server's ID are forwarded to a staff-only review channel in the support server.</li>
@@ -34,7 +35,7 @@
     <section>
         <h2>3. Storage</h2>
         <ul>
-            <li><strong>Postgres:</strong> guild configuration, blacklist, whitelisted links, early-access grants, premium status, partnership records. Persistent until the row is deleted.</li>
+            <li><strong>Postgres:</strong> guild configuration, blacklist, whitelisted links, early-access grants, premium status, partnership records, reports. Persistent until the row is deleted.</li>
             <li><strong>Redis:</strong> short-lived caches (configs, ad text, scan results, partner cooldowns, partner statistics, OAuth state, rate-limit counters). Most keys expire automatically; see retention below.</li>
         </ul>
     </section>
@@ -59,6 +60,7 @@
             <li>Early-access records (guild ID, granting user ID, reason): until removed by an operator.</li>
             <li>Premium records: until removed by an operator.</li>
             <li>Partnership records: retained indefinitely so the "Partner Info" button on past partner ads keeps working; deleted on request.</li>
+            <li>Reports: retained until actioned and then kept for moderation history; deleted on request.</li>
             <li>Operational logs: retained in staff-only Discord channels subject to Discord's own retention.</li>
             <li>Web session cookies: until logout or cookie expiry.</li>
             <li>Postgres records: until you remove the Bot or request deletion.</li>
