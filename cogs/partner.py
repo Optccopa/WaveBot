@@ -226,7 +226,7 @@ class ReportModal(discord.ui.Modal, title="Report Server (In testing)"):
             embed.add_field(name="Current ad", value=ad[:1024], inline=False)
         embed.set_footer(text=f"Partnership #{self.partnership_id}")
 
-        channel = bot.get_channel(YAML_CONFIG["channels"]["reports"])
+        channel = bot.get_channel(YAML_CONFIG["channels"]["unread_reports"])
         if channel:
             view = discord.ui.View(timeout=None)
             view.add_item(ReportBlacklistButton(report_id, self.reported_gid))
@@ -235,11 +235,14 @@ class ReportModal(discord.ui.Modal, title="Report Server (In testing)"):
                 await channel.send(embed=embed, view=view)
             except discord.HTTPException as e:
                 logger.error(
-                    "failed posting report #%d to reports channel: %s", report_id, e
+                    "failed posting report #%d to unread_reports channel: %s",
+                    report_id,
+                    e,
                 )
         else:
             logger.error(
-                "reports channel %s not found", YAML_CONFIG["channels"]["reports"]
+                "unread_reports channel %s not found",
+                YAML_CONFIG["channels"]["unread_reports"],
             )
         await interaction.followup.send(
             f"Report submitted, Beyond obvious rule violations you should make a ticket in our [support server]({YAML_CONFIG['bot']['support_invite']}) and show proof",
@@ -408,11 +411,39 @@ class ReportActionModal(discord.ui.Modal):
                 value=f"{label} by {interaction.user} (`{interaction.user.id}`)\nReason: {self.note.value[:900]}",
                 inline=False,
             )
+            dest_key = (
+                "actioned_reports"
+                if self.action == "blacklisted"
+                else "dismissed_reports"
+            )
+            dest = bot.get_channel(YAML_CONFIG["channels"][dest_key])
+            moved = False
+            if dest:
+                try:
+                    await dest.send(embed=embed)
+                    moved = True
+                except discord.HTTPException as e:
+                    logger.error(
+                        "failed posting report #%d to %s channel: %s",
+                        self.report_id,
+                        dest_key,
+                        e,
+                    )
+            else:
+                logger.error(
+                    "%s channel %s not found",
+                    dest_key,
+                    YAML_CONFIG["channels"][dest_key],
+                )
             try:
-                await interaction.message.edit(embed=embed, view=None)
+                if moved:
+                    await interaction.message.delete()
+                else:
+                    # move failed — keep the handled report visible in unread
+                    await interaction.message.edit(embed=embed, view=None)
             except discord.HTTPException as e:
                 logger.error(
-                    "failed editing report message for #%d: %s", self.report_id, e
+                    "failed removing report message for #%d: %s", self.report_id, e
                 )
 
         try:
@@ -420,7 +451,7 @@ class ReportActionModal(discord.ui.Modal):
                 row["reporter_id"]
             )
             outcome = (
-                f"actioned, `{row['reported_guild_id']} has been blacklisted from wavebot`"
+                f"actioned, `{row['reported_guild_id']}` has been blacklisted from wavebot"
                 if self.action == "blacklisted"
                 else "dismissed"
             )

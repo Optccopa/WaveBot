@@ -52,4 +52,6 @@ roles:
 
 channels:
   flagged_ads: 1502016332978192565
-  reports: 1522300577407697078
+  unread_reports: 1522300577407697078
+  actioned_reports: 1522625083976187914
+  dismissed_reports: 1522625041194553475
