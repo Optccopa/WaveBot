@@ -332,7 +332,13 @@ class ReportActionModal(discord.ui.Modal):
     note = discord.ui.TextInput(
         label="Reason",
         style=discord.TextStyle.paragraph,
-        placeholder="Sent to the reporter in DMs.",
+        placeholder="Sent to the reporter in dms.",
+        max_length=1000,
+    )
+    blacklist_note = discord.ui.TextInput(
+        label="Blacklist reason",
+        style=discord.TextStyle.paragraph,
+        placeholder="Logged as blacklist reason and sent to owner",
         max_length=1000,
     )
 
@@ -373,7 +379,7 @@ class ReportActionModal(discord.ui.Modal):
                             "INSERT INTO blacklists (guild_id, reason, added_by) VALUES ($1, $2, $3)"
                             " ON CONFLICT (guild_id) DO UPDATE SET reason = $2, added_by = $3",
                             self.guild_id,
-                            f"Report #{self.report_id}: {self.note.value[:200]}",
+                            self.blacklist_note.value[:200],
                             interaction.user.id,
                         )
         except Exception:
