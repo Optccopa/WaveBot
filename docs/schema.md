@@ -63,6 +63,7 @@ Snapshot of each partnership, written by `partner()` before ads are sent (delete
 | `reason` / `evidence` | `TEXT` | Modal answers (reason + rule broken) |
 | `status` | `TEXT` | `open` (default) → `blacklisted` or `dismissed` |
 | `handled_by` | `BIGINT` | Operator who actioned it |
+| `handled_reason` | `TEXT` | Operator's note, DMed to the reporter |
 | `created_at` | `TIMESTAMPTZ` | Default `NOW()` |
 
 ---

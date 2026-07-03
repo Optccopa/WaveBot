@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS reports (
 CREATE UNIQUE INDEX IF NOT EXISTS reports_partnership_reporter_idx
     ON reports (partnership_id, reporter_id);
 
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS handled_reason TEXT;
+
 CREATE TABLE IF NOT EXISTS premium (
     guild_id   BIGINT PRIMARY KEY,
     available_pings TEXT[] DEFAULT '{}',

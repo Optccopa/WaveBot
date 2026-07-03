@@ -27,6 +27,7 @@ async def _interaction_error_reply(interaction: discord.Interaction, content: st
     except discord.HTTPException:
         pass
 
+
 async def fetch_partnership(bot, partnership_id: int) -> dict | None:
     cache_key = f"partner_info:{partnership_id}"
     cached = await bot.redis.get(cache_key)
@@ -324,6 +325,132 @@ class ReportButton(
         )
 
 
+class ReportActionModal(discord.ui.Modal):
+    note = discord.ui.TextInput(
+        label="Reason",
+        style=discord.TextStyle.paragraph,
+        placeholder="Sent to the reporter in DMs.",
+        max_length=1000,
+    )
+
+    def __init__(self, action: str, report_id: int, guild_id: int | None = None):
+        # action: "blacklisted" or "dismissed"; guild_id only needed for blacklist
+        label = "Blacklist" if action == "blacklisted" else "Dismiss"
+        super().__init__(title=f"{label} report #{report_id}")
+        self.action = action
+        self.report_id = report_id
+        self.guild_id = guild_id
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception):
+        logger.error(
+            "report action modal failed (report #%d)", self.report_id, exc_info=error
+        )
+        await _interaction_error_reply(
+            interaction, "Something went wrong. Please try again."
+        )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        bot = interaction.client
+
+        try:
+            async with bot.db_pool.acquire() as conn:
+                async with conn.transaction():
+                    row = await conn.fetchrow(
+                        "UPDATE reports SET status = $1, handled_by = $2, handled_reason = $3"
+                        " WHERE id = $4 AND status = 'open'"
+                        " RETURNING partnership_id, reporter_id, reported_guild_id",
+                        self.action,
+                        interaction.user.id,
+                        self.note.value,
+                        self.report_id,
+                    )
+                    if row is not None and self.action == "blacklisted":
+                        await conn.execute(
+                            "INSERT INTO blacklists (guild_id, reason, added_by) VALUES ($1, $2, $3)"
+                            " ON CONFLICT (guild_id) DO UPDATE SET reason = $2, added_by = $3",
+                            self.guild_id,
+                            f"Report #{self.report_id}: {self.note.value[:200]}",
+                            interaction.user.id,
+                        )
+        except Exception:
+            logger.exception(
+                "%s action failed for report #%d", self.action, self.report_id
+            )
+            await _interaction_error_reply(
+                interaction, "Something went wrong. Please try again."
+            )
+            return
+        if row is None:
+            await interaction.followup.send(
+                "This report was already handled.", ephemeral=True
+            )
+            return
+
+        if self.action == "blacklisted" and row["partnership_id"] is not None:
+            await bot.redis.delete(f"partner_info:{row['partnership_id']}")
+
+        logger.info(
+            "Report #%d %s by %s", self.report_id, self.action, interaction.user.name
+        )
+
+        label = "Blacklisted" if self.action == "blacklisted" else "Dismissed"
+        if interaction.message:
+            embeds = interaction.message.embeds
+            embed = (
+                embeds[0]
+                if embeds
+                else discord.Embed(title=f"Report #{self.report_id}")
+            )
+            embed.colour = discord.Color.dark_grey()
+            embed.add_field(
+                name="Handled",
+                value=f"{label} by {interaction.user} (`{interaction.user.id}`)\nReason: {self.note.value[:900]}",
+                inline=False,
+            )
+            try:
+                await interaction.message.edit(embed=embed, view=None)
+            except discord.HTTPException as e:
+                logger.error(
+                    "failed editing report message for #%d: %s", self.report_id, e
+                )
+
+        try:
+            reporter = bot.get_user(row["reporter_id"]) or await bot.fetch_user(
+                row["reporter_id"]
+            )
+            outcome = (
+                f"actioned, `{row['reported_guild_id']} has been blacklisted from wavebot`"
+                if self.action == "blacklisted"
+                else "dismissed"
+            )
+            await reporter.send(
+                f"Your report against guild `{row['reported_guild_id']}` was {outcome}.\n"
+                f"Note: {self.note.value}"
+            )
+        except discord.HTTPException as e:
+            logger.warning(
+                "could not DM reporter %d for report #%d: %s",
+                row["reporter_id"],
+                self.report_id,
+                e,
+            )
+
+        if self.action == "blacklisted":
+            guild = bot.get_guild(self.guild_id)
+            if guild:
+                try:
+                    await guild.leave()
+                except discord.HTTPException as e:
+                    logger.error(
+                        "failed leaving blacklisted guild %d: %s", self.guild_id, e
+                    )
+
+        await interaction.followup.send(
+            f"Report #{self.report_id} {self.action}.", ephemeral=True
+        )
+
+
 class ReportBlacklistButton(
     discord.ui.DynamicItem[discord.ui.Button],
     template=r"wavebot:report_bl:(?P<rid>\d+):(?P<gid>\d+)",
@@ -356,69 +483,9 @@ class ReportBlacklistButton(
             )
             return
 
-        await interaction.response.defer()
-
-        try:
-            async with bot.db_pool.acquire() as conn:
-                async with conn.transaction():
-                    row = await conn.fetchrow(
-                        "UPDATE reports SET status = 'blacklisted', handled_by = $1"
-                        " WHERE id = $2 AND status = 'open' RETURNING partnership_id",
-                        interaction.user.id,
-                        self.report_id,
-                    )
-                    if row is not None:
-                        await conn.execute(
-                            "INSERT INTO blacklists (guild_id, reason, added_by) VALUES ($1, $2, $3)"
-                            " ON CONFLICT (guild_id) DO UPDATE SET reason = $2, added_by = $3",
-                            self.guild_id,
-                            f"Report #{self.report_id}",
-                            interaction.user.id,
-                        )
-        except Exception:
-            logger.exception("blacklist action failed for report #%d", self.report_id)
-            await _interaction_error_reply(
-                interaction, "Something went wrong. Please try again."
-            )
-            return
-        if row is None:
-            await interaction.followup.send(
-                "This report was already handled.", ephemeral=True
-            )
-            return
-
-        if row["partnership_id"] is not None:
-            await bot.redis.delete(f"partner_info:{row['partnership_id']}")
-
-        logger.info(
-            "Report #%d: guild %d blacklisted by %s",
-            self.report_id,
-            self.guild_id,
-            interaction.user.name,
+        await interaction.response.send_modal(
+            ReportActionModal("blacklisted", self.report_id, self.guild_id)
         )
-        embeds = interaction.message.embeds
-        embed = (
-            embeds[0] if embeds else discord.Embed(title=f"Report #{self.report_id}")
-        )
-        embed.colour = discord.Color.dark_grey()
-        embed.add_field(
-            name="Handled",
-            value=f"Blacklisted by {interaction.user} (`{interaction.user.id}`)",
-            inline=False,
-        )
-        try:
-            await interaction.message.edit(embed=embed, view=None)
-        except discord.HTTPException as e:
-            logger.error("failed editing report message for #%d: %s", self.report_id, e)
-
-        guild = bot.get_guild(self.guild_id)
-        if guild:
-            try:
-                await guild.leave()
-            except discord.HTTPException as e:
-                logger.error(
-                    "failed leaving blacklisted guild %d: %s", self.guild_id, e
-                )
 
 
 class ReportDismissButton(
@@ -452,43 +519,9 @@ class ReportDismissButton(
             )
             return
 
-        await interaction.response.defer()
-
-        try:
-            async with bot.db_pool.acquire() as conn:
-                tag = await conn.execute(
-                    "UPDATE reports SET status = 'dismissed', handled_by = $1"
-                    " WHERE id = $2 AND status = 'open'",
-                    interaction.user.id,
-                    self.report_id,
-                )
-        except Exception:
-            logger.exception("dismiss action failed for report #%d", self.report_id)
-            await _interaction_error_reply(
-                interaction, "Something went wrong. Please try again."
-            )
-            return
-        if tag == "UPDATE 0":
-            await interaction.followup.send(
-                "This report was already handled.", ephemeral=True
-            )
-            return
-
-        logger.info("Report #%d dismissed by %s", self.report_id, interaction.user.name)
-        embeds = interaction.message.embeds
-        embed = (
-            embeds[0] if embeds else discord.Embed(title=f"Report #{self.report_id}")
+        await interaction.response.send_modal(
+            ReportActionModal("dismissed", self.report_id)
         )
-        embed.colour = discord.Color.dark_grey()
-        embed.add_field(
-            name="Handled",
-            value=f"Dismissed by {interaction.user} (`{interaction.user.id}`)",
-            inline=False,
-        )
-        try:
-            await interaction.message.edit(embed=embed, view=None)
-        except discord.HTTPException as e:
-            logger.error("failed editing report message for #%d: %s", self.report_id, e)
 
 
 class AddBotView(discord.ui.View):
