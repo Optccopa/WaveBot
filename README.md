@@ -3,7 +3,7 @@
 A discord server partnership bot build for scale.
 
 ## Run
-man idk, tell claude to do it
+dont
 
 ## Features
 - Ads are indexed from the most recent 10 messages in the ad channel, taking the most recent message with a link and caching it
